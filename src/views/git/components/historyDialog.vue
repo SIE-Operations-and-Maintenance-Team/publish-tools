@@ -132,7 +132,7 @@ const historyParams = ref({
   author: "",
 });
 
-const state = reactive<FormDialogType<RowGitType>>({
+const state = reactive<any>({
   ruleForm: {
     id: null,
     gitName: null,
@@ -259,7 +259,7 @@ const onSubmit = async () => {
     }
 
     // 分支
-    execArgs.push(state.ruleForm.gitRepository);
+    execArgs.push(state.ruleForm.branchName);
     console.log('execArgs', execArgs);
 
     const execResult = await cmdInvoke("execute_local_command_with_working_dir", {

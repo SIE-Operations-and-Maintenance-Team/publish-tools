@@ -271,7 +271,7 @@ const onSubmit = async () => {
     }
 
     // 分支
-    execArgs.push(state.ruleForm.gitRepository);
+    execArgs.push(state.ruleForm.branchName);
     console.log('execArgs', execArgs);
 
     // 执行git命令

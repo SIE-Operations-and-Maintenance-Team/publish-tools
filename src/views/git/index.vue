@@ -237,6 +237,15 @@ interface RowGitType {
 
 <style scoped lang="scss">
 .git-container {
+  :deep(.el-card__body) {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: auto;
+    .el-table {
+      flex: 1;
+    }
+  }
   .layout-padding {
     padding: 15px;
   }

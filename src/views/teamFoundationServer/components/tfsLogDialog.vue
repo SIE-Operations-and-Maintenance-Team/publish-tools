@@ -249,50 +249,55 @@ const onSubmit = async () => {
     ElMessage.error(`TFS命令执行失败：${execResult.data}`);
     return null;
   }
+  console.log(execResult);
+  if (!execResult.data || execResult.data.trim() === ''||  execResult.data.trim().startsWith('找不到')) {
+    ElMessage.error('找不到与指定的项和版本组合有关历史记录项');
+    state.dialog.submitTxt = "确 定";
+  } else {
+    let generateResult: DataResultType = {
+      code: 1,
+      msg: "success",
+      data: null,
+    };
+    switch (generatePublishLog.value.type) {
+      case "仅发布内容":
+        generateResult = await outPublishContents(execResult.data, "", false);
+        break;
+      case "按日期":
+        generateResult = await outPublishContentByDates(
+          execResult.data,
+          generatePublishLog.value.displayPublishField,
+          "",
+          false
+        );
+        break;
+      case "按用户":
+        generateResult = await outPublishContentByUsers(
+          execResult.data,
+          generatePublishLog.value.displayPublishField,
+          "",
+          false
+        );
+        break;
+      default:
+        generateResult = await outDetaultPublishContents(
+          execResult.data,
+          generatePublishLog.value.displayPublishField,
+          "",
+          false
+        );
+        break;
+    }
+    if (generateResult.code === 0) {
+      ElMessageBox.alert(generateResult.msg, "提示", {
+        confirmButtonText: "知道了",
+        type: "success",
+        center: true,
+      });
+    }
 
-  let generateResult: DataResultType = {
-    code: 1,
-    msg: "success",
-    data: null,
-  };
-  switch (generatePublishLog.value.type) {
-    case "仅发布内容":
-      generateResult = await outPublishContents(execResult.data, "", false);
-      break;
-    case "按日期":
-      generateResult = await outPublishContentByDates(
-        execResult.data,
-        generatePublishLog.value.displayPublishField,
-        "",
-        false
-      );
-      break;
-    case "按用户":
-      generateResult = await outPublishContentByUsers(
-        execResult.data,
-        generatePublishLog.value.displayPublishField,
-        "",
-        false
-      );
-      break;
-    default:
-      generateResult = await outDetaultPublishContents(
-        execResult.data,
-        generatePublishLog.value.displayPublishField,
-        "",
-        false
-      );
-      break;
+    state.dialog.submitTxt = "确 定";
   }
-  if (generateResult.code === 0) {
-    ElMessageBox.alert(generateResult.msg, "提示", {
-      confirmButtonText: "知道了",
-      type: "success",
-      center: true,
-    });
-  }
-
-  state.dialog.submitTxt = "确 定";
 };
 
 // 打开弹窗
@@ -361,6 +366,7 @@ defineExpose({
 
 <style lang="scss" scoped>
 @import "@/theme/mixins/index.scss";
+
 .tfvc-info-text {
   margin-top: 15px;
   padding: 5px;
