@@ -1,0 +1,25 @@
+{
+  "identifier": "migrated",
+  "description": "从v1迁移的权限。",
+  "local": true,
+  "platforms": [
+    "macOS",
+    "windows",
+    "linux"
+  ],
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "core:app:default",
+    "updater:default",
+    "dialog:default",
+    "sql:default",
+    "sql:allow-execute",
+    "sql:allow-load",
+    "opener:allow-default-urls",
+    "opener:default",
+    "http:default"
+  ]
+}

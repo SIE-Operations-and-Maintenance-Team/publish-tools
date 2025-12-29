@@ -1,0 +1,55 @@
+{
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5200"
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "deb",
+      "dmg",
+      "nsis",
+      "msi"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "wix": {
+        "language": "zh-CN"
+      }
+    },
+    "createUpdaterArtifacts": true
+  },
+  "productName": "SmomPublish",
+  "mainBinaryName": "SmomPublish",
+  "version": "0.0.19",
+  "identifier": "com.smompublish.tool",
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDUyMUI0RUYwNjA0REYyNEYKUldSUDhrMWc4RTRiVWozcTRYYnR0emJNcnZiVTJuT3ZYcWdZcGxwRWNEZUdsWVFZMzFuNkIxNTQK",
+      "endpoints": [
+        "https://gitee.com/zhuyongzhengs/Rex.SmomPublish/raw/master/update.json"
+      ]
+    }
+  },
+  "app": {
+    "security": {
+      "csp": null
+    },
+    "windows": [
+      {
+        "title": "SMOM平台发布工具 v0.0.19",
+        "width": 1270,
+        "height": 750,
+        "useHttpsScheme": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "name": "smom-publish",
+  "version": "0.0.19",
+  "description": "SMOM平台发布工具",
+  "author": "Rex",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.3.0",
+    "@tauri-apps/plugin-http": "^2.5.1",
+    "@tauri-apps/plugin-opener": "^2.4.0",
+    "@tauri-apps/plugin-process": "^2.3.0",
+    "@tauri-apps/plugin-sql": "^2.3.0",
+    "@tauri-apps/plugin-updater": "^2.9.0",
+    "@types/crypto-js": "^4.2.2",
+    "crypto-js": "^4.2.0",
+    "element-plus": "^2.7.5",
+    "js-cookie": "^3.0.1",
+    "lodash": "^4.17.21",
+    "nprogress": "^0.2.0",
+    "pinia": "^2.0.34",
+    "screenfull": "^6.0.2",
+    "vue": "^3.3.4",
+    "vue-clipboard3": "^2.0.0",
+    "vue-demi": "^0.13.11",
+    "vue-grid-layout": "^3.0.0-beta1",
+    "vue-i18n": "^9.2.2",
+    "vue-router": "^4.1.6",
+    "vuedraggable": "^4.1.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.6.2",
+    "@types/node": "^18.15.11",
+    "@types/nprogress": "^0.2.0",
+    "@types/sortablejs": "^1.15.1",
+    "@typescript-eslint/eslint-plugin": "^5.58.0",
+    "@typescript-eslint/parser": "^5.58.0",
+    "@vitejs/plugin-vue": "^5.0.5",
+    "@vue/compiler-sfc": "^3.2.47",
+    "prettier": "^2.8.7",
+    "sass": "^1.61.0",
+    "typescript": "^5.2.2",
+    "vite": "^5.4.21",
+    "vite-plugin-compression": "^0.5.1",
+    "vite-plugin-vue-setup-extend-plus": "^0.1.0",
+    "vue-tsc": "^2.0.22"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ],
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">= 7.0.0"
+  }
+}

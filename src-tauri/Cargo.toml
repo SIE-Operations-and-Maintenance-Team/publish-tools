@@ -1,0 +1,43 @@
+[package]
+name = "SmomPublish"
+version = "0.0.19"
+description = "SMOM平台发布工具"
+authors = ["Rex"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = "0.4"
+zip = "0.5"
+walkdir = "2.3"
+winreg = "0.7"
+ssh2 = "0.9"
+xml-doc = "0.2.0"
+regex = "1.10.5"
+quick-xml = "0.23"
+encoding_rs = "0.8"
+native-dialog = "0.7.0"
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-http = "2"
+
+[features]
+# This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!
+custom-protocol = ["tauri/custom-protocol"]
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-updater = "2"
+
+[dependencies.tauri-plugin-sql]
+features = ["sqlite"] # or "postgres", or "mysql"
+version = "2"
+
+[dependencies.tauri-plugin-single-instance]
+version = "2"
