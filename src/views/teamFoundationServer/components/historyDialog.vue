@@ -1,52 +1,25 @@
 <template>
   <div class="history-container">
-    <el-dialog
-      :title="state.dialog.title"
-      v-model="state.dialog.show"
-      :close-on-click-modal="false"
-      modal-class="history-dialog"
-      draggable
-      width="680px"
-    >
-      <el-form
-        ref="historyDialogFormRef"
-        size="default"
-        label-width="90px"
-        :model="state.ruleForm"
-        :rules="formRules"
-      >
+    <el-dialog :title="state.dialog.title" v-model="state.dialog.show" :close-on-click-modal="false"
+      modal-class="history-dialog" draggable width="680px">
+      <el-form ref="historyDialogFormRef" size="default" label-width="90px" :model="state.ruleForm" :rules="formRules">
         <el-row :gutter="10">
           <el-col :span="24" class="mb20">
             <el-form-item label="TFS名称">
-              <el-input
-                v-model="state.ruleForm.tfsName"
-                maxlength="50"
-                clearable
-                :disabled="true"
-                placeholder="请输入TFS名称"
-              ></el-input>
+              <el-input v-model="state.ruleForm.tfsName" maxlength="50" clearable :disabled="true"
+                placeholder="请输入TFS名称"></el-input>
             </el-form-item>
           </el-col>
           <el-col :span="14" class="mb20">
             <el-form-item label="服务地址">
-              <el-input
-                v-model="state.ruleForm.tfsServerUrl"
-                maxlength="500"
-                clearable
-                :disabled="true"
-                placeholder="请输入TFS服务地址"
-              ></el-input>
+              <el-input v-model="state.ruleForm.tfsServerUrl" maxlength="500" clearable :disabled="true"
+                placeholder="请输入TFS服务地址"></el-input>
             </el-form-item>
           </el-col>
           <el-col :span="10" class="mb20">
             <el-form-item label="源位置">
-              <el-input
-                v-model="state.ruleForm.tfsSourcePath"
-                maxlength="150"
-                clearable
-                :disabled="true"
-                placeholder="请输入TFS源位置"
-              ></el-input>
+              <el-input v-model="state.ruleForm.tfsSourcePath" maxlength="150" clearable :disabled="true"
+                placeholder="请输入TFS源位置"></el-input>
             </el-form-item>
           </el-col>
           <fieldset class="form-tfs-fieldset">
@@ -54,10 +27,7 @@
             <el-row :gutter="0">
               <el-col :span="24" class="mb10" style="text-align: center">
                 <div class="history-filter-item">
-                  <el-radio-group
-                    v-model="historyParams.historyModel"
-                    @change="onHistoryModelChange"
-                  >
+                  <el-radio-group v-model="historyParams.historyModel" @change="onHistoryModelChange">
                     <el-radio-button label="日期" value="日期" />
                     <el-radio-button label="变更集" value="变更集" />
                   </el-radio-group>
@@ -65,20 +35,11 @@
               </el-col>
               <el-col :span="11" class="mb10">
                 <el-form-item :label="historyParams.historyModel">
-                  <el-date-picker
-                    class="w100"
-                    v-if="historyParams.historyModel === '日期'"
-                    v-model="historyParams.historyValue[0].value"
-                    type="datetime"
-                    :placeholder="historyParams.historyValue[0].placeholder"
-                  />
-                  <el-input
-                    v-else
-                    v-model="historyParams.historyValue[0].value"
-                    :placeholder="historyParams.historyValue[0].placeholder"
-                    maxlength="150"
-                    clearable
-                  ></el-input>
+                  <el-date-picker class="w100" v-if="historyParams.historyModel === '日期'"
+                    v-model="historyParams.historyValue[0].value" type="datetime"
+                    :placeholder="historyParams.historyValue[0].placeholder" />
+                  <el-input v-else v-model="historyParams.historyValue[0].value"
+                    :placeholder="historyParams.historyValue[0].placeholder" maxlength="150" clearable></el-input>
                 </el-form-item>
               </el-col>
               <el-col :span="1" class="mb10">
@@ -86,30 +47,16 @@
               </el-col>
               <el-col :span="11" class="mb10">
                 <el-form-item label-width="0px">
-                  <el-date-picker
-                    class="w100"
-                    v-if="historyParams.historyModel === '日期'"
-                    v-model="historyParams.historyValue[1].value"
-                    type="datetime"
-                    :placeholder="historyParams.historyValue[1].placeholder"
-                  />
-                  <el-input
-                    v-else
-                    v-model="historyParams.historyValue[1].value"
-                    :placeholder="historyParams.historyValue[1].placeholder"
-                    maxlength="150"
-                    clearable
-                  ></el-input>
+                  <el-date-picker class="w100" v-if="historyParams.historyModel === '日期'"
+                    v-model="historyParams.historyValue[1].value" type="datetime"
+                    :placeholder="historyParams.historyValue[1].placeholder" />
+                  <el-input v-else v-model="historyParams.historyValue[1].value"
+                    :placeholder="historyParams.historyValue[1].placeholder" maxlength="150" clearable></el-input>
                 </el-form-item>
               </el-col>
               <el-col :span="23" class="mb10">
                 <el-form-item label="用户">
-                  <el-input
-                    v-model="historyParams.user"
-                    maxlength="50"
-                    clearable
-                    placeholder="请输入用户名称(选填)"
-                  ></el-input>
+                  <el-input v-model="historyParams.user" maxlength="50" clearable placeholder="请输入用户名称(选填)"></el-input>
                 </el-form-item>
               </el-col>
             </el-row>
@@ -119,13 +66,8 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="onCancel" size="default">取 消</el-button>
-          <el-button
-            type="primary"
-            :loading="state.dialog.submitTxt === '执行中'"
-            @click="submitValidate(historyDialogFormRef)"
-            size="default"
-            >{{ state.dialog.submitTxt }}</el-button
-          >
+          <el-button type="primary" :loading="state.dialog.submitTxt === '执行中'"
+            @click="submitValidate(historyDialogFormRef)" size="default">{{ state.dialog.submitTxt }}</el-button>
         </span>
       </template>
     </el-dialog>

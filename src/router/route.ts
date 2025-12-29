@@ -154,6 +154,22 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 				children: []
 			},
 			{
+				path: '/git',
+				name: 'git',
+				component: () => import('@/views/git/index.vue'),
+				meta: {
+					title: 'message.router.git', // 修改为国际化标题
+					isLink: '',
+					isHide: false,
+					isKeepAlive: true,
+					isAffix: false,
+					isIframe: false,
+					icon: 'smom-icon smom-icon-git'
+				},
+				redirect: "",
+				children: []
+			},
+			{
 				path: '/backups',
 				name: 'backups',
 				component: () => import('@/views/backups/index.vue'),
@@ -184,7 +200,7 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 				},
 				redirect: "",
 				children: []
-			}			
+			}
 		]
 	}
 ];

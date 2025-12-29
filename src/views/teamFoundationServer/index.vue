@@ -4,21 +4,11 @@
       <div class="tfs-search">
         <el-row :gutter="15">
           <el-col :span="6">
-            <el-input
-              size="default"
-              v-model="state.tableData.param.tfsName"
-              placeholder="请输入TFS名称"
-              clearable
-            >
+            <el-input size="default" v-model="state.tableData.param.tfsName" placeholder="请输入TFS名称" clearable>
             </el-input>
           </el-col>
           <el-col :span="6">
-            <el-input
-              size="default"
-              v-model="state.tableData.param.tfsSourcePath"
-              placeholder="请输入源位置"
-              clearable
-            >
+            <el-input size="default" v-model="state.tableData.param.tfsSourcePath" placeholder="请输入源位置" clearable>
             </el-input>
           </el-col>
           <el-col :span="8">
@@ -47,86 +37,33 @@
           新增
         </el-button>
       </template>
-      <el-table
-        :data="state.tableData.data"
-        v-loading="state.tableData.loading"
-        style="width: 100%"
-      >
+      <el-table :data="state.tableData.data" v-loading="state.tableData.loading" style="width: 100%">
         <el-table-column fixed type="index" label="序号" width="60" />
         <el-table-column prop="tfsName" label="TFS名称" width="180" />
-        <el-table-column
-          prop="tfsServerUrl"
-          label="服务地址"
-          show-overflow-tooltip
-          width="300"
-        />
-        <el-table-column
-          prop="tfsSourcePath"
-          label="源位置"
-          show-overflow-tooltip
-          width="240"
-        />
-        <el-table-column
-          prop="tfvcPath"
-          label="TFVC工具"
-          show-overflow-tooltip
-          width="350"
-        />
-        <el-table-column
-          prop="remark"
-          min-width="240"
-          label="备注"
-          show-overflow-tooltip
-        />
+        <el-table-column prop="tfsServerUrl" label="服务地址" show-overflow-tooltip width="300" />
+        <el-table-column prop="tfsSourcePath" label="源位置" show-overflow-tooltip width="240" />
+        <el-table-column prop="tfvcPath" label="TFVC工具" show-overflow-tooltip width="350" />
+        <el-table-column prop="remark" min-width="240" label="备注" show-overflow-tooltip />
         <el-table-column label="操作" width="275" fixed="right">
           <template #default="scope">
-            <el-button size="small" text type="success" @click="onCopyTfs(scope.row)"
-              >复制新增</el-button
-            >
-            <el-button
-              size="small"
-              text
-              type="primary"
-              @click="onOpenTfsHistory('viewer', scope.row)"
-              >查询记录</el-button
-            >
-            <el-button
-              size="small"
-              text
-              type="info"
-              @click="onOpenTfsLog('viewer', scope.row)"
-              >生成日志</el-button
-            >
-            <el-button
-              size="small"
-              text
-              type="warning"
-              @click="onOpenTfs('edit', scope.row)"
-              >修改</el-button
-            >
-            <el-button size="small" text type="danger" @click="onRowDel(scope.row)"
-              >删除</el-button
-            >
+            <el-button size="small" text type="success" @click="onCopyTfs(scope.row)">复制新增</el-button>
+            <el-button size="small" text type="primary" @click="onOpenTfsHistory('viewer', scope.row)">查询记录</el-button>
+            <el-button size="small" text type="info" @click="onOpenTfsLog('viewer', scope.row)">生成日志</el-button>
+            <el-button size="small" text type="warning" @click="onOpenTfs('edit', scope.row)">修改</el-button>
+            <el-button size="small" text type="danger" @click="onRowDel(scope.row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
-      <el-pagination
-        @size-change="onHandleSizeChange"
-        @current-change="onHandleCurrentChange"
-        class="mt15"
-        v-model:current-page="state.tableData.currentPage"
-        background
-        v-model:page-size="state.tableData.param.maxResultCount"
-        layout="total, sizes, prev, pager, next, jumper"
-        :total="state.tableData.total"
-      >
+      <el-pagination @size-change="onHandleSizeChange" @current-change="onHandleCurrentChange" class="mt15"
+        v-model:current-page="state.tableData.currentPage" background
+        v-model:page-size="state.tableData.param.maxResultCount" layout="total, sizes, prev, pager, next, jumper"
+        :total="state.tableData.total">
       </el-pagination>
     </el-card>
     <el-dialog v-model="showTfsTip.show" title="提示" width="500" center>
       <span>
         TFS(Team Foundation Server)依赖于 Visual Studio，请确保在Visual Studio
-        2013或更高版本中安装了TFS并且处于登录状态。</span
-      >
+        2013或更高版本中安装了TFS并且处于登录状态。</span>
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="notShowTfsTip()">不在提示</el-button>
@@ -297,6 +234,7 @@ onMounted(() => {
     flex-direction: column;
     flex: 1;
     overflow: auto;
+
     .el-table {
       flex: 1;
     }

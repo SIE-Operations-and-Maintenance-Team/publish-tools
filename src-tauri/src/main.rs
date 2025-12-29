@@ -69,6 +69,7 @@ fn main() {
             file_module::execute_remote_command,
             file_module::execute_local_command,
             file_module::exec_local_command_spawn,
+            file_module::execute_local_command_with_working_dir,
             file_module::server_connection,
             file_module::un_zip,
             file_module::read_all_dlls,
@@ -81,7 +82,7 @@ fn main() {
             file_module::copy_sie_dlls,
             file_module::copy_non_sie_dlls,
             wpf_upgrade_module::upgrade_module_version,
-            parse_sln_module::parse_sln_project
+            parse_sln_module::parse_sln_project,
         ])
         // 保持前端在后台运行
         .on_window_event(|window, event| match event {

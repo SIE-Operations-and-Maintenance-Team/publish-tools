@@ -1,6 +1,6 @@
 import { path } from "@tauri-apps/api";
 import { cmdInvoke } from "@/utils/command";
-import { formatDate } from "@/utils/formatTime";
+import { formatDate,formatGitDate } from "@/utils/formatTime";
 import {
   removeSlash
 } from "@/utils/other";
@@ -23,7 +23,9 @@ export async function outPublishContentByUsers(content: string, displayPublishFi
         });
     }
     let filePath = `${removeSlash(outPath)}/SMOM发布日志_${formatDate(new Date(), "YYYYmmddHHMMSS")}.log`;
-    const publishInfos = await parseTfsContent(content);
+    // 根据内容判断是Git还是TFS
+    const isGit = content.includes('|') && !content.includes('变更集:');
+    const publishInfos = isGit ? await parseGitContent(content) : await parseTfsContent(content);
 
     // 按用户分组
     type GroupedData = Record<string, PublishInfoType[]>;
@@ -45,7 +47,7 @@ export async function outPublishContentByUsers(content: string, displayPublishFi
         for (let i = 0; i < publishItems.length; i++) {
             const publishInfo = publishItems[i];
             let changeSetText = '';
-            if(displayPublishField.isChangeSet) changeSetText = `[变更集:${publishInfo.id}]`;
+            if(displayPublishField.isChangeSet) changeSetText = `[${isGit ? '提交' : '变更集'}:${publishInfo.id}]`;
 
             let dateTimeText = '';
             if(displayPublishField.isDateTime) dateTimeText = `[日期:${publishInfo.dateTime}]`;
@@ -96,7 +98,9 @@ export async function outPublishContentByDates(content: string, displayPublishFi
         });
     }
     let filePath = `${removeSlash(outPath)}/SMOM发布日志_${formatDate(new Date(), "YYYYmmddHHMMSS")}.log`;
-    const publishInfos = await parseTfsContent(content);
+    // 根据内容判断是Git还是TFS
+    const isGit = content.includes('|') && !content.includes('变更集:');
+    const publishInfos = isGit ? await parseGitContent(content) : await parseTfsContent(content);
 
     // 按日期分组
     type GroupedData = Record<string, PublishInfoType[]>;
@@ -118,7 +122,7 @@ export async function outPublishContentByDates(content: string, displayPublishFi
         for (let i = 0; i < publishItems.length; i++) {
             const publishInfo = publishItems[i];
             let changeSetText = '';
-            if(displayPublishField.isChangeSet) changeSetText = `[变更集:${publishInfo.id}]`;
+            if(displayPublishField.isChangeSet) changeSetText = `[${isGit ? '提交' : '变更集'}:${publishInfo.id}]`;
 
             let userText = '';
             if(displayPublishField.isUser) userText = `[用户:${publishInfo.user}]`;
@@ -171,7 +175,12 @@ export async function outPublishContents(content: string, outPath: string = "", 
         });
     }
     let filePath = `${removeSlash(outPath)}/SMOM发布日志_${formatDate(new Date(), "YYYYmmddHHMMSS")}.log`;
-    const publishInfos = await parseTfsContent(content);
+    console.log('222222')
+    console.log('content',content);
+    
+    // 根据内容判断是Git还是TFS
+    const isGit = content.includes('|') && !content.includes('变更集:');
+    const publishInfos = isGit ? await parseGitContent(content) : await parseTfsContent(content);
     let publishContents = ["更新内容如下：\n"];
     for (let i = 0; i < publishInfos.length; i++) {
         const publishInfo = publishInfos[i];
@@ -207,12 +216,16 @@ export async function outDetaultPublishContents(content: string, displayPublishF
         });
     }
     let filePath = `${removeSlash(outPath)}/SMOM发布日志_${formatDate(new Date(), "YYYYmmddHHMMSS")}.log`;
-    const publishInfos = await parseTfsContent(content);
+    // 根据内容判断是Git还是TFS
+    const isGit = content.includes('|') && !content.includes('变更集:');
+    console.log('isGit',isGit);
+    const publishInfos = isGit ? await parseGitContent(content) : await parseTfsContent(content);
+    console.log('publishInfos',publishInfos);
     let publishContents = new Array<string>();
     for (let i = 0; i < publishInfos.length; i++) {
         const publishInfo = publishInfos[i];
         if(displayPublishField.isChangeSet) {
-            publishContents.push(`变更集: ${publishInfo.id}\n`);
+            publishContents.push(`${isGit ? '提交' : '变更集'}: ${publishInfo.id}\n`);
         }
         if(displayPublishField.isUser) {
             publishContents.push(`用户: ${publishInfo.user}\n`);
@@ -340,5 +353,67 @@ const blocks = content.trim().split("-------------------------------------------
     }
   }
 
+  return result;
+};
+
+/**
+ * 解析Git内容
+ * @param content 日志信息
+ * @returns
+ */
+export async function parseGitContent(content: string): Promise<PublishInfoType[]> {
+  const lines = content.trim().split(/\r?\n/);
+  const result: PublishInfoType[] = [];
+  
+  let currentCommit: PublishInfoType | null = null;
+  
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    console.log('line:', line);
+    
+    // 检查是否是提交信息行（包含 | 分隔符，且格式为 commitHash|authorName|authorEmail|date|subject）
+    const commitParts = line.split('|');
+    if (commitParts.length >= 5 && /^[a-fA-F0-9]{8,40}/.test(commitParts[0])) {
+      // 如果当前已经有提交信息，将其添加到结果中
+      if (currentCommit) {
+        result.push(currentCommit);
+      }
+      
+      // 解析新的提交信息
+      const id = parseInt(commitParts[0].substring(0, 8), 16); // 取前8位作为简短ID并转换为数字
+      const user = commitParts[1];
+    //   const email = commitParts[2];
+      const dateTime = formatGitDate(commitParts[3]); // 转换为标准时间格式
+      const date = formatDate(new Date(commitParts[3]), "YYYY-mm-dd");
+      const commentText = commitParts.slice(4).join('|'); // 合并剩余部分作为提交信息
+      
+      // 创建新的提交对象，包含空的items数组
+      currentCommit = {
+        id: id,
+        user: user,
+        date: date,
+        dateTime: dateTime,
+        comments: [commentText],
+        commentText: commentText,
+        items: []
+      };
+    } else if (currentCommit && line.trim() !== '') {
+      // 如果当前行不是提交信息行，而是文件变更信息（使用--name-status格式）
+      // 格式为: 状态 文件路径 (例如: M    src/file.ts 或 A    new/file.ts)
+      const statusMatch = line.match(/^([A-Z])\s+(.*)$/);
+      if (statusMatch) {
+        const filePath = statusMatch[2].trim();
+        if (filePath) {
+          currentCommit.items.push(filePath);
+        }
+      }
+    }
+  }
+  
+  // 添加最后一个提交（如果存在）
+  if (currentCommit) {
+    result.push(currentCommit);
+  }
+  
   return result;
 };

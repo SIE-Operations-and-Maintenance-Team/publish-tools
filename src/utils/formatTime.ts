@@ -174,3 +174,17 @@ export function getOneYearLater(format: string): string[] {
 	oneYearLater.setFullYear(currentDate.getFullYear() + 1);
 	return [formatDate(currentDate, format),formatDate(oneYearLater, format)];
 }
+
+/**
+ * 将Git格式的时间字符串转换为中国标准时间格式
+ * @param gitDate Git格式的时间字符串，例如 "Fri Dec 5 17:00:09 2025 +0800"
+ * @param format 需要转换的时间格式字符串，默认为 "YYYY-mm-dd HH:MM:SS"
+ * @returns 返回格式化后的时间字符串
+ */
+export function formatGitDate(gitDate: string, format: string = "YYYY-mm-dd HH:MM:SS"): string {
+	// 创建Date对象，会自动处理时区转换
+	const date = new Date(gitDate);
+	
+	// 使用现有的formatDate函数格式化时间
+	return formatDate(date, format);
+}

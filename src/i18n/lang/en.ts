@@ -10,7 +10,8 @@ export default {
 		sshInstall: 'ssh install',
 		backups: 'backup',
 		tfs: 'TFS',
-		papersPublish: 'file publish'
+		papersPublish: 'file publish',
+    git: 'Git Management',
 	},
 	staticRoutes: {
 		signIn: 'signIn',

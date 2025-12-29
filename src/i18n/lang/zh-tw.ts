@@ -11,6 +11,7 @@ export default {
 		backups: '備份記録',
 		tfs: 'TFS',
 		papersPublish: '文件發佈',
+		git: 'Git',
 	},
 	staticRoutes: {
 		signIn: '登入',

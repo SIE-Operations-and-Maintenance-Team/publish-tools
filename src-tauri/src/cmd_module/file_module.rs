@@ -2,6 +2,7 @@ use crate::utils::compression::{create_zip, unzip_files};
 use crate::utils::msbuild::build_project;
 use chrono::{DateTime, Local, NaiveDateTime};
 use encoding_rs::GBK;
+use encoding_rs::UTF_8;
 use ssh2::Session;
 use std::env;
 use std::ffi::OsStr;
@@ -1209,6 +1210,94 @@ pub async fn exec_local_command_spawn(command: &str, args: Vec<String>) -> Resul
         Ok(())
     } else {
         Err(format!("命令已退出，状态为： {}", status))
+    }
+}
+
+/// 执行本地命令（指定工作目录）
+///
+/// # Arguments
+/// * `command` - 执行的命令
+/// * `args` - 执行的参数
+/// * `working_dir` - 工作目录
+///
+/// # Returns
+/// * `Ok(String)` 成功
+/// * `Err(String)` 失败
+#[tauri::command]
+pub async fn execute_local_command_with_working_dir(
+    command: &str, 
+    args: Vec<String>,
+    working_dir: &str
+) -> Result<String, String> {
+    let mut attempts = 0;
+    let mut err_msg = String::new();
+    while attempts < MAX_RETRIES {
+        match exec_local_command_with_working_dir(command, args.clone(), working_dir).await {
+            Ok(output) => return Ok(output),
+            Err(e) => {
+                eprintln!("尝试 {} 失败: {}，正在重试...", attempts + 1, e);
+                attempts += 1;
+                thread::sleep(RETRY_DELAY);
+                err_msg = e.to_string();
+            }
+        }
+    }
+    Err(format!(
+        "尝试 {} 次后，该命令仍无法执行：{}",
+        attempts, err_msg
+    ))
+}
+
+/// 执行本地命令（指定工作目录）
+///
+/// # Arguments
+/// * `command` - 执行的命令
+/// * `args` - 执行的参数
+/// * `working_dir` - 工作目录
+///
+/// # Returns
+/// * `Ok(String)` 成功
+/// * `Err(String)` 失败
+async fn exec_local_command_with_working_dir(
+    command: &str, 
+    args: Vec<String>,
+    working_dir: &str
+) -> Result<String, String> {
+    match Command::new(command)
+        .args(args)
+        .current_dir(working_dir)
+        .creation_flags(0x08000000) // CREATE_NO_WINDOW
+        .output()
+    {
+        Ok(output) => {
+            if output.status.success() {
+                // 尝试使用 UTF-8 解码，如果失败则回退到 GBK 解码
+                let (stdout, encoding_used, is_errors) = UTF_8.decode(&output.stdout);
+                if is_errors {
+                    // 如果 UTF-8 解码出现错误，使用 GBK 解码
+                    let (gbk_stdout, _, _) = GBK.decode(&output.stdout);
+                    Ok(gbk_stdout.to_string())
+                } else {
+                    Ok(stdout.to_string())
+                }
+            } else {
+                // 错误信息同样处理编码问题
+                let (stderr, encoding_used, is_errors) = UTF_8.decode(&output.stderr);
+                if is_errors {
+                    let (gbk_stderr, _, _) = GBK.decode(&output.stderr);
+                    Err(format!("命令失败，出现错误:\n{}", gbk_stderr.to_string()))
+                } else {
+                    Err(format!("命令失败，出现错误:\n{}", stderr.to_string()))
+                }
+            }
+        }
+        Err(e) => {
+            if e.kind() == ErrorKind::NotFound {
+                Err("找不到命令".to_string())
+            } else {
+                Err(format!("无法执行命令: {}", e))
+            }
+        }
     }
 }
 

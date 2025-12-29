@@ -1,85 +1,47 @@
 <template>
   <div class="tfs-container">
-    <el-dialog
-      :title="state.dialog.title"
-      v-model="state.dialog.show"
-      :close-on-click-modal="false"
-      modal-class="tfs-dialog"
-      draggable
-      width="680px"
-    >
-      <el-form
-        ref="tfsDialogFormRef"
-        size="default"
-        label-width="90px"
-        :model="state.ruleForm"
-        :rules="formRules"
-        :disabled="state.dialog.type == 'viewer'"
-      >
+    <el-dialog :title="state.dialog.title" v-model="state.dialog.show" :close-on-click-modal="false"
+      modal-class="tfs-dialog" draggable width="680px">
+      <el-form ref="tfsDialogFormRef" size="default" label-width="90px" :model="state.ruleForm" :rules="formRules"
+        :disabled="state.dialog.type == 'viewer'">
         <el-row :gutter="10">
           <el-col :span="24" class="mb20">
             <el-form-item label="TFS名称" prop="tfsName">
-              <el-input
-                v-model="state.ruleForm.tfsName"
-                maxlength="50"
-                clearable
-                placeholder="请输入TFS名称"
-              ></el-input>
+              <el-input v-model="state.ruleForm.tfsName" maxlength="50" clearable placeholder="请输入TFS名称"></el-input>
             </el-form-item>
           </el-col>
           <el-col :span="14" class="mb20">
             <el-form-item label="服务地址" prop="tfsServerUrl">
-              <el-input
-                v-model="state.ruleForm.tfsServerUrl"
-                maxlength="500"
-                clearable
-                placeholder="请输入TFS服务地址"
-              ></el-input>
+              <el-input v-model="state.ruleForm.tfsServerUrl" maxlength="500" clearable
+                placeholder="请输入TFS服务地址"></el-input>
             </el-form-item>
           </el-col>
           <el-col :span="10" class="mb20">
             <el-form-item label="源位置" prop="tfsSourcePath">
-              <el-input
-                v-model="state.ruleForm.tfsSourcePath"
-                maxlength="150"
-                clearable
-                placeholder="请输入TFS源位置"
-              ></el-input>
+              <el-input v-model="state.ruleForm.tfsSourcePath" maxlength="150" clearable
+                placeholder="请输入TFS源位置"></el-input>
             </el-form-item>
           </el-col>
           <el-col :span="24">
             <el-form-item label="TFVC工具" prop="tfvcPath">
-              <el-input
-                v-model="state.ruleForm.tfvcPath"
-                maxlength="500"
-                clearable
-                placeholder="请输入TFVC工具路径"
-              ></el-input>
+              <el-input v-model="state.ruleForm.tfvcPath" maxlength="500" clearable
+                placeholder="请输入TFVC工具路径"></el-input>
             </el-form-item>
           </el-col>
           <el-col :span="24" class="mb20">
             <el-form-item label="">
               <div class="tfvc-info-text">
-                <el-text type="info"
-                  ># TFVC工具(TF.exe)<br />如：Visual Studio 2022 的 TF.exe
+                <el-text type="info"># TFVC工具(TF.exe)<br />如：Visual Studio 2022 的 TF.exe
                   工具位于：{盘符}:\Program Files\Microsoft Visual
                   Studio\2022\{Edition}\Common7\IDE\CommonExtensions\Microsoft\TeamFoundation\Team
-                  Explorer\TF.exe</el-text
-                >
+                  Explorer\TF.exe</el-text>
               </div>
             </el-form-item>
           </el-col>
           <el-col :span="24">
             <el-form-item label-width="0">
-              <el-input
-                type="textarea"
-                v-model="state.ruleForm.remark"
-                rows="3"
-                placeholder="请输入备注信息…"
-                maxlength="150"
-                show-word-limit
-                clearable
-              ></el-input>
+              <el-input type="textarea" v-model="state.ruleForm.remark" rows="3" placeholder="请输入备注信息…" maxlength="150"
+                show-word-limit clearable></el-input>
             </el-form-item>
           </el-col>
         </el-row>
@@ -87,13 +49,8 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="onCancel" size="default">取 消</el-button>
-          <el-button
-            v-if="state.dialog.type !== 'viewer'"
-            type="primary"
-            @click="submitValidate(tfsDialogFormRef)"
-            size="default"
-            >{{ state.dialog.submitTxt }}</el-button
-          >
+          <el-button v-if="state.dialog.type !== 'viewer'" type="primary" @click="submitValidate(tfsDialogFormRef)"
+            size="default">{{ state.dialog.submitTxt }}</el-button>
         </span>
       </template>
     </el-dialog>
