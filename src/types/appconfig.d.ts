@@ -21,9 +21,8 @@ declare type WebApiHostConfigType = CommonAppconfigType & {
 
 // scheduleServerConfig
 declare type ScheduleServerConfigType = CommonAppconfigType & {
-	serverId: number | null;
-	serverName: string | null;
-	serverIdentity: string | null;
+	serverIds: number[];
+	serverArr: SelectServerType[];
 }
 
 // webClientConfig

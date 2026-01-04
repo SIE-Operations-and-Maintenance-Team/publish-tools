@@ -1,5 +1,5 @@
 {
-    "version": "v0.0.19",
+    "version": "0.0.20",
     "notes": "1.修复[生成文件]发布时,移除的发布模块依旧显示的问题<br />2.兼容10.2以上版本(.NET6+)的产品发布。<br /><br /><b>注：版本 ≤ 0.0.14 <a style='color:green' target='_blank' href='https://gitee.com/zhuyongzhengs/Rex.SmomPublish/releases/download/v0.0.19/SmomPublish_0.0.19_x64-setup.exe'>点击此处</a> 下载。</b>",
     "pub_date": "2025-11-09T14:00:00Z",
     "platforms": {

@@ -215,74 +215,97 @@ const getScheduleServerBackupItems = async (
   if (!serverConfigItem || !serverConfigItem.clientPath) return null;
   var backupServer: BackupServerType[] = new Array<BackupServerType>();
 
-  // 备份路径
-  const bkPath = removeSlash(String(serverConfigItem.serverPath));
-  const bkLastIndex = bkPath.lastIndexOf("/");
-  const backupPrefixPath = bkPath.substring(0, bkLastIndex);
-  const folderName = currentDate
-    .replace(/-/g, "")
-    .replace(/:/g, "")
-    .replace(/\s+/g, "");
+  // 遍历所有服务器配置
+  for (let i = 0; i < serverConfigItem.serverArr.length; i++) {
+    const scheduleServer = serverConfigItem.serverArr[i];
+    if (!scheduleServer.id) continue;
 
-  let backFiles = new Array<string>();
-  if (appconfigData.dllMode == "TFS") {
-    if (!appconfigData.dllModeValue) {
-      console.error("未配置TFS获取程序集的相关信息，请检查.");
-      return null;
-    }
-    const selectTfsItem = JSON.parse(
-      appconfigData.dllModeValue
-    ) as SelectTfsType;
-    const dllFiles = await getTfsDllFiles(selectTfsItem);
-    if (dllFiles && dllFiles.length > 0) {
-      let allDllFiles = await getReadAllDlls(serverConfigItem.clientPath);
-      for (let m = 0; m < allDllFiles.length; m++) {
-        const dllFile = allDllFiles[m];
-        const tfsDllFile = dllFiles.find((x) => x === dllFile);
-        if (tfsDllFile) {
-          backFiles.push(dllFile);
+    var backupPaths: BackupPathType[] = new Array<BackupPathType>();
+    
+    // 遍历服务器的所有路径配置
+    for (let j = 0; j < scheduleServer.serverPathArr.length; j++) {
+      const serverPath = scheduleServer.serverPathArr[j];
+      if (!serverPath.value) continue;
+      
+      for (let k = 0; k < serverPath.value.length; k++) {
+        const pathValue = serverPath.value[k];
+        
+        // 备份路径
+        const bkPath = removeSlash(String(pathValue.path));
+        const bkLastIndex = bkPath.lastIndexOf("/");
+        const backupPrefixPath = bkPath.substring(0, bkLastIndex);
+        const folderName = currentDate
+          .replace(/-/g, "")
+          .replace(/:/g, "")
+          .replace(/\s+/g, "");
+
+        let backFiles = new Array<string>();
+        if (appconfigData.dllMode == "TFS") {
+          if (!appconfigData.dllModeValue) {
+            console.error("未配置TFS获取程序集的相关信息，请检查.");
+            return null;
+          }
+          const selectTfsItem = JSON.parse(
+            appconfigData.dllModeValue
+          ) as SelectTfsType;
+          const dllFiles = await getTfsDllFiles(selectTfsItem);
+          if (dllFiles && dllFiles.length > 0) {
+            let allDllFiles = await getReadAllDlls(serverConfigItem.clientPath);
+            for (let m = 0; m < allDllFiles.length; m++) {
+              const dllFile = allDllFiles[m];
+              const tfsDllFile = dllFiles.find((x) => x === dllFile);
+              if (tfsDllFile) {
+                backFiles.push(dllFile);
+              }
+            }
+          }
+        } else {
+          let dllModeDateRange = getDllModeDateRange(
+            appconfigData.dllMode,
+            appconfigData.dllModeValue
+          );
+          if (dllModeDateRange.length < 1) {
+            let allDllFiles = await getReadAllDlls(serverConfigItem.clientPath);
+            backFiles.push(...allDllFiles);
+          } else {
+            const readDllDateResult = await cmdInvoke("read_dlls_in_date_range", {
+              dir: serverConfigItem.clientPath,
+              startDate: dllModeDateRange[0],
+              endDate: dllModeDateRange[1],
+            });
+            if (readDllDateResult.code === 0 && readDllDateResult.data) {
+              backFiles.push(...readDllDateResult.data);
+            }
+          }
+          for (let m = 0; m < backFiles.length; m++) {
+            const dllFilePath = removeSlash(backFiles[m]);
+            backFiles[m] = dllFilePath.substring(dllFilePath.lastIndexOf("/") + 1);
+          }
         }
+
+        // 发布路径
+        const publishPath = removeSlash(String(pathValue.path));
+        backupPaths.push({
+          identity: String(pathValue.identity),
+          publishPath,
+          backupPath: `${backupPrefixPath}/Backups/${folderName}/${bkPath.substring(
+            bkLastIndex + 1
+          )}`,
+          backFiles,
+        });
       }
     }
-  } else {
-    let dllModeDateRange = getDllModeDateRange(
-      appconfigData.dllMode,
-      appconfigData.dllModeValue
-    );
-    if (dllModeDateRange.length < 1) {
-      let allDllFiles = await getReadAllDlls(serverConfigItem.clientPath);
-      backFiles.push(...allDllFiles);
-    } else {
-      const readDllDateResult = await cmdInvoke("read_dlls_in_date_range", {
-        dir: serverConfigItem.clientPath,
-        startDate: dllModeDateRange[0],
-        endDate: dllModeDateRange[1],
+    
+    // 如果有备份路径，则添加到backupServer数组
+    if (backupPaths.length > 0) {
+      backupServer.push({
+        serverId: Number(scheduleServer.id),
+        serverName: String(scheduleServer.name),
+        backupPaths,
       });
-      if (readDllDateResult.code === 0 && readDllDateResult.data) {
-        backFiles.push(...readDllDateResult.data);
-      }
     }
   }
-  for (let m = 0; m < backFiles.length; m++) {
-    const dllFilePath = removeSlash(backFiles[m]);
-    backFiles[m] = dllFilePath.substring(dllFilePath.lastIndexOf("/") + 1);
-  }
-  // 发布路径
-  const publishPath = removeSlash(String(serverConfigItem.serverPath));
-  backupServer.push({
-    serverId: Number(serverConfigItem.serverId),
-    serverName: String(serverConfigItem.serverName),
-    backupPaths: [
-      {
-        identity: String(serverConfigItem.serverIdentity),
-        publishPath,
-        backupPath: `${backupPrefixPath}/Backups/${folderName}/${bkPath.substring(
-          bkLastIndex + 1
-        )}`,
-        backFiles,
-      },
-    ],
-  });
+  
   return backupServer;
 };
 

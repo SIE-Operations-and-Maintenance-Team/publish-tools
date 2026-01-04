@@ -1,41 +1,20 @@
 <template>
   <div class="publish-container layout-pd">
     <el-row :gutter="15" class="publish-card-box mb15">
-      <el-col
-        :xs="24"
-        :sm="12"
-        :md="12"
-        :lg="6"
-        :xl="6"
-        v-for="(fun, index) in state.funModule"
-        :key="index"
-        :class="{
-          'publish-media publish-media-lg': index > 1,
-          'publish-media-sm': index === 1,
-        }"
-      >
-        <div
-          class="publish-card-item flex"
-          v-loading="fun.loading"
-          :element-loading-text="fun.loadingText"
-          @click="onFunModuleHandle(index)"
-        >
+      <el-col :xs="24" :sm="12" :md="12" :lg="6" :xl="6" v-for="(fun, index) in state.funModule" :key="index" :class="{
+        'publish-media publish-media-lg': index > 1,
+        'publish-media-sm': index === 1,
+      }">
+        <div class="publish-card-item flex" v-loading="fun.loading" :element-loading-text="fun.loadingText"
+          @click="onFunModuleHandle(index)">
           <!-- <div class="flex-margin flex w100" :class="` publish-animation${index}`"> -->
           <div class="flex-margin flex w100">
             <div class="flex-auto">
               <div class="card-item-title">{{ fun.title }}</div>
             </div>
-            <div
-              class="publish-card-item-icon flex"
-              :style="{ background: `var(${fun.iconBgColor})` }"
-            >
-              <svg-icon
-                class="flex-margin"
-                :size="32"
-                :name="fun.iconFont"
-                :class="fun.iconFont"
-                :color="`var(${fun.iconColor})`"
-              />
+            <div class="publish-card-item-icon flex" :style="{ background: `var(${fun.iconBgColor})` }">
+              <svg-icon class="flex-margin" :size="32" :name="fun.iconFont" :class="fun.iconFont"
+                :color="`var(${fun.iconColor})`" />
             </div>
           </div>
         </div>
@@ -55,71 +34,34 @@
                         state.publishData.appconfigData.id == null ||
                         state.publishData.appconfigData.id <= 0
                       " -->
-                    <el-button
-                      size="small"
-                      title="生成SMOM发布文件"
-                      text
-                      @click="onGeneratePublish"
-                    >
-                      <svg-icon
-                        :size="32"
-                        color="#606266"
-                        title="生成SMOM发布文件"
-                        name="smom-icon smom-icon-shengchengqi"
-                      />
+                    <el-button size="small" title="生成SMOM发布文件" text @click="onGeneratePublish">
+                      <svg-icon :size="32" color="#606266" title="生成SMOM发布文件" name="smom-icon smom-icon-shengchengqi" />
                     </el-button>
-                    <el-button
-                      title="修改应用配置"
-                      size="small"
-                      text
-                      :icon="EditPen"
-                      :disabled="
-                        state.funModule[currModuleIndex].loading == true ||
-                        state.publishData.appconfigData.id == null ||
-                        state.publishData.appconfigData.id <= 0
-                      "
-                      @click="onOpenAppConfig"
-                    ></el-button>
-                    <el-button
-                      title="刷新|重置"
-                      size="small"
-                      text
-                      :icon="Refresh"
+                    <el-button title="修改应用配置" size="small" text :icon="EditPen" :disabled="state.funModule[currModuleIndex].loading == true ||
+                      state.publishData.appconfigData.id == null ||
+                      state.publishData.appconfigData.id <= 0
+                      " @click="onOpenAppConfig"></el-button>
+                    <el-button title="刷新|重置" size="small" text :icon="Refresh"
                       :disabled="state.funModule[currModuleIndex].loading == true"
-                      @click="getProjectDefault"
-                    ></el-button></div
-                ></el-col>
+                      @click="getProjectDefault"></el-button>
+                  </div>
+                </el-col>
               </el-row>
             </div>
             <div class="card-item-content">
               <el-row>
                 <el-col :span="24">
-                  <el-select
-                    filterable
-                    placeholder="请选择要发布的项目"
-                    size="default"
-                    v-model="state.publishData.projectId"
-                    class="mb15"
-                    :disabled="state.funModule[currModuleIndex].loading == true"
-                    @change="onProjectChange"
-                  >
-                    <el-option
-                      v-for="project in projectList"
-                      :key="project.id"
-                      :label="project.name"
-                      :value="project.id"
-                    />
+                  <el-select filterable placeholder="请选择要发布的项目" size="default" v-model="state.publishData.projectId"
+                    class="mb15" :disabled="state.funModule[currModuleIndex].loading == true" @change="onProjectChange">
+                    <el-option v-for="project in projectList" :key="project.id" :label="project.name"
+                      :value="project.id" />
                   </el-select>
                 </el-col>
               </el-row>
 
               <div class="card-item-env">
-                <el-radio-group
-                  size="default"
-                  @change="onEnvironmentChange"
-                  v-model="state.publishData.environment"
-                  :disabled="state.funModule[currModuleIndex].loading == true"
-                >
+                <el-radio-group size="default" @change="onEnvironmentChange" v-model="state.publishData.environment"
+                  :disabled="state.funModule[currModuleIndex].loading == true">
                   <el-radio border :value="1">Dev</el-radio>
                   <el-radio border :value="2">Uat</el-radio>
                   <el-radio border :value="3">Pro</el-radio>
@@ -131,23 +73,15 @@
                   <tr>
                     <th>程序集输出路径</th>
                     <td>
-                      <a
-                        class="t-link-path"
-                        href="javascript:void(0);"
-                        title="打开程序集输出路径"
+                      <a class="t-link-path" href="javascript:void(0);" title="打开程序集输出路径"
                         @click="onOpenAssemblyOutPath(state.publishData.assemblyOutPath)"
-                        v-if="state.publishData.assemblyOutPath"
-                        >{{ state.publishData.assemblyOutPath }}</a
-                      >
+                        v-if="state.publishData.assemblyOutPath">{{ state.publishData.assemblyOutPath }}</a>
                       <label v-else>未配置，将采用默认路径</label>
                     </td>
                   </tr>
                 </table>
               </div>
-              <div
-                class="card-item-appconfig"
-                v-if="state.publishData.appconfigData.dllMode"
-              >
+              <div class="card-item-appconfig" v-if="state.publishData.appconfigData.dllMode">
                 <table class="table-appconfig" cellpadding="0" cellspacing="0">
                   <tr>
                     <th>获取dll方式</th>
@@ -156,26 +90,15 @@
                   <tr v-show="state.publishData.appconfigData.dllMode == 'TFS'">
                     <th>生成发布日志</th>
                     <td>
-                      <el-switch
-                        v-model="generatePublishLog.isEnable"
-                        :active-value="true"
-                        :inactive-value="false"
-                        :disabled="state.funModule[currModuleIndex].loading == true"
-                        inline-prompt
-                        active-text="开启"
-                        inactive-text="关闭"
-                        size="default"
-                      />
+                      <el-switch v-model="generatePublishLog.isEnable" :active-value="true" :inactive-value="false"
+                        :disabled="state.funModule[currModuleIndex].loading == true" inline-prompt active-text="开启"
+                        inactive-text="关闭" size="default" />
                     </td>
                     <th v-show="generatePublishLog.isEnable">生成方式</th>
                     <td v-show="generatePublishLog.isEnable">
-                      <el-select
-                        v-model="generatePublishLog.type"
-                        :disabled="state.funModule[currModuleIndex].loading == true"
-                        placeholder="请选择生成方式"
-                        size="default"
-                        style="min-width: 50px"
-                      >
+                      <el-select v-model="generatePublishLog.type"
+                        :disabled="state.funModule[currModuleIndex].loading == true" placeholder="请选择生成方式"
+                        size="default" style="min-width: 50px">
                         <el-option label="默认" value="默认" />
                         <el-option label="仅发布内容" value="仅发布内容" />
                         <el-option label="按日期" value="按日期" />
@@ -183,47 +106,25 @@
                       </el-select>
                     </td>
                   </tr>
-                  <tr
-                    v-show="
-                      state.publishData.appconfigData.dllMode == 'TFS' &&
-                      generatePublishLog.type !== '仅发布内容' &&
-                      generatePublishLog.isEnable
-                    "
-                  >
+                  <tr v-show="state.publishData.appconfigData.dllMode == 'TFS' &&
+                    generatePublishLog.type !== '仅发布内容' &&
+                    generatePublishLog.isEnable
+                    ">
                     <th>生成信息(包含)</th>
                     <td colspan="3">
-                      <el-checkbox
-                        v-model="generatePublishLog.displayPublishField.isChangeSet"
-                        :disabled="state.funModule[currModuleIndex].loading == true"
-                        size="default"
-                        label="变更集"
-                      />
-                      <el-checkbox
-                        v-model="generatePublishLog.displayPublishField.isDateTime"
-                        :disabled="state.funModule[currModuleIndex].loading == true"
-                        size="default"
-                        label="日期"
-                      />
-                      <el-checkbox
-                        v-model="generatePublishLog.displayPublishField.isUser"
-                        :disabled="state.funModule[currModuleIndex].loading == true"
-                        size="default"
-                        label="用户"
-                      />
-                      <el-checkbox
-                        v-model="generatePublishLog.displayPublishField.isDll"
-                        :disabled="state.funModule[currModuleIndex].loading == true"
-                        size="default"
-                        label="DLL"
-                      />
+                      <el-checkbox v-model="generatePublishLog.displayPublishField.isChangeSet"
+                        :disabled="state.funModule[currModuleIndex].loading == true" size="default" label="变更集" />
+                      <el-checkbox v-model="generatePublishLog.displayPublishField.isDateTime"
+                        :disabled="state.funModule[currModuleIndex].loading == true" size="default" label="日期" />
+                      <el-checkbox v-model="generatePublishLog.displayPublishField.isUser"
+                        :disabled="state.funModule[currModuleIndex].loading == true" size="default" label="用户" />
+                      <el-checkbox v-model="generatePublishLog.displayPublishField.isDll"
+                        :disabled="state.funModule[currModuleIndex].loading == true" size="default" label="DLL" />
                     </td>
                   </tr>
                 </table>
               </div>
-              <div
-                class="card-item-appconfig"
-                v-if="state.publishData.appconfigData.msBuildPath"
-              >
+              <div class="card-item-appconfig" v-if="state.publishData.appconfigData.msBuildPath">
                 <table class="table-appconfig" cellpadding="0" cellspacing="0">
                   <tr>
                     <th>MsBuild路径</th>
@@ -240,29 +141,17 @@
                     </td>
                     <th>发布前备份</th>
                     <td>
-                      <el-switch
-                        v-model="state.publishData.appconfigData.configItems.isBackup"
-                        :active-value="1"
-                        :inactive-value="0"
-                        :disabled="state.funModule[currModuleIndex].loading == true"
-                        inline-prompt
-                        active-text="开启"
-                        inactive-text="关闭"
-                        size="default"
-                      />
+                      <el-switch v-model="state.publishData.appconfigData.configItems.isBackup" :active-value="1"
+                        :inactive-value="0" :disabled="state.funModule[currModuleIndex].loading == true" inline-prompt
+                        active-text="开启" inactive-text="关闭" size="default" />
                     </td>
                   </tr>
                 </table>
               </div>
               <div class="card-item-appconfig">
-                <table
-                  class="table-appconfig mb15"
-                  cellpadding="0"
-                  cellspacing="0"
-                  v-if="
-                    state.publishData.appconfigData.configItems?.webApiHost?.clientPath
-                  "
-                >
+                <table class="table-appconfig mb15" cellpadding="0" cellspacing="0" v-if="
+                  state.publishData.appconfigData.configItems?.webApiHost?.clientPath
+                ">
                   <tr>
                     <th>应用类型</th>
                     <td>{{ webApiHostName }}</td>
@@ -275,24 +164,17 @@
                       }}
                     </td>
                   </tr>
-                  <template
-                    v-for="(apiServer, asIndex) in state.publishData.appconfigData
-                      .configItems.webApiHost.serverArr"
-                    :key="asIndex"
-                  >
+                  <template v-for="(apiServer, asIndex) in state.publishData.appconfigData
+                    .configItems.webApiHost.serverArr" :key="asIndex">
                     <tr>
                       <th colspan="2" class="t-align-c">{{ apiServer.name }}</th>
                     </tr>
                     <tr>
                       <td colspan="2" class="t-align-c">
                         <template v-for="serverPath in apiServer.serverPathArr">
-                          <table
-                            class="table-appconfig table-appconfig-shadow-none mt10 mb10 t-border-none"
-                            cellpadding="0"
-                            cellspacing="0"
-                            v-for="(serverVal, valIndex) in serverPath.value"
-                            :key="valIndex"
-                          >
+                          <table class="table-appconfig table-appconfig-shadow-none mt10 mb10 t-border-none"
+                            cellpadding="0" cellspacing="0" v-for="(serverVal, valIndex) in serverPath.value"
+                            :key="valIndex">
                             <tr>
                               <th>服务标识</th>
                               <td>{{ serverVal.identity }}</td>
@@ -308,30 +190,67 @@
                   </template>
                   <tr>
                     <td colspan="2" align="center" class="pt5 pb5 t-align-c">
-                      <el-button
-                        type="danger"
-                        plain
-                        size="small"
-                        title="将该模块移除(让其不参与编译/发布)"
-                        :disabled="state.funModule[currModuleIndex].loading == true"
-                        @click="
+                      <el-button type="danger" plain size="small" title="将该模块移除(让其不参与编译/发布)"
+                        :disabled="state.funModule[currModuleIndex].loading == true" @click="
                           state.publishData.appconfigData.configItems.webApiHost.clientPath =
-                            ''
-                        "
-                        >移除</el-button
-                      >
+                          ''
+                          ">移除</el-button>
                     </td>
                   </tr>
                 </table>
-                <table
-                  class="table-appconfig mb15"
-                  cellpadding="0"
-                  cellspacing="0"
-                  v-if="
-                    state.publishData.appconfigData.configItems?.scheduleServer
-                      ?.clientPath
-                  "
-                >
+                <table class="table-appconfig mb15" cellpadding="0" cellspacing="0" v-if="
+                  state.publishData.appconfigData.configItems?.webClient?.clientPath
+                ">
+                  <tr>
+                    <th>应用类型</th>
+                    <td>{{ webClientName }}</td>
+                  </tr>
+                  <tr>
+                    <th>客户端生成路径</th>
+                    <td>
+                      {{
+                        state.publishData.appconfigData.configItems.webClient.clientPath
+                      }}
+                    </td>
+                  </tr>
+                  <template v-for="(webServer, wsIndex) in state.publishData.appconfigData
+                    .configItems.webClient.serverArr" :key="wsIndex">
+                    <tr>
+                      <th colspan="2" class="t-align-c">{{ webServer.name }}</th>
+                    </tr>
+                    <tr>
+                      <td colspan="2" class="t-align-c">
+                        <template v-for="serverPath in webServer.serverPathArr">
+                          <table class="table-appconfig table-appconfig-shadow-none mb10 mt10 t-border-none"
+                            cellpadding="0" cellspacing="0" v-for="(serverVal, valIndex) in serverPath.value"
+                            :key="valIndex">
+                            <tr>
+                              <th>服务标识</th>
+                              <td>{{ serverVal.identity }}</td>
+                            </tr>
+                            <tr>
+                              <th>发布路径</th>
+                              <td>{{ serverVal.path }}</td>
+                            </tr>
+                          </table>
+                        </template>
+                      </td>
+                    </tr>
+                  </template>
+                  <tr>
+                    <td colspan="2" align="center" class="pt5 pb5 t-align-c">
+                      <el-button type="danger" plain size="small" title="将该模块移除(让其不参与编译/发布)"
+                        :disabled="state.funModule[currModuleIndex].loading == true" @click="
+                          state.publishData.appconfigData.configItems.webClient.clientPath =
+                          ''
+                          ">移除</el-button>
+                    </td>
+                  </tr>
+                </table>
+                <table class="table-appconfig mb15" cellpadding="0" cellspacing="0" v-if="
+                  state.publishData.appconfigData.configItems?.scheduleServer
+                    ?.clientPath
+                ">
                   <tr>
                     <th>应用类型</th>
                     <td>{{ scheduleServerName }}</td>
@@ -345,88 +264,17 @@
                       }}
                     </td>
                   </tr>
-                  <tr>
-                    <th>应用服务器</th>
-                    <td>
-                      {{
-                        state.publishData.appconfigData.configItems.scheduleServer
-                          .serverName
-                      }}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th>服务标识</th>
-                    <td>
-                      {{
-                        state.publishData.appconfigData.configItems.scheduleServer
-                          .serverIdentity
-                      }}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th>服务端发布路径</th>
-                    <td>
-                      {{
-                        state.publishData.appconfigData.configItems.scheduleServer
-                          .serverPath
-                      }}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td colspan="2" align="center" class="pt5 pb5 t-align-c">
-                      <el-button
-                        type="danger"
-                        plain
-                        size="small"
-                        title="将该模块移除(让其不参与编译/发布)"
-                        :disabled="state.funModule[currModuleIndex].loading == true"
-                        @click="
-                          state.publishData.appconfigData.configItems.scheduleServer.clientPath =
-                            ''
-                        "
-                        >移除</el-button
-                      >
-                    </td>
-                  </tr>
-                </table>
-                <table
-                  class="table-appconfig mb15"
-                  cellpadding="0"
-                  cellspacing="0"
-                  v-if="
-                    state.publishData.appconfigData.configItems?.webClient?.clientPath
-                  "
-                >
-                  <tr>
-                    <th>应用类型</th>
-                    <td>{{ webClientName }}</td>
-                  </tr>
-                  <tr>
-                    <th>客户端生成路径</th>
-                    <td>
-                      {{
-                        state.publishData.appconfigData.configItems.webClient.clientPath
-                      }}
-                    </td>
-                  </tr>
-                  <template
-                    v-for="(webServer, wsIndex) in state.publishData.appconfigData
-                      .configItems.webClient.serverArr"
-                    :key="wsIndex"
-                  >
+                  <template v-for="(scheduleServer, asIndex) in state.publishData.appconfigData
+                    .configItems.scheduleServer.serverArr" :key="asIndex">
                     <tr>
-                      <th colspan="2" class="t-align-c">{{ webServer.name }}</th>
+                      <th colspan="2" class="t-align-c">{{ scheduleServer.name }}</th>
                     </tr>
                     <tr>
                       <td colspan="2" class="t-align-c">
-                        <template v-for="serverPath in webServer.serverPathArr">
-                          <table
-                            class="table-appconfig table-appconfig-shadow-none mb10 mt10 t-border-none"
-                            cellpadding="0"
-                            cellspacing="0"
-                            v-for="(serverVal, valIndex) in serverPath.value"
-                            :key="valIndex"
-                          >
+                        <template v-for="serverPath in scheduleServer.serverPathArr">
+                          <table class="table-appconfig table-appconfig-shadow-none mt10 mb10 t-border-none"
+                            cellpadding="0" cellspacing="0" v-for="(serverVal, valIndex) in serverPath.value"
+                            :key="valIndex">
                             <tr>
                               <th>服务标识</th>
                               <td>{{ serverVal.identity }}</td>
@@ -442,29 +290,17 @@
                   </template>
                   <tr>
                     <td colspan="2" align="center" class="pt5 pb5 t-align-c">
-                      <el-button
-                        type="danger"
-                        plain
-                        size="small"
-                        title="将该模块移除(让其不参与编译/发布)"
-                        :disabled="state.funModule[currModuleIndex].loading == true"
-                        @click="
-                          state.publishData.appconfigData.configItems.webClient.clientPath =
-                            ''
-                        "
-                        >移除</el-button
-                      >
+                      <el-button type="danger" plain size="small" title="将该模块移除(让其不参与编译/发布)"
+                        :disabled="state.funModule[currModuleIndex].loading == true" @click="
+                          state.publishData.appconfigData.configItems.scheduleServer.clientPath =
+                          ''
+                          ">移除</el-button>
                     </td>
                   </tr>
                 </table>
-                <table
-                  class="table-appconfig mb15"
-                  cellpadding="0"
-                  cellspacing="0"
-                  v-if="
-                    state.publishData.appconfigData.configItems?.wpfClient?.clientPath
-                  "
-                >
+                <table class="table-appconfig mb15" cellpadding="0" cellspacing="0" v-if="
+                  state.publishData.appconfigData.configItems?.wpfClient?.clientPath
+                ">
                   <tr>
                     <th>应用类型</th>
                     <td>{{ wpfClientName }}</td>
@@ -501,12 +337,10 @@
                       }}
                     </td>
                   </tr>
-                  <tr
-                    v-if="
-                      state.publishData.appconfigData.configItems.wpfClient.isCompress ==
-                      1
-                    "
-                  >
+                  <tr v-if="
+                    state.publishData.appconfigData.configItems.wpfClient.isCompress ==
+                    1
+                  ">
                     <th>打包(压缩)文件</th>
                     <td>
                       {{
@@ -537,29 +371,17 @@
                   </tr>
                   <tr>
                     <td colspan="2" align="center" class="pt5 pb5 t-align-c">
-                      <el-button
-                        type="danger"
-                        plain
-                        size="small"
-                        title="将该模块移除(让其不参与编译/发布)"
-                        :disabled="state.funModule[currModuleIndex].loading == true"
-                        @click="
+                      <el-button type="danger" plain size="small" title="将该模块移除(让其不参与编译/发布)"
+                        :disabled="state.funModule[currModuleIndex].loading == true" @click="
                           state.publishData.appconfigData.configItems.wpfClient.clientPath =
-                            ''
-                        "
-                        >移除</el-button
-                      >
+                          ''
+                          ">移除</el-button>
                     </td>
                   </tr>
                 </table>
-                <table
-                  class="table-appconfig"
-                  cellpadding="0"
-                  cellspacing="0"
-                  v-if="
-                    state.publishData.appconfigData.configItems?.spcMonitor?.clientPath
-                  "
-                >
+                <table class="table-appconfig" cellpadding="0" cellspacing="0" v-if="
+                  state.publishData.appconfigData.configItems?.spcMonitor?.clientPath
+                ">
                   <tr>
                     <th>应用类型</th>
                     <td>{{ spcMonitorName }}</td>
@@ -572,24 +394,17 @@
                       }}
                     </td>
                   </tr>
-                  <template
-                    v-for="(spcServer, ssIndex) in state.publishData.appconfigData
-                      .configItems.spcMonitor.serverArr"
-                    :key="ssIndex"
-                  >
+                  <template v-for="(spcServer, ssIndex) in state.publishData.appconfigData
+                    .configItems.spcMonitor.serverArr" :key="ssIndex">
                     <tr>
                       <th colspan="2" class="t-align-c">{{ spcServer.name }}</th>
                     </tr>
                     <tr>
                       <td colspan="2" class="t-align-c">
                         <template v-for="serverPath in spcServer.serverPathArr">
-                          <table
-                            class="table-appconfig table-appconfig-shadow-none mb10 mt10 t-border-none"
-                            cellpadding="0"
-                            cellspacing="0"
-                            v-for="(serverVal, valIndex) in serverPath.value"
-                            :key="valIndex"
-                          >
+                          <table class="table-appconfig table-appconfig-shadow-none mb10 mt10 t-border-none"
+                            cellpadding="0" cellspacing="0" v-for="(serverVal, valIndex) in serverPath.value"
+                            :key="valIndex">
                             <tr>
                               <th>服务标识</th>
                               <td>{{ serverVal.identity }}</td>
@@ -605,26 +420,15 @@
                   </template>
                   <tr>
                     <td colspan="2" align="center" class="pt5 pb5 t-align-c">
-                      <el-button
-                        type="danger"
-                        plain
-                        size="small"
-                        title="将该模块移除(让其不参与编译/发布)"
-                        :disabled="state.funModule[currModuleIndex].loading == true"
-                        @click="
+                      <el-button type="danger" plain size="small" title="将该模块移除(让其不参与编译/发布)"
+                        :disabled="state.funModule[currModuleIndex].loading == true" @click="
                           state.publishData.appconfigData.configItems.spcMonitor.clientPath =
-                            ''
-                        "
-                        >移除</el-button
-                      >
+                          ''
+                          ">移除</el-button>
                     </td>
                   </tr>
                 </table>
-                <el-empty
-                  description="无应用配置信息."
-                  v-show="showEmptyAppConfig"
-                  :image-size="150"
-                />
+                <el-empty description="无应用配置信息." v-show="showEmptyAppConfig" :image-size="150" />
               </div>
             </div>
           </div>
@@ -638,34 +442,24 @@
                 <el-col :span="12">日志信息</el-col>
                 <el-col :span="12">
                   <div class="item-btn-box">
-                    <el-button
-                      title="清空日志"
-                      size="small"
-                      text
-                      :icon="CircleClose"
-                      @click="onRemoveLogs"
-                    ></el-button></div
-                ></el-col>
+                    <el-button title="清空日志" size="small" text :icon="CircleClose" @click="onRemoveLogs"></el-button>
+                  </div>
+                </el-col>
               </el-row>
             </div>
             <div ref="logContentRef" class="card-item-content log-content">
               <p v-for="log in logPrintInfo" :class="log.type">
                 {{ log.content.value }}
-                <el-text
-                  :type="
-                    log.content.uploadFile.currNumber >=
-                    log.content.uploadFile.totalNumber
-                      ? 'primary'
-                      : 'warning'
-                  "
-                  size="small"
-                  v-if="log.content.uploadFile && log.content.uploadFile.totalNumber > 0"
-                  >{{ log.content.uploadFile.prefix
+                <el-text :type="log.content.uploadFile.currNumber >=
+                  log.content.uploadFile.totalNumber
+                  ? 'primary'
+                  : 'warning'
+                  " size="small" v-if="log.content.uploadFile && log.content.uploadFile.totalNumber > 0">{{
+                    log.content.uploadFile.prefix
                   }}{{ log.content.uploadFile.currNumber }}/{{
                     log.content.uploadFile.totalNumber
                   }}
-                  个文件。</el-text
-                >
+                  个文件。</el-text>
               </p>
             </div>
           </div>
@@ -673,12 +467,8 @@
       </el-col>
     </el-row>
     <appconfig-dialog ref="appconfigDialogRef" @refresh="getPublishAppconfigs()" />
-    <generate-publish-dialog
-      :done="execApplicationAssemblyDone"
-      @exec-application-assembly="onExecApplicationAssembly"
-      @exec-done="onExecDone"
-      ref="generatePublishDialogRef"
-    />
+    <generate-publish-dialog :done="execApplicationAssemblyDone" @exec-application-assembly="onExecApplicationAssembly"
+      @exec-done="onExecDone" ref="generatePublishDialogRef" />
   </div>
 </template>
 
@@ -1222,146 +1012,156 @@ const publishScheduleServer = async () => {
 
   printInfoLog("");
 
-  const serverId = scheduleServerItem.serverId;
-  const serverName = scheduleServerItem.serverName;
-  const serverIdentity = scheduleServerItem.serverIdentity;
-  const serverPath = scheduleServerItem.serverPath;
-  printInfoLog(`发布 ${scheduleServerName.value} 服务[${serverName}]中，请稍等！`);
-  if (!serverId) {
-    printInfoLog(
-      ` ${scheduleServerName.value} 未选择服务或该服务器不存在，请检查.`,
-      "log-error"
-    );
-    return false;
-  }
-  const serverInfo = await getServerDetail(serverId);
-  if (!serverInfo) {
-    printInfoLog(`服务[${scheduleServerName.value}]不存在，请检查.`, "log-error");
-    return false;
-  }
-
-  if (!serverIdentity) {
-    printInfoLog(`服务[${scheduleServerName.value}]未填写服务标识，请检查.`, "log-error");
-    return false;
-  }
-  if (!serverPath) {
-    printInfoLog(
-      `服务[${scheduleServerName.value}]未填写服务发布路径，请检查.`,
-      "log-error"
-    );
-    return false;
-  }
-  const uName = serverInfo.account;
-  const uPwd = serverInfo.pwd;
-  const serverAddress = `${serverInfo.ip}:${serverInfo.port}`;
-
-  /* 1.关闭服务 */
-  printInfoLog(`正在关闭 ${scheduleServerName.value} 服务.`);
-  let closeServiceResult;
-  if (serverInfo.os === 1) {
-    closeServiceResult = await switchWinService(
-      uName,
-      uPwd,
-      serverAddress,
-      serverIdentity,
-      "stop"
-    );
-  } else if (serverInfo.os === 2) {
-    closeServiceResult = await switchDockerService(
-      uName,
-      uPwd,
-      serverAddress,
-      serverIdentity,
-      "stop"
-    );
-  } else {
-    printInfoLog(
-      `未找到 ${displayOs(Number(serverInfo.os))} 部署环境，请检查.`,
-      "log-error"
-    );
-    return false;
-  }
-  if (!closeServiceResult) {
-    printInfoLog(`服务 ${scheduleServerName.value} 关闭失败.`, "log-error");
-    return false;
-  }
-  printInfoLog(`服务 ${scheduleServerName.value} 已关闭.`, "log-success");
-
-  /* 上传文件到服务器 */
-  const currLogIndex = printInfoLog(`服务 ${scheduleServerName.value} 正在发布.`);
-
-  // 获取项目输出路径
-  let localPath = projectAssemblyOutPath.value + "/" + scheduleServerName.value;
-  const remotePath = removeSlash(serverPath);
-  const projectFiles = await readDirFiles(localPath);
-  if (projectFiles.length < 1) {
-    printInfoLog(
-      `未获取到 ${serverName} 项目的程序集文件，可点击【获取程序集】进行排查.`,
-      "log-warning"
-    );
-    // return false;
-  }
-  let uploadFileNumber: UploadFileNumberType = {
-    currNumber: 0,
-    totalNumber: projectFiles.length,
-    prefix: "已上传：",
-  };
-  // let localFiles = new Array();
-  // let remoteFiles = new Array();
-  for (let l = 0; l < projectFiles.length; l++) {
-    const projectFile = projectFiles[l];
-    // localFiles.push(`${localPath}/${projectFile}`);
-    // remoteFiles.push(`${remotePath}/${projectFile}`);
-    const uploadServerFileResult = await cmdInvoke("upload_server_files", {
-      localPaths: [`${localPath}/${projectFile}`],
-      remotePaths: [`${remotePath}/${projectFile}`],
-      username: uName,
-      password: uPwd,
-      server: serverAddress,
-    });
-    if (uploadServerFileResult.code !== 0) {
+  for (let i = 0; i < scheduleServerItem.serverArr.length; i++) {
+    const scheduleServer = scheduleServerItem.serverArr[i];
+    if (!scheduleServer.id) {
       printInfoLog(
-        `服务 ${scheduleServerName.value} 发布失败：${uploadServerFileResult.data}.`,
+        ` ${scheduleServerName.value} 未选择服务或该服务器不存在，请检查.`,
         "log-error"
       );
       return false;
     }
-    uploadFileNumber.currNumber++;
-    logPrintInfo.value[currLogIndex].content.uploadFile.prefix = uploadFileNumber.prefix;
-    logPrintInfo.value[currLogIndex].content.uploadFile.currNumber =
-      uploadFileNumber.currNumber;
-    logPrintInfo.value[currLogIndex].content.uploadFile.totalNumber =
-      uploadFileNumber.totalNumber;
-  }
+    const serverInfo = await getServerDetail(scheduleServer.id);
+    if (!serverInfo) {
+      printInfoLog(`服务[${scheduleServer.name}]不存在，请检查.`, "log-error");
+      return false;
+    }
 
-  printInfoLog(
-    `已将 ${projectFiles.length} 个文件上传到 ${scheduleServerName.value} 服务器.`,
-    "log-success"
-  );
-  printInfoLog(`服务 ${scheduleServerName.value} 正在启动.`);
-  let startServiceResult;
-  if (serverInfo.os === 1) {
-    startServiceResult = await switchWinService(
-      uName,
-      uPwd,
-      serverAddress,
-      serverIdentity,
-      "start"
-    );
-  } else if (serverInfo.os === 2) {
-    startServiceResult = await switchDockerService(
-      uName,
-      uPwd,
-      serverAddress,
-      serverIdentity,
-      "start"
-    );
+    // 发布服务
+    printInfoLog(`发布 ${scheduleServerName.value} 服务[${scheduleServer.name}]中，请稍等！`);
+
+    for (let j = 0; j < scheduleServer.serverPathArr.length; j++) {
+      const serverPath = scheduleServer.serverPathArr[j];
+      if (!serverPath.value) {
+        printInfoLog(`服务[${scheduleServer.name}]未配置，请检查.`, "log-error");
+        return false;
+      }
+
+      for (let k = 0; k < serverPath.value.length; k++) {
+        const serverPathVal = serverPath.value[k];
+        if (!serverPathVal.identity) {
+          printInfoLog(`服务[${scheduleServer.name}]未填写服务标识，请检查.`, "log-error");
+          return false;
+        }
+        if (!serverPathVal.path) {
+          printInfoLog(`服务[${scheduleServer.name}]未填写服务发布路径，请检查.`, "log-error");
+          return false;
+        }
+
+        const uName = serverInfo.account;
+        const uPwd = serverInfo.pwd;
+        const serverAddress = `${serverInfo.ip}:${serverInfo.port}`;
+
+        /* 1.关闭服务 */
+        printInfoLog(`正在关闭 ${scheduleServerName.value} 服务.`);
+        let closeServiceResult;
+        if (serverInfo.os === 1) {
+          closeServiceResult = await switchWinService(
+            uName,
+            uPwd,
+            serverAddress,
+            serverPathVal.identity,
+            "stop"
+          );
+        } else if (serverInfo.os === 2) {
+          closeServiceResult = await switchDockerService(
+            uName,
+            uPwd,
+            serverAddress,
+            serverPathVal.identity,
+            "stop"
+          );
+        } else {
+          printInfoLog(
+            `未找到 ${displayOs(Number(serverInfo.os))} 部署环境，请检查.`,
+            "log-error"
+          );
+          return false;
+        }
+        if (!closeServiceResult) {
+          printInfoLog(`服务 ${scheduleServerName.value} 关闭失败.`, "log-error");
+          return false;
+        }
+        printInfoLog(`服务 ${scheduleServerName.value} 已关闭.`, "log-success");
+
+        /* 上传文件到服务器 */
+        const currLogIndex = printInfoLog(`服务 ${scheduleServerName.value} 正在发布.`);
+
+        // 获取项目输出路径
+        let localPath = projectAssemblyOutPath.value + "/" + scheduleServerName.value;
+        const remotePath = removeSlash(serverPathVal.path);
+        const projectFiles = await readDirFiles(localPath);
+        if (projectFiles.length < 1) {
+          printInfoLog(
+            `未获取到 ${scheduleServerName.value} 项目的程序集文件，可点击【获取程序集】进行排查.`,
+            "log-warning"
+          );
+          // return false;
+        }
+        let uploadFileNumber: UploadFileNumberType = {
+          currNumber: 0,
+          totalNumber: projectFiles.length,
+          prefix: "已上传：",
+        };
+        // let localFiles = new Array();
+        // let remoteFiles = new Array();
+        for (let l = 0; l < projectFiles.length; l++) {
+          const projectFile = projectFiles[l];
+          // localFiles.push(`${localPath}/${projectFile}`);
+          // remoteFiles.push(`${remotePath}/${projectFile}`);
+          const uploadServerFileResult = await cmdInvoke("upload_server_files", {
+            localPaths: [`${localPath}/${projectFile}`],
+            remotePaths: [`${remotePath}/${projectFile}`],
+            username: uName,
+            password: uPwd,
+            server: serverAddress,
+          });
+          if (uploadServerFileResult.code !== 0) {
+            printInfoLog(
+              `服务 ${scheduleServerName.value} 发布失败：${uploadServerFileResult.data}.`,
+              "log-error"
+            );
+            return false;
+          }
+          uploadFileNumber.currNumber++;
+          logPrintInfo.value[currLogIndex].content.uploadFile.prefix = uploadFileNumber.prefix;
+          logPrintInfo.value[currLogIndex].content.uploadFile.currNumber =
+            uploadFileNumber.currNumber;
+          logPrintInfo.value[currLogIndex].content.uploadFile.totalNumber =
+            uploadFileNumber.totalNumber;
+        }
+
+        printInfoLog(
+          `已将 ${projectFiles.length} 个文件上传到 ${scheduleServerName.value} 服务器.`,
+          "log-success"
+        );
+        printInfoLog(`服务 ${scheduleServerName.value} 正在启动.`);
+        let startServiceResult;
+        if (serverInfo.os === 1) {
+          startServiceResult = await switchWinService(
+            uName,
+            uPwd,
+            serverAddress,
+            serverPathVal.identity,
+            "start"
+          );
+        } else if (serverInfo.os === 2) {
+          startServiceResult = await switchDockerService(
+            uName,
+            uPwd,
+            serverAddress,
+            serverPathVal.identity,
+            "start"
+          );
+        }
+        if (!startServiceResult) {
+          printInfoLog(`服务 ${scheduleServerName.value} 启动失败.`, "log-error");
+          return false;
+        }
+        printInfoLog(`服务 ${scheduleServerName.value} 发布成功.`, "log-success");
+      }
+    }
   }
-  if (!startServiceResult) {
-    printInfoLog(`服务 ${scheduleServerName.value} 启动失败.`, "log-error");
-    return false;
-  }
-  printInfoLog(`服务 ${scheduleServerName.value} 发布成功.`, "log-success");
   return true;
 };
 
@@ -2134,9 +1934,8 @@ const getProjectOutPath = async () => {
       "log-warning"
     );
   }
-  return `${removeSlash(projectOutPath)}/${
-    state.publishData.projectName
-  }/${displayEnvironment(state.publishData.environment)}`;
+  return `${removeSlash(projectOutPath)}/${state.publishData.projectName
+    }/${displayEnvironment(state.publishData.environment)}`;
 };
 
 // 获取应用程序集
@@ -3288,8 +3087,10 @@ onActivated(async () => {
 
 <style scoped lang="scss">
 $homeNavLengh: 8;
+
 .publish-container {
   overflow: hidden;
+
   .publish-card-box,
   .publish-card-config {
     .publish-card-item {
@@ -3301,6 +3102,7 @@ $homeNavLengh: 8;
       background: var(--el-color-white);
       color: var(--el-text-color-primary);
       border: 1px solid var(--next-border-color-light);
+
       .card-item-title {
         font-size: 20px;
         color: #506c88;
@@ -3308,33 +3110,40 @@ $homeNavLengh: 8;
         height: 70px;
         line-height: 70px;
       }
+
       .card-title {
         padding: 12px 10px 10px 10px;
         height: 45px;
         font-size: 15px;
         border-bottom: 1px #dfdfdf dashed;
         align-content: flex-end;
+
         .item-btn-box {
           width: 100%;
           text-align: right;
         }
       }
+
       .card-item-content {
         height: calc(100vh - 308px);
         overflow-y: auto;
         padding: 10px;
+
         .card-item-env {
           width: 100%;
           text-align: center;
           background-color: #fbfbfb;
           padding: 10px 0px;
         }
+
         .card-item-appconfig {
           width: 100%;
           margin-top: 15px;
+
           .table-appconfig {
             width: 100%;
             border-collapse: collapse;
+
             tr {
               th {
                 background-color: #fbfbfb;
@@ -3345,6 +3154,7 @@ $homeNavLengh: 8;
                 padding: 10px 5px;
                 border: 1px solid #eeeeee;
               }
+
               td {
                 font-size: 14px;
                 text-align: left;
@@ -3352,38 +3162,46 @@ $homeNavLengh: 8;
                 border: 1px solid #eeeeee;
                 word-wrap: break-word;
                 word-break: break-all;
+
                 .t-link-path {
                   text-decoration: none;
                   color: #303133;
                 }
+
                 .t-link-path:hover {
                   text-decoration: underline;
                 }
               }
             }
           }
+
           .table-appconfig:hover {
             // border: 1px #f56c6c solid;
             box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.2);
           }
+
           .table-appconfig-shadow-none {
             box-shadow: none !important;
           }
         }
       }
+
       &:hover {
         box-shadow: 0 2px 12px var(--next-color-dark-hover);
         transition: all ease 0.3s;
       }
+
       &-icon {
         width: 70px;
         height: 70px;
         border-radius: 100%;
         flex-shrink: 1;
+
         i {
           color: var(--el-text-color-placeholder);
         }
       }
+
       .log-content {
         box-sizing: border-box;
         background-color: #545c64;
@@ -3392,6 +3210,7 @@ $homeNavLengh: 8;
         text-align: left;
       }
     }
+
     /*
     .log-content p::before {
       counter-increment: line-number;
@@ -3401,11 +3220,13 @@ $homeNavLengh: 8;
     }
     */
   }
+
   .publish-card-box {
     .publish-card-item {
       padding: 20px;
       cursor: pointer;
     }
+
     @for $i from 0 through 3 {
       .publish-animation#{$i} {
         opacity: 0;
@@ -3416,22 +3237,27 @@ $homeNavLengh: 8;
       }
     }
   }
+
   .publish-card-config {
     .publish-card-item {
       height: calc(100vh - 260px);
       width: 100%;
+
       // overflow-y: auto;
       .card-item-box {
         height: 100%;
       }
     }
   }
+
   .t-align-c {
     text-align: center !important;
   }
+
   .mb0 {
     margin-bottom: 0px !important;
   }
+
   .t-border-none {
     border: 0px solid white !important;
   }

@@ -145,33 +145,39 @@
                   placeholder="请选择发布服务器"
                   size="default"
                   v-model="publishLocalServer.scheduleServer.serverId"
+                  @change="onScheduleServerChange"
                 >
                   <el-option
-                    :key="state.ruleForm.configItems.scheduleServer.serverId"
-                    :label="state.ruleForm.configItems.scheduleServer.serverName"
-                    :value="state.ruleForm.configItems.scheduleServer.serverId"
+                    v-for="server in state.ruleForm.configItems.scheduleServer.serverArr"
+                    :key="server.id"
+                    :label="server.name"
+                    :value="server.id"
                   />
                 </el-select>
                 <template v-if="publishLocalServer.scheduleServer.serverId">
-                  <el-col :span="24">
-                    <el-input
-                      placeholder="请输入服务标识"
-                      maxlength="200"
-                      class="mb5"
-                      :value="state.ruleForm.configItems.scheduleServer.serverIdentity"
-                      :readonly="true"
-                    >
-                      <template #prepend>服务标识</template>
-                    </el-input>
-                    <el-input
-                      placeholder="请输入发布路径"
-                      maxlength="200"
-                      :value="state.ruleForm.configItems.scheduleServer.serverPath"
-                      :readonly="true"
-                    >
-                      <template #prepend>发布路径</template>
-                    </el-input>
-                  </el-col>
+                  <template v-for="serverPath in scheduleServerItems">
+                    <el-col :span="24">
+                      <el-input
+                        placeholder="请输入服务标识"
+                        maxlength="200"
+                        class="mb5"
+                        v-if="serverPath.value && serverPath.value.length > 0"
+                        :value="serverPath.value[0].identity"
+                        :readonly="true"
+                      >
+                        <template #prepend>服务标识</template>
+                      </el-input>
+                      <el-input
+                        placeholder="请输入发布路径"
+                        maxlength="200"
+                        v-if="serverPath.value && serverPath.value.length > 0"
+                        :value="serverPath.value[0].path"
+                        :readonly="true"
+                      >
+                        <template #prepend>发布路径</template>
+                      </el-input>
+                    </el-col>
+                  </template>
                 </template>
                 <view class="form-server-btn">
                   <el-button
@@ -439,6 +445,7 @@ const publishLocalServer = ref({
   },
 });
 const resetApplicationAssembly = ref<boolean>(true);
+const scheduleServerItems = ref<ServerOptionType[]>();
 const state = reactive<FormDialogType<RowAppconfigType>>({
   ruleForm: {
     id: null,
@@ -472,11 +479,10 @@ const state = reactive<FormDialogType<RowAppconfigType>>({
         compressFileJson: "",
       },
       scheduleServer: {
-        serverId: null,
-        serverName: null,
-        serverIdentity: "",
         clientPath: "",
         serverPath: "",
+        serverIds: [],
+        serverArr: [],
       },
       spcMonitor: {
         clientPath: "",
@@ -533,11 +539,9 @@ const clearWebClient = () => {
 
 // 清除【scheduleServer】
 const clearScheduleServer = () => {
-  state.ruleForm.configItems.scheduleServer.serverId = null;
-  state.ruleForm.configItems.scheduleServer.serverName = null;
-  state.ruleForm.configItems.scheduleServer.serverIdentity = null;
   state.ruleForm.configItems.scheduleServer.clientPath = null;
-  state.ruleForm.configItems.scheduleServer.serverPath = null;
+  state.ruleForm.configItems.scheduleServer.serverIds = [];
+  state.ruleForm.configItems.scheduleServer.serverArr = [];
 
   publishLocalServer.value.scheduleServer.serverId = null;
 };
@@ -598,6 +602,14 @@ const onSpcMonitorChange = (serverId: number) => {
   spcMonitorItems.value = serverPaths;
 };
 
+// ScheduleServer切换监听
+const onScheduleServerChange = (serverId: number) => {
+  const serverPaths = state.ruleForm.configItems.scheduleServer.serverArr.find(
+    (x) => x.id === serverId
+  )?.serverPathArr;
+  scheduleServerItems.value = serverPaths;
+};
+
 // 提交验证
 const submitValidate = async (formEl: FormInstance | undefined) => {
   if (!formEl) return;
@@ -630,7 +642,8 @@ const formReset = () => {
   state.ruleForm.configItems.webApiHost.serverArr = [];
   state.ruleForm.configItems.webClient.serverIds = [];
   state.ruleForm.configItems.webClient.serverArr = [];
-  state.ruleForm.configItems.scheduleServer.serverId = null;
+  state.ruleForm.configItems.scheduleServer.serverIds = [];
+  state.ruleForm.configItems.scheduleServer.serverArr = [];
   state.ruleForm.configItems.wpfClient.serverId = null;
   state.ruleForm.configItems.spcMonitor.serverIds = [];
   state.ruleForm.configItems.spcMonitor.serverArr = [];
@@ -702,9 +715,14 @@ const initPublishLocalServer = () => {
       state.ruleForm.configItems.wpfClient.serverId;
   }
 
-  if (state.ruleForm.configItems.scheduleServer.serverId) {
+  if (
+    state.ruleForm.configItems.scheduleServer.serverArr &&
+    state.ruleForm.configItems.scheduleServer.serverArr.length > 0
+  ) {
+    if (!state.ruleForm.configItems.scheduleServer.serverArr[0].id) return;
     publishLocalServer.value.scheduleServer.serverId =
-      state.ruleForm.configItems.scheduleServer.serverId;
+      state.ruleForm.configItems.scheduleServer.serverArr[0].id;
+    onScheduleServerChange(state.ruleForm.configItems.scheduleServer.serverArr[0].id);
   }
 };
 
@@ -916,35 +934,39 @@ const generateLocalPublish = async () => {
     state.ruleForm.configItems.scheduleServer.clientPath &&
     publishLocalServer.value.scheduleServer.serverId
   ) {
-    const scheduleServerInfo = await getServerDetail(
-      publishLocalServer.value.scheduleServer.serverId
+    const scheduleServer = state.ruleForm.configItems.scheduleServer.serverArr.find(
+      x => x.id === publishLocalServer.value.scheduleServer.serverId
     );
-    if (scheduleServerInfo) {
-      localPublishConfig.scheduleServer.serverName = scheduleServerInfo.name;
-      localPublishConfig.scheduleServer.serverOs = scheduleServerInfo.os;
-      /*
-      localPublishConfig.scheduleServer.serverIp = scheduleServerInfo.ip;
-      localPublishConfig.scheduleServer.serverPort = scheduleServerInfo.port;
-      localPublishConfig.scheduleServer.serverAccount = scheduleServerInfo.account;
-      localPublishConfig.scheduleServer.serverPwd = await aesEncrypt(
-        scheduleServerInfo.pwd
-      );
-      */
+    if (scheduleServer && scheduleServer.serverPathArr && scheduleServer.serverPathArr.length > 0) {
+      const scheduleServerPath = scheduleServer.serverPathArr[0]; // 使用第一个路径配置
+      if (scheduleServerPath && scheduleServerPath.value && scheduleServerPath.value.length > 0) {
+        // 获取服务器详细信息
+        const serverInfo = await getServerDetail(Number(scheduleServer.id));
+        if (serverInfo) {
+          localPublishConfig.scheduleServer.serverName = serverInfo.name;
+          localPublishConfig.scheduleServer.serverOs = serverInfo.os;
+          localPublishConfig.scheduleServer.serverIp = serverInfo.ip;
+          localPublishConfig.scheduleServer.serverPort = serverInfo.port;
+          localPublishConfig.scheduleServer.serverAccount = serverInfo.account;
+          localPublishConfig.scheduleServer.serverPwd = await aesEncrypt(serverInfo.pwd);
+        }
+        
+        localPublishConfig.scheduleServer.serverConfigs = [] as PublishServerConfigType[];
+        const scheduleServerFiles = await getReadAllDlls(`${rPublishDir}/ScheduleServer`);
+        let sFiles = new Array<string>();
+        for (let k = 0; k < scheduleServerFiles.length; k++) {
+          const scheduleServerFile = scheduleServerFiles[k];
+          if (!scheduleServerFile) continue;
+          const pathFile = removeSlash(scheduleServerFile);
+          sFiles.push(pathFile.substring(pathFile.lastIndexOf("/") + 1));
+        }
+        localPublishConfig.scheduleServer.serverConfigs.push({
+          serverIdentity: String(scheduleServerPath.value[0].identity),
+          publishPath: String(scheduleServerPath.value[0].path),
+          publishFiles: sFiles,
+        });
+      }
     }
-    localPublishConfig.scheduleServer.serverConfigs = [] as PublishServerConfigType[];
-    const scheduleServerFiles = await getReadAllDlls(`${rPublishDir}/ScheduleServer`);
-    let sFiles = new Array<string>();
-    for (let k = 0; k < scheduleServerFiles.length; k++) {
-      const scheduleServerFile = scheduleServerFiles[k];
-      if (!scheduleServerFile) continue;
-      const pathFile = removeSlash(scheduleServerFile);
-      sFiles.push(pathFile.substring(pathFile.lastIndexOf("/") + 1));
-    }
-    localPublishConfig.scheduleServer.serverConfigs.push({
-      serverIdentity: String(state.ruleForm.configItems.scheduleServer.serverIdentity),
-      publishPath: String(state.ruleForm.configItems.scheduleServer.serverPath),
-      publishFiles: sFiles,
-    });
   }
 
   localPublishConfig.spcMonitor = {} as PublishServerType;
@@ -1256,33 +1278,50 @@ const generateRemotePublish = async () => {
 
   remotePublishConfig.scheduleServer = [] as PublishServerType[];
   if (state.ruleForm.configItems.scheduleServer.clientPath) {
-    let serverConfigs = new Array<PublishServerConfigType>();
-    const scheduleServerFiles = await getReadAllDlls(`${rPublishDir}/ScheduleServer`);
-    let scheduleFiles = new Array<string>();
-    for (let k = 0; k < scheduleServerFiles.length; k++) {
-      const scheduleServerFile = scheduleServerFiles[k];
-      if (!scheduleServerFile) continue;
-      const pathFile = removeSlash(scheduleServerFile);
-      scheduleFiles.push(pathFile.substring(pathFile.lastIndexOf("/") + 1));
-    }
-    serverConfigs.push({
-      serverIdentity: String(state.ruleForm.configItems.scheduleServer.serverIdentity),
-      publishPath: String(state.ruleForm.configItems.scheduleServer.serverPath),
-      publishFiles: scheduleFiles,
-    });
-    const scheduleServerInfo = await getServerDetail(
-      Number(state.ruleForm.configItems.scheduleServer.serverId)
-    );
-    if (scheduleServerInfo) {
-      remotePublishConfig.scheduleServer.push({
-        serverName: scheduleServerInfo.name,
-        serverOs: scheduleServerInfo.os,
-        serverIp: scheduleServerInfo.ip,
-        serverPort: scheduleServerInfo.port,
-        serverAccount: scheduleServerInfo.account,
-        serverPwd: await aesEncrypt(scheduleServerInfo.pwd),
-        serverConfigs,
-      });
+    for (let i = 0; i < state.ruleForm.configItems.scheduleServer.serverArr.length; i++) {
+      const scheduleServer = state.ruleForm.configItems.scheduleServer.serverArr[i];
+      if (!scheduleServer.id || !scheduleServer.serverPathArr || scheduleServer.serverPathArr.length < 1) continue;
+      
+      let serverConfigs = new Array<PublishServerConfigType>();
+      const scheduleServerFiles = await getReadAllDlls(`${rPublishDir}/ScheduleServer`);
+      let scheduleFiles = new Array<string>();
+      for (let k = 0; k < scheduleServerFiles.length; k++) {
+        const scheduleServerFile = scheduleServerFiles[k];
+        if (!scheduleServerFile) continue;
+        const pathFile = removeSlash(scheduleServerFile);
+        scheduleFiles.push(pathFile.substring(pathFile.lastIndexOf("/") + 1));
+      }
+      
+      // 遍历服务器的所有路径配置
+      for (let j = 0; j < scheduleServer.serverPathArr.length; j++) {
+        const scheduleServerPath = scheduleServer.serverPathArr[j];
+        if (scheduleServerPath && scheduleServerPath.value && scheduleServerPath.value.length > 0) {
+          // 为每个路径配置创建一个serverConfig
+          for (let l = 0; l < scheduleServerPath.value.length; l++) {
+            const pathValue = scheduleServerPath.value[l];
+            serverConfigs.push({
+              serverIdentity: String(pathValue.identity),
+              publishPath: String(pathValue.path),
+              publishFiles: scheduleFiles,
+            });
+          }
+        }
+      }
+      
+      const scheduleServerInfo = await getServerDetail(
+        Number(scheduleServer.id)
+      );
+      if (scheduleServerInfo) {
+        remotePublishConfig.scheduleServer.push({
+          serverName: String(scheduleServer.name),
+          serverOs: scheduleServerInfo.os,
+          serverIp: scheduleServerInfo.ip,
+          serverPort: scheduleServerInfo.port,
+          serverAccount: scheduleServerInfo.account,
+          serverPwd: await aesEncrypt(scheduleServerInfo.pwd),
+          serverConfigs,
+        });
+      }
     }
   }
 

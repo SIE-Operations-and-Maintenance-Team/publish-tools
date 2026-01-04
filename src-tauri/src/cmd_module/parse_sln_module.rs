@@ -32,12 +32,12 @@ pub async fn parse_sln_project(module_name: &str, sln_file_path: &str, is_new_ve
             let cspj_dir = Path::new(&cspj_file).parent().unwrap().to_str().unwrap();
 
             if module_name.eq("WpfClient.csproj") && !is_new_version {
-                module_generate_path = format!("{}/bin/Release", cspj_dir);
+                module_generate_path = format!("{}/bin/Debug", cspj_dir);
                 break;
             }
 
             let framework_version = find_target_framework(&cspj_file).await.unwrap();
-            module_generate_path = format!("{}/bin/Release/{}", cspj_dir, framework_version);
+            module_generate_path = format!("{}/bin/Debug/{}", cspj_dir, framework_version);
             break;
         }
     }

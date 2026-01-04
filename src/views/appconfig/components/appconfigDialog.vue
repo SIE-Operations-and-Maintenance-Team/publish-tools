@@ -304,11 +304,12 @@
                   ></el-input>
                 </el-form-item>
               </el-col>
-              <el-col :span="24" class="mb15">
+              <el-col :span="24">
                 <el-form-item label-width="135" label="应用服务器">
                   <el-select
                     filterable
-                    v-model="state.ruleForm.configItems.scheduleServer.serverId"
+                    v-model="state.ruleForm.configItems.scheduleServer.serverIds"
+                    multiple
                     placeholder="请选择应用服务器"
                     size="default"
                     @change="onScheduleServerChange"
@@ -322,27 +323,73 @@
                   </el-select>
                 </el-form-item>
               </el-col>
-              <el-col :span="24" class="mb15">
-                <el-form-item label-width="135" label="服务标识">
-                  <el-input
-                    v-model="state.ruleForm.configItems.scheduleServer.serverIdentity"
-                    placeholder="请输入服务标识"
-                    maxlength="200"
-                    clearable
-                  ></el-input>
-                </el-form-item>
-              </el-col>
-              <el-col :span="24">
-                <el-form-item label-width="135" label="服务发布路径">
-                  <el-input
-                    v-model="state.ruleForm.configItems.scheduleServer.serverPath"
-                    placeholder="请输入服务发布路径"
-                    maxlength="450"
-                    clearable
-                  ></el-input>
-                </el-form-item>
-              </el-col>
             </el-row>
+            <fieldset
+              class="form-server-fieldset"
+              v-for="(scheduleServer, scheduleIndex) in state.ruleForm.configItems
+                .scheduleServer.serverArr"
+              :key="scheduleIndex"
+            >
+              <legend class="form-server-legend">{{ scheduleServer.name }}</legend>
+              <el-row>
+                <template
+                  v-for="(serverPath, index) in scheduleServer.serverPathArr"
+                  :key="index"
+                >
+                  <el-col
+                    :span="22"
+                    :class="scheduleServer.serverPathArr.length - 1 === index ? '' : 'mb15'"
+                  >
+                    <el-form-item label-width="0" :label="serverPath.label">
+                      <template
+                        v-for="(serverVal, valIndex) in serverPath.value"
+                        :key="valIndex"
+                      >
+                        <el-input
+                          v-model="serverVal.identity"
+                          placeholder="请输入服务标识"
+                          maxlength="200"
+                          clearable
+                          class="mb5"
+                        >
+                          <template #prepend>服务标识</template>
+                        </el-input>
+                        <el-input
+                          v-model="serverVal.path"
+                          placeholder="请输入发布路径"
+                          maxlength="200"
+                          clearable
+                        >
+                          <template #prepend>发布路径</template>
+                        </el-input>
+                      </template>
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="2" v-if="formDisabled === false">
+                    <div class="server-path-plus pt22">
+                      <el-icon
+                        v-if="index === 0 && scheduleServer.serverPathArr.length < 10"
+                        title="新增"
+                        color="#A8ABB2"
+                        :size="26"
+                        @click="addServerPath(scheduleServer)"
+                      >
+                        <CirclePlus />
+                      </el-icon>
+                      <el-icon
+                        v-else
+                        title="移除"
+                        color="#F56C6C"
+                        :size="26"
+                        @click="removeServerPath(scheduleServer, index)"
+                      >
+                        <Remove />
+                      </el-icon>
+                    </div>
+                  </el-col>
+                </template>
+              </el-row>
+            </fieldset>
           </el-tab-pane>
           <el-tab-pane label="WebClient">
             <el-row :gutter="10">
@@ -848,11 +895,10 @@ const state = reactive<FormDialogType<RowAppconfigType>>({
         compressFileJson: "",
       },
       scheduleServer: {
-        serverId: null,
-        serverName: null,
-        serverIdentity: "",
         clientPath: "",
         serverPath: "",
+        serverIds: [],
+        serverArr: [],
       },
       spcMonitor: {
         clientPath: "",
@@ -1013,14 +1059,42 @@ const onEnvironmentChange = async (val: number) => {
 };
 
 // 调度服务器切换
-const onScheduleServerChange = async (val: number) => {
-  if (!val || val < 1) {
-    state.ruleForm.configItems.scheduleServer.serverName = "";
+const onScheduleServerChange = async (val: number[]) => {
+  if (!val || val.length < 1) {
+    state.ruleForm.configItems.scheduleServer.serverArr = [];
     return;
   }
-  let server = serverList.value?.find((x) => x.id === val);
-  if (server) {
-    state.ruleForm.configItems.scheduleServer.serverName = server.name;
+  // 移除
+  for (let i = 0; i < state.ruleForm.configItems.scheduleServer.serverArr.length; i++) {
+    const scheduleServer = state.ruleForm.configItems.scheduleServer.serverArr[i];
+    if (val.includes(Number(scheduleServer.id))) continue;
+    state.ruleForm.configItems.scheduleServer.serverArr.splice(i, 1);
+  }
+  // 新增
+  for (let i = 0; i < val.length; i++) {
+    const scheduleServer = state.ruleForm.configItems.scheduleServer.serverArr.find(
+      (item: SelectServerType) => item.id === val[i]
+    );
+    if (scheduleServer) continue;
+    const sServer = serverList.value?.find(
+      (item: RowServerType) => item.id === val[i]
+    );
+    if (!sServer) continue;
+    state.ruleForm.configItems.scheduleServer.serverArr.push({
+      id: sServer.id,
+      name: sServer.name,
+      serverPathArr: [
+        {
+          label: "", // 服务端发布
+          value: [
+            {
+              identity: "",
+              path: "",
+            },
+          ],
+        },
+      ],
+    });
   }
 };
 
@@ -1314,7 +1388,8 @@ const formReset = () => {
   state.ruleForm.configItems.webApiHost.serverArr = [];
   state.ruleForm.configItems.webClient.serverIds = [];
   state.ruleForm.configItems.webClient.serverArr = [];
-  state.ruleForm.configItems.scheduleServer.serverId = null;
+  state.ruleForm.configItems.scheduleServer.serverIds = [];
+  state.ruleForm.configItems.scheduleServer.serverArr = [];
   state.ruleForm.configItems.wpfClient.serverId = null;
   state.ruleForm.configItems.spcMonitor.serverIds = [];
   state.ruleForm.configItems.spcMonitor.serverArr = [];
