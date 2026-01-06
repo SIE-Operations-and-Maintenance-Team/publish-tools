@@ -2980,7 +2980,13 @@ const showDllMode = () => {
     } else {
       modelName += "latest";
     }
-  }
+  } 
+  // else if (modelName == "Git") {
+  //   const selectGitItem = JSON.parse(
+  //     String(state.publishData.appconfigData.dllModeValue)
+  //   ) as SelectGitType;
+  //   modelName += `：${selectGitItem.gitName}；分支：${selectGitItem.branchName}`;
+  // }
   return modelName;
 };
 

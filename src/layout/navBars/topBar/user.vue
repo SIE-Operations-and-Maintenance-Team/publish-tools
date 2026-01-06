@@ -111,7 +111,7 @@
             <a
               class="code-link"
               href="javascript:void(0);"
-              @click="openUrl('https://gitee.com/zhuyongzhengs/Rex.SmomPublish')"
+              @click="openUrl('https://gitee.com/qiuqingsheng/publish-tools')"
               >{{ $t("message.user.dropdown6") }}</a
             >
           </el-dropdown-item>
@@ -225,7 +225,7 @@ const onHandleCommandClick = (path: string) => {
       })
       .catch(() => {});
   } else if (path === "wareHouse") {
-    // window.open("https://gitee.com/zhuyongzhengs/Rex.SmomPublish");
+    // window.open("https://gitee.com/qiuqingsheng/publish-tools");
   } else {
     router.push(path);
   }
