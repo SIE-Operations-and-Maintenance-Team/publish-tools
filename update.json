@@ -1,11 +1,11 @@
 {
     "version": "0.0.20",
-    "notes": "1.修复[生成文件]发布时,移除的发布模块依旧显示的问题<br />2.兼容10.2以上版本(.NET6+)的产品发布。<br /><br /><b>注：版本 ≤ 0.0.14 <a style='color:green' target='_blank' href='https://gitee.com/zhuyongzhengs/Rex.SmomPublish/releases/download/v0.0.19/SmomPublish_0.0.19_x64-setup.exe'>点击此处</a> 下载。</b>",
-    "pub_date": "2025-11-09T14:00:00Z",
+    "notes": "修复已知问题<b>注：版本 ≤ 0.0.14 <a style='color:green' target='_blank' href='https://gitee.com/qiuqingsheng/publish-tools/releases/download/v0.0.20/SmomPublish_0.0.20_x64-setup.exe'>点击此处</a> 下载。</b>",
+    "pub_date": "2025-01-06T14:00:00Z",
     "platforms": {
       "windows-x86_64": {
-        "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSWXMwZVBTYnM3OTEycVNudGNkR0FZUkgzTEJhUWJzQ1hoQVFTVjRTYVU4eDdSL0IrRTd4bkIzZktncGxWTjdFRHNPOUh4L1g3Rk5KNkpkNmNuNVArUG4reHJHRW5BWFFBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzYyNjY3Nzg2CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjE5X3g2NC1zZXR1cC5leGUKZ2FrTEVoQlU5WGx5bHhBeitFVFNFTHRSa2xSSVI4cGRIdmpCbjU3VC9vUWR3T2pSM2d5Vkg3MGpFR0U5aFlacWNqakdPcS9Cb2dCRVQzWEFrWWk1QVE9PQo=",
-        "url": "https://gitee.com/zhuyongzhengs/Rex.SmomPublish/releases/download/v0.0.19/SmomPublish_0.0.19_x64-setup.exe"
+        "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHJzaWduIGVuY3J5cHRlZCBzZWNyZXQga2V5ClJXUlRZMEl5bDcwT3ppeW5EajU0aVpDYlVZbjB1RHJFTE9EblBTRGg1ZEw2K1IxYWkvY0FBQkFBQUFBQUFBQUFBQUlBQUFBQTFEdVlxcGhoMGhPR2hIU0JuYlBibHNKMnR5NWF5TlJIS0JhWWNUTWFBeU1vTUpqc0NpVmk3aXFyR1piWWZQWk5NZUlFL3c5WUc3YXdCRE1Da3lNWXdXZU5NWEJBYTdDYkpvNnVvT3pJeDIxWkNRaW4zOStuTy93MGpYam5uMFBMclNhSGVsZnhWdEk9Cg==",
+        "url": "https://gitee.com/qiuqingsheng/publish-tools/releases/download/v0.0.20/SmomPublish_0.0.20_x64-setup.exe"
       }
     }
   }
