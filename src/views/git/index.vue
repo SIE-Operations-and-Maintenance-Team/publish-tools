@@ -110,7 +110,7 @@ const getTableData = async () => {
   state.tableData.param.skipCount = (state.tableData.currentPage - 1) * state.tableData.param.maxResultCount;
 
   try {
-    const result = await gitDb.getGit(state.tableData.param);
+    const result = await gitDb.getGitList(state.tableData.param);
     if (result.code === 0) {
       state.tableData.data = result.data.data;
       state.tableData.total = result.data.total;

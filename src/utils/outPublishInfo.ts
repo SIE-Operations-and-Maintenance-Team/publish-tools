@@ -369,7 +369,7 @@ export async function parseGitContent(content: string): Promise<PublishInfoType[
   
   for (const line of lines) {
     if (!line.trim()) continue;
-    console.log('line:', line);
+    // console.log('line:', line);
     
     // 检查是否是提交信息行（包含 | 分隔符，且格式为 commitHash|authorName|authorEmail|date|subject）
     const commitParts = line.split('|');

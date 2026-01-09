@@ -1,47 +1,21 @@
 <template>
   <div class="generate-publish-container">
-    <el-dialog
-      v-model="state.dialog.show"
-      :title="state.dialog.title"
-      :close-on-click-modal="false"
-      :show-close="false"
-      modal-class="generate-publish-dialog"
-      draggable
-      width="680px"
-    >
-      <el-form
-        ref="appconfigDialogFormRef"
-        size="default"
-        label-width="110px"
-        :model="state.ruleForm"
-        :rules="formRules"
-      >
+    <el-dialog v-model="state.dialog.show" :title="state.dialog.title" :close-on-click-modal="false" :show-close="false"
+      modal-class="generate-publish-dialog" draggable width="680px">
+      <el-form ref="appconfigDialogFormRef" size="default" label-width="110px" :model="state.ruleForm"
+        :rules="formRules">
         <el-row :gutter="10">
           <el-col :span="24">
             <el-form-item label="项目管理" prop="projectId">
-              <el-select
-                filterable
-                placeholder="请选择项目管理"
-                size="default"
-                v-model="state.ruleForm.projectId"
-                :disabled="true"
-              >
-                <el-option
-                  v-for="project in projectList"
-                  :key="project.id"
-                  :label="project.name"
-                  :value="project.id"
-                />
+              <el-select filterable placeholder="请选择项目管理" size="default" v-model="state.ruleForm.projectId"
+                :disabled="true">
+                <el-option v-for="project in projectList" :key="project.id" :label="project.name" :value="project.id" />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="24">
             <div class="form-item-env">
-              <el-radio-group
-                :disabled="true"
-                size="default"
-                v-model="state.ruleForm.environment"
-              >
+              <el-radio-group :disabled="true" size="default" v-model="state.ruleForm.environment">
                 <el-radio border :value="1">Dev</el-radio>
                 <el-radio border :value="2">Uat</el-radio>
                 <el-radio border :value="3">Pro</el-radio>
@@ -51,311 +25,167 @@
           </el-col>
           <el-col :span="6">
             <div class="reset-app-assembly">
-              <el-checkbox
-                v-model="resetApplicationAssembly"
-                label="重新获取程序集"
-                size="default"
-              />
+              <el-checkbox v-model="resetApplicationAssembly" label="重新获取程序集" size="default" />
             </div>
           </el-col>
           <el-col :span="18">
             <el-form-item label="发布方式" prop="publishMode">
-              <el-radio-group
-                size="default"
-                v-model="publishMode"
-                :disabled="state.dialog.submitTxt === '生成中'"
-              >
+              <el-radio-group size="default" v-model="publishMode" :disabled="state.dialog.submitTxt === '生成中'">
                 <el-radio :value="0">远程发布</el-radio>
                 <el-radio :value="1">本机发布</el-radio>
               </el-radio-group>
             </el-form-item>
           </el-col>
           <el-col :span="12" v-if="publishMode === 1">
-            <el-text type="danger" style="height: 32px; line-height: 32px"
-              >* 选择服务配置(建议选择相同的服务器) *</el-text
-            >
+            <el-text type="danger" style="height: 32px; line-height: 32px">* 选择服务配置(建议选择相同的服务器) *</el-text>
           </el-col>
           <template v-if="publishMode === 1">
             <el-col :span="24">
-              <fieldset
-                class="form-server-fieldset pr10"
-                v-if="state.ruleForm.configItems.webApiHost.clientPath"
-              >
+              <fieldset class="form-server-fieldset pr10" v-if="state.ruleForm.configItems.webApiHost.clientPath">
                 <legend class="form-server-legend">{{ webApiHostName }}</legend>
-                <el-select
-                  class="mb10 mr10"
-                  placeholder="请选择发布服务器"
-                  size="default"
-                  v-model="publishLocalServer.webApiHost.serverId"
-                  @change="onWebApiHostChange"
-                >
-                  <el-option
-                    v-for="server in state.ruleForm.configItems.webApiHost.serverArr"
-                    :key="server.id"
-                    :label="server.name"
-                    :value="server.id"
-                  />
+                <el-select class="mb10 mr10" placeholder="请选择发布服务器" size="default"
+                  v-model="publishLocalServer.webApiHost.serverId" @change="onWebApiHostChange">
+                  <el-option v-for="server in state.ruleForm.configItems.webApiHost.serverArr" :key="server.id"
+                    :label="server.name" :value="server.id" />
                 </el-select>
                 <template v-if="publishLocalServer.webApiHost.serverId">
                   <template v-for="serverPath in webApiHostItems">
                     <el-col :span="24">
-                      <el-input
-                        placeholder="请输入服务标识"
-                        maxlength="200"
-                        class="mb5"
-                        v-if="serverPath.value && serverPath.value.length > 0"
-                        :value="serverPath.value[0].identity"
-                        :readonly="true"
-                      >
+                      <el-input placeholder="请输入服务标识" maxlength="200" class="mb5"
+                        v-if="serverPath.value && serverPath.value.length > 0" :value="serverPath.value[0].identity"
+                        :readonly="true">
                         <template #prepend>服务标识</template>
                       </el-input>
-                      <el-input
-                        placeholder="请输入发布路径"
-                        maxlength="200"
-                        v-if="serverPath.value && serverPath.value.length > 0"
-                        :value="serverPath.value[0].path"
-                        :readonly="true"
-                      >
+                      <el-input placeholder="请输入发布路径" maxlength="200"
+                        v-if="serverPath.value && serverPath.value.length > 0" :value="serverPath.value[0].path"
+                        :readonly="true">
                         <template #prepend>发布路径</template>
                       </el-input>
                     </el-col>
                   </template>
                 </template>
                 <view class="form-server-btn">
-                  <el-button
-                    size="small"
-                    type="danger"
-                    plain
-                    :disabled="state.dialog.submitTxt === '生成中'"
-                    @click="clearWebApiHost"
-                    >移除</el-button
-                  >
+                  <el-button size="small" type="danger" plain :disabled="state.dialog.submitTxt === '生成中'"
+                    @click="clearWebApiHost">移除</el-button>
                 </view>
               </fieldset>
 
-              <fieldset
-                class="form-server-fieldset pr10"
-                v-if="state.ruleForm.configItems.scheduleServer.clientPath"
-              >
+              <fieldset class="form-server-fieldset pr10" v-if="state.ruleForm.configItems.scheduleServer.clientPath">
                 <legend class="form-server-legend">
                   {{ scheduleServerName }}
                 </legend>
-                <el-select
-                  class="mb10 mr10"
-                  placeholder="请选择发布服务器"
-                  size="default"
-                  v-model="publishLocalServer.scheduleServer.serverId"
-                  @change="onScheduleServerChange"
-                >
-                  <el-option
-                    v-for="server in state.ruleForm.configItems.scheduleServer.serverArr"
-                    :key="server.id"
-                    :label="server.name"
-                    :value="server.id"
-                  />
+                <el-select class="mb10 mr10" placeholder="请选择发布服务器" size="default"
+                  v-model="publishLocalServer.scheduleServer.serverId" @change="onScheduleServerChange">
+                  <el-option v-for="server in state.ruleForm.configItems.scheduleServer.serverArr" :key="server.id"
+                    :label="server.name" :value="server.id" />
                 </el-select>
                 <template v-if="publishLocalServer.scheduleServer.serverId">
                   <template v-for="serverPath in scheduleServerItems">
                     <el-col :span="24">
-                      <el-input
-                        placeholder="请输入服务标识"
-                        maxlength="200"
-                        class="mb5"
-                        v-if="serverPath.value && serverPath.value.length > 0"
-                        :value="serverPath.value[0].identity"
-                        :readonly="true"
-                      >
+                      <el-input placeholder="请输入服务标识" maxlength="200" class="mb5"
+                        v-if="serverPath.value && serverPath.value.length > 0" :value="serverPath.value[0].identity"
+                        :readonly="true">
                         <template #prepend>服务标识</template>
                       </el-input>
-                      <el-input
-                        placeholder="请输入发布路径"
-                        maxlength="200"
-                        v-if="serverPath.value && serverPath.value.length > 0"
-                        :value="serverPath.value[0].path"
-                        :readonly="true"
-                      >
+                      <el-input placeholder="请输入发布路径" maxlength="200"
+                        v-if="serverPath.value && serverPath.value.length > 0" :value="serverPath.value[0].path"
+                        :readonly="true">
                         <template #prepend>发布路径</template>
                       </el-input>
                     </el-col>
                   </template>
                 </template>
                 <view class="form-server-btn">
-                  <el-button
-                    size="small"
-                    type="danger"
-                    plain
-                    :disabled="state.dialog.submitTxt === '生成中'"
-                    @click="clearScheduleServer"
-                    >移除</el-button
-                  >
+                  <el-button size="small" type="danger" plain :disabled="state.dialog.submitTxt === '生成中'"
+                    @click="clearScheduleServer">移除</el-button>
                 </view>
               </fieldset>
 
-              <fieldset
-                class="form-server-fieldset pr10"
-                v-if="state.ruleForm.configItems.webClient.clientPath"
-              >
+              <fieldset class="form-server-fieldset pr10" v-if="state.ruleForm.configItems.webClient.clientPath">
                 <legend class="form-server-legend">{{ webClientName }}</legend>
-                <el-select
-                  class="mb10 mr10"
-                  placeholder="请选择发布服务器"
-                  size="default"
-                  v-model="publishLocalServer.webClient.serverId"
-                  @change="onWebClientChange"
-                >
-                  <el-option
-                    v-for="server in state.ruleForm.configItems.webClient.serverArr"
-                    :key="server.id"
-                    :label="server.name"
-                    :value="server.id"
-                  />
+                <el-select class="mb10 mr10" placeholder="请选择发布服务器" size="default"
+                  v-model="publishLocalServer.webClient.serverId" @change="onWebClientChange">
+                  <el-option v-for="server in state.ruleForm.configItems.webClient.serverArr" :key="server.id"
+                    :label="server.name" :value="server.id" />
                 </el-select>
                 <template v-if="publishLocalServer.webClient.serverId">
                   <template v-for="serverPath in webClientItems">
                     <el-col :span="24">
-                      <el-input
-                        placeholder="请输入服务标识"
-                        maxlength="200"
-                        class="mb5"
-                        v-if="serverPath.value && serverPath.value.length > 0"
-                        :value="serverPath.value[0].identity"
-                        :readonly="true"
-                      >
+                      <el-input placeholder="请输入服务标识" maxlength="200" class="mb5"
+                        v-if="serverPath.value && serverPath.value.length > 0" :value="serverPath.value[0].identity"
+                        :readonly="true">
                         <template #prepend>服务标识</template>
                       </el-input>
-                      <el-input
-                        placeholder="请输入发布路径"
-                        maxlength="200"
-                        v-if="serverPath.value && serverPath.value.length > 0"
-                        :value="serverPath.value[0].path"
-                        :readonly="true"
-                      >
+                      <el-input placeholder="请输入发布路径" maxlength="200"
+                        v-if="serverPath.value && serverPath.value.length > 0" :value="serverPath.value[0].path"
+                        :readonly="true">
                         <template #prepend>发布路径</template>
                       </el-input>
                     </el-col>
                   </template>
                 </template>
                 <view class="form-server-btn">
-                  <el-button
-                    size="small"
-                    type="danger"
-                    plain
-                    :disabled="state.dialog.submitTxt === '生成中'"
-                    @click="clearWebClient"
-                    >移除</el-button
-                  >
+                  <el-button size="small" type="danger" plain :disabled="state.dialog.submitTxt === '生成中'"
+                    @click="clearWebClient">移除</el-button>
                 </view>
               </fieldset>
 
-              <fieldset
-                class="form-server-fieldset pr10"
-                v-if="state.ruleForm.configItems.spcMonitor.clientPath"
-              >
+              <fieldset class="form-server-fieldset pr10" v-if="state.ruleForm.configItems.spcMonitor.clientPath">
                 <legend class="form-server-legend">{{ spcMonitorName }}</legend>
-                <el-select
-                  class="mb10 mr10"
-                  placeholder="请选择发布服务器"
-                  size="default"
-                  v-model="publishLocalServer.spcMonitor.serverId"
-                  @change="onSpcMonitorChange"
-                >
-                  <el-option
-                    v-for="server in state.ruleForm.configItems.spcMonitor.serverArr"
-                    :key="server.id"
-                    :label="server.name"
-                    :value="server.id"
-                  />
+                <el-select class="mb10 mr10" placeholder="请选择发布服务器" size="default"
+                  v-model="publishLocalServer.spcMonitor.serverId" @change="onSpcMonitorChange">
+                  <el-option v-for="server in state.ruleForm.configItems.spcMonitor.serverArr" :key="server.id"
+                    :label="server.name" :value="server.id" />
                 </el-select>
                 <template v-if="publishLocalServer.spcMonitor.serverId">
                   <template v-for="serverPath in spcMonitorItems">
                     <el-col :span="24">
-                      <el-input
-                        placeholder="请输入服务标识"
-                        maxlength="200"
-                        class="mb5"
-                        v-if="serverPath.value && serverPath.value.length > 0"
-                        :value="serverPath.value[0].identity"
-                        :readonly="true"
-                      >
+                      <el-input placeholder="请输入服务标识" maxlength="200" class="mb5"
+                        v-if="serverPath.value && serverPath.value.length > 0" :value="serverPath.value[0].identity"
+                        :readonly="true">
                         <template #prepend>服务标识</template>
                       </el-input>
-                      <el-input
-                        placeholder="请输入发布路径"
-                        maxlength="200"
-                        v-if="serverPath.value && serverPath.value.length > 0"
-                        :value="serverPath.value[0].path"
-                        :readonly="true"
-                      >
+                      <el-input placeholder="请输入发布路径" maxlength="200"
+                        v-if="serverPath.value && serverPath.value.length > 0" :value="serverPath.value[0].path"
+                        :readonly="true">
                         <template #prepend>发布路径</template>
                       </el-input>
                     </el-col>
                   </template>
                 </template>
                 <view class="form-server-btn">
-                  <el-button
-                    size="small"
-                    type="danger"
-                    plain
-                    :disabled="state.dialog.submitTxt === '生成中'"
-                    @click="clearSpcMonitor"
-                    >移除</el-button
-                  >
+                  <el-button size="small" type="danger" plain :disabled="state.dialog.submitTxt === '生成中'"
+                    @click="clearSpcMonitor">移除</el-button>
                 </view>
               </fieldset>
 
-              <fieldset
-                class="form-server-fieldset pr10"
-                v-if="state.ruleForm.configItems.wpfClient.clientPath"
-              >
+              <fieldset class="form-server-fieldset pr10" v-if="state.ruleForm.configItems.wpfClient.clientPath">
                 <legend class="form-server-legend">{{ wpfClientName }}</legend>
-                <el-select
-                  class="mb10 mr10"
-                  placeholder="请选择发布服务器"
-                  size="default"
-                  v-model="publishLocalServer.wpfClient.serverId"
-                >
-                  <el-option
-                    :key="state.ruleForm.configItems.wpfClient.serverId"
+                <el-select class="mb10 mr10" placeholder="请选择发布服务器" size="default"
+                  v-model="publishLocalServer.wpfClient.serverId">
+                  <el-option :key="state.ruleForm.configItems.wpfClient.serverId"
                     :label="state.ruleForm.configItems.wpfClient.serverName"
-                    :value="state.ruleForm.configItems.wpfClient.serverId"
-                  />
+                    :value="state.ruleForm.configItems.wpfClient.serverId" />
                 </el-select>
                 <template v-if="publishLocalServer.wpfClient.serverId">
                   <el-col :span="24">
-                    <el-input
-                      placeholder="请选择生成目录"
-                      maxlength="200"
-                      class="mb5"
-                      v-if="state.ruleForm.configItems.wpfClient.generateDirJson"
-                      :value="
-                        JSON.parse(
-                          state.ruleForm.configItems.wpfClient.generateDirJson
-                        ).join('、')
-                      "
-                      :readonly="true"
-                    >
+                    <el-input placeholder="请选择生成目录" maxlength="200" class="mb5"
+                      v-if="state.ruleForm.configItems.wpfClient.generateDirJson" :value="JSON.parse(
+                        state.ruleForm.configItems.wpfClient.generateDirJson
+                      ).join('、')
+                        " :readonly="true">
                       <template #prepend>生成目录</template>
                     </el-input>
-                    <el-input
-                      placeholder="请输入发布路径"
-                      maxlength="200"
-                      :value="state.ruleForm.configItems.wpfClient.serverPath"
-                      :readonly="true"
-                    >
+                    <el-input placeholder="请输入发布路径" maxlength="200"
+                      :value="state.ruleForm.configItems.wpfClient.serverPath" :readonly="true">
                       <template #prepend>发布路径</template>
                     </el-input>
                   </el-col>
                 </template>
 
                 <view class="form-server-btn">
-                  <el-button
-                    size="small"
-                    type="danger"
-                    plain
-                    :disabled="state.dialog.submitTxt === '生成中'"
-                    @click="clearWpfClient"
-                    >移除</el-button
-                  >
+                  <el-button size="small" type="danger" plain :disabled="state.dialog.submitTxt === '生成中'"
+                    @click="clearWpfClient">移除</el-button>
                 </view>
               </fieldset>
             </el-col>
@@ -364,19 +194,9 @@
       </el-form>
       <template #footer>
         <span class="dialog-footer">
-          <el-button
-            @click="onCancel"
-            size="default"
-            :disabled="state.dialog.submitTxt === '生成中'"
-            >取 消</el-button
-          >
-          <el-button
-            type="primary"
-            size="default"
-            :loading="state.dialog.submitTxt === '生成中'"
-            @click="submitValidate(appconfigDialogFormRef)"
-            >{{ state.dialog.submitTxt }}</el-button
-          >
+          <el-button @click="onCancel" size="default" :disabled="state.dialog.submitTxt === '生成中'">取 消</el-button>
+          <el-button type="primary" size="default" :loading="state.dialog.submitTxt === '生成中'"
+            @click="submitValidate(appconfigDialogFormRef)">{{ state.dialog.submitTxt }}</el-button>
         </span>
       </template>
     </el-dialog>
@@ -395,6 +215,7 @@ import { aesEncrypt } from "@/utils/other";
 import { useServerDb } from "@/database/servers/index";
 import { useProjectDb } from "@/database/project/index";
 import { useTfsDb } from "@/database/teamFoundationServer/index";
+import { useGitDb } from "@/database/git/index";
 import { formatDate } from "@/utils/formatTime";
 import { outPublishContents } from "@/utils/outPublishInfo";
 import { getDefaultSubObject, removeSlash, displayEnvironment } from "@/utils/other";
@@ -410,6 +231,7 @@ const props = defineProps({
 // 引入应用配置管理数据库
 const projectDb = useProjectDb();
 const tfsDb = useTfsDb();
+const gitDb = useGitDb();
 const serverDb = useServerDb();
 
 // 定义变量内容
@@ -950,7 +772,7 @@ const generateLocalPublish = async () => {
           localPublishConfig.scheduleServer.serverAccount = serverInfo.account;
           localPublishConfig.scheduleServer.serverPwd = await aesEncrypt(serverInfo.pwd);
         }
-        
+
         localPublishConfig.scheduleServer.serverConfigs = [] as PublishServerConfigType[];
         const scheduleServerFiles = await getReadAllDlls(`${rPublishDir}/ScheduleServer`);
         let sFiles = new Array<string>();
@@ -1281,7 +1103,7 @@ const generateRemotePublish = async () => {
     for (let i = 0; i < state.ruleForm.configItems.scheduleServer.serverArr.length; i++) {
       const scheduleServer = state.ruleForm.configItems.scheduleServer.serverArr[i];
       if (!scheduleServer.id || !scheduleServer.serverPathArr || scheduleServer.serverPathArr.length < 1) continue;
-      
+
       let serverConfigs = new Array<PublishServerConfigType>();
       const scheduleServerFiles = await getReadAllDlls(`${rPublishDir}/ScheduleServer`);
       let scheduleFiles = new Array<string>();
@@ -1291,7 +1113,7 @@ const generateRemotePublish = async () => {
         const pathFile = removeSlash(scheduleServerFile);
         scheduleFiles.push(pathFile.substring(pathFile.lastIndexOf("/") + 1));
       }
-      
+
       // 遍历服务器的所有路径配置
       for (let j = 0; j < scheduleServer.serverPathArr.length; j++) {
         const scheduleServerPath = scheduleServer.serverPathArr[j];
@@ -1307,7 +1129,7 @@ const generateRemotePublish = async () => {
           }
         }
       }
-      
+
       const scheduleServerInfo = await getServerDetail(
         Number(scheduleServer.id)
       );
@@ -1553,6 +1375,7 @@ const copyAssemblyFile = async (
       msg: "success",
       data: null,
     };
+    console.log('dhaishdiashd')
     if (state.ruleForm.dllMode == "TFS") {
       if (!state.ruleForm.dllModeValue) {
         ElMessage.error(`未配置TFS获取程序集的相关信息，请检查.`);
@@ -1569,7 +1392,26 @@ const copyAssemblyFile = async (
         });
         if (copyResult.code !== 0) break;
       }
-    } else {
+    }
+    else if (state.ruleForm.dllMode == "Git") {
+      if (!state.ruleForm.dllModeValue) {
+        ElMessage.error(`未配置Git获取程序集的相关信息，请检查.`);
+        return false;
+      }
+      console.log('bushibagemen')
+      const selectGitItem = JSON.parse(state.ruleForm.dllModeValue) as SelectGitType;
+      const tfsDllFiles = await getGitDllFiles(selectGitItem);
+      if (!tfsDllFiles || tfsDllFiles.length < 1) return false;
+      for (let o = 0; o < tfsDllFiles.length; o++) {
+        const tfsDllFile = tfsDllFiles[o];
+        copyResult = await cmdInvoke("copy_path", {
+          source: `${clientPath}/${tfsDllFile}`,
+          destination: `${removeSlash(outPath)}/${tfsDllFile}`,
+        });
+        if (copyResult.code !== 0) break;
+      }
+    }
+    else {
       let dllModeDateRange = getDllModeDateRange();
       if (dllModeDateRange.length < 1) {
         copyResult = await cmdInvoke("copy_dll_files", {
@@ -1703,6 +1545,97 @@ const getTfsDetail = async (id: number) => {
     return null;
   }
   return dataResult.data.data;
+};
+
+// 查询Tfs信息
+const getGitDetail = async (id: number) => {
+  let dataResult = await gitDb.getGitById(id);
+  if (dataResult.code !== 0) {
+    console.error(dataResult.msg);
+    return null;
+  }
+  return dataResult.data.data;
+};
+
+/**
+ * 根据选择的Git项获取相关的DLL文件列表
+ * @param selectGitItem 选择的Git项
+ * @returns DLL文件列表
+ */
+const getGitDllFiles = async (selectGitItem: SelectGitType) => {
+  // 获取Git详情
+  const gitItem = await getGitDetail(Number(selectGitItem.id));
+  if (!gitItem) return null;
+
+  // 构造命令行
+  let execArgs = new Array<string | null>();
+  execArgs.push("log");
+  execArgs.push("--pretty=format:%H|%an|%ae|%ad|%s"); // 格式化输出
+  execArgs.push("--name-status"); // 包含文件变更状态
+
+  if (selectGitItem.selectModel === "日期") {
+    const bDate = new Date(selectGitItem.selectValue[0].value);
+    const beginDate = formatDate(bDate, "YYYY-mm-ddTHH:MM:SS");
+    let endDate = "";
+    if (selectGitItem.selectValue[1].value) {
+      const eDate = new Date(selectGitItem.selectValue[1].value);
+      endDate = formatDate(eDate, "YYYY-mm-ddTHH:MM:SS");
+    }
+    execArgs.push(`--since=${beginDate}`);
+    if (endDate) {
+      execArgs.push(`--until=${endDate}`);
+    }
+  }
+  if (selectGitItem.selectModel === "commit") {
+    const startSha = selectGitItem.selectValue[0].value;
+    const endSha = selectGitItem.selectValue[1].value;
+    // 如果只填写了起始SHA，则查询从该SHA到HEAD的所有提交（包含起始SHA）
+    if (startSha && !endSha) {
+      execArgs.push(`${startSha}..HEAD`);
+    }
+    // 如果填写了起始和结束SHA，则查询范围（包含起始SHA和结束SHA）
+    else if (startSha && endSha) {
+      execArgs.push(`${startSha}^..${endSha}`);
+    }
+    // 如果只填写了结束SHA（理论上不应该发生）
+    else if (!startSha && endSha) {
+      execArgs.push(endSha);
+    }
+  }
+  execArgs.push(gitItem.branchName);
+  const execResult = await cmdInvoke("execute_local_command_with_working_dir", {
+    command: gitItem.gitPath,
+    args: execArgs,
+    workingDir: gitItem.gitRepository
+  });
+
+  if (execResult.code !== 0) {
+    console.error(`Git命令执行失败：${execResult.data}`);
+    return null;
+  }
+  console.log('wocenidema')
+  console.log(execResult.data)
+
+  const tfsItems = execResult.data.map((line: string) => {
+    // 分割tab分隔的行，取路径部分
+    const parts = line.trim().split("|");
+    return parts.length > 1 ? parts[1] : '';
+  }); // 过滤空路径
+
+  let dllFiles = new Array<string>();
+  const regex = new RegExp(`(SIE\.[^/]+)|([^/]+)\\.csproj$`);
+  for (let i = 0; i < tfsItems.length; i++) {
+    const tfsItem = tfsItems[i];
+    const matches = regex.exec(tfsItem);
+    if (!matches) continue;
+    if (matches.length > 0) {
+      let dllName = matches[0];
+      if (dllName.endsWith(".csproj"))
+        dllName = dllName.slice(0, -".csproj".length);
+      dllFiles.push(dllName + ".dll");
+    }
+  }
+  return [...new Set(dllFiles)];
 };
 
 // 创建目录

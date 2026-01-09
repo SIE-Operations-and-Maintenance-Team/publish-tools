@@ -488,6 +488,7 @@ import { useProjectDb } from "@/database/project/index";
 import { useAppconfigDb } from "@/database/appconfig/index";
 import { useServerDb } from "@/database/servers/index";
 import { useTfsDb } from "@/database/teamFoundationServer/index";
+import { useGitDb } from "@/database/git/index";
 import { useBackupDb } from "@/database/backups/index";
 import {
   displayEnvironment,
@@ -514,6 +515,7 @@ const projectDb = useProjectDb();
 const appconfigDb = useAppconfigDb();
 const serverDb = useServerDb();
 const tfsDb = useTfsDb();
+const gitDb = useGitDb();
 const backupDb = useBackupDb();
 
 // 引入组件
@@ -2733,7 +2735,28 @@ const copyAssemblyFile = async (
         });
         if (copyResult.code !== 0) break;
       }
-    } else {
+    } else if (state.publishData.appconfigData.dllMode == "Git") {
+      if (!state.publishData.appconfigData.dllModeValue) {
+        printInfoLog(`未配置Git获取程序集的相关信息，请检查.`, "log-error");
+        return false;
+      }
+      const selectGitItem = JSON.parse(
+        state.publishData.appconfigData.dllModeValue
+      ) as SelectGitType;
+      const gitDllFiles = await getGitDllFiles(selectGitItem);
+      console.log('gitDllFiles', gitDllFiles);
+      if (!gitDllFiles || gitDllFiles.length < 1) return false;
+      for (let o = 0; o < gitDllFiles.length; o++) {
+        const gitDllFile = gitDllFiles[o];
+        const clientPath = removeSlash(appConfig.clientPath);
+        copyResult = await cmdInvoke("copy_path", {
+          source: `${clientPath}/${gitDllFile}`,
+          destination: `${removeSlash(outPath)}/${gitDllFile}`,
+        });
+        if (copyResult.code !== 0) break;
+      }
+    }
+    else {
       let dllModeDateRange = getDllModeDateRange();
       if (dllModeDateRange.length < 1) {
         copyResult = await cmdInvoke("copy_dll_files", {
@@ -2853,7 +2876,7 @@ const getTfsDllFiles = async (selectTfsItem: SelectTfsType) => {
       generatePublishLog.value.logs = generateResult.msg;
     }
   }
-
+  console.log('generatePublishLog.value.data', generatePublishLog.value.data);
   // 筛选变更项
   const lines = generatePublishLog.value.data.split("\n");
   const filteredPaths = lines.filter((line: string) => {
@@ -2877,9 +2900,158 @@ const getTfsDllFiles = async (selectTfsItem: SelectTfsType) => {
   return [...new Set(dllFiles)];
 };
 
+// 构造Git命令
+const getGitDllFiles = async (selectGitItem: SelectGitType) => {
+  const gitItem = await getGitDetail(Number(selectGitItem.id));
+  // console.log('gitItem', gitItem)
+  if (!gitItem) return null;
+  if (!generatePublishLog.value.data) {
+    // Git命令执行
+    let execArgs = new Array<string | null>();
+    execArgs.push("log");
+    execArgs.push("--pretty=format:%H|%an|%ae|%ad|%s"); // 格式化输出
+    execArgs.push("--name-status"); // 包含文件变更状态
+    if (selectGitItem.selectModel === "日期") {
+      const bDate = new Date(selectGitItem.selectValue[0].value);
+      const beginDate = formatDate(bDate, "DYYYY-mm-ddTHH:MM:SS");
+      let endDate = "";
+      if (selectGitItem.selectValue[1].value) {
+        const eDate = new Date(selectGitItem.selectValue[1].value);
+        endDate = formatDate(eDate, "DYYYY-mm-ddTHH:MM:SS");
+      }
+      execArgs.push(`--since=${beginDate}`);
+      execArgs.push(`--until=${endDate}`);
+    }
+    if (selectGitItem.selectModel === "commit") {
+
+      const startSha = selectGitItem.selectValue[0].value;
+      const endSha = selectGitItem.selectValue[1].value;
+
+      // 如果只填写了起始SHA，则查询从该SHA到HEAD的所有提交（包含起始SHA）
+      if (startSha && !endSha) {
+        execArgs.push(`${startSha}..HEAD`);
+      }
+      // 如果填写了起始和结束SHA，则查询范围（包含起始SHA和结束SHA）
+      else if (startSha && endSha) {
+        execArgs.push(`${startSha}^..${endSha}`);
+      }
+      // 如果只填写了结束SHA（理论上不应该发生）
+      else if (!startSha && endSha) {
+        execArgs.push(endSha);
+      }
+    }
+    // console.log('execArgs', execArgs)
+    execArgs.push(gitItem.branchName);
+    const execResult = await cmdInvoke("execute_local_command_with_working_dir", {
+      command: gitItem.gitPath,
+      args: execArgs,
+      workingDir: gitItem.gitRepository
+    });
+    console.log('execResult', execResult)
+    if (execResult.code !== 0) {
+      printInfoLog(`Git命令执行失败：${execResult.data}`, "log-error");
+      return null;
+    }
+    generatePublishLog.value.data = execResult.data;
+  }
+
+  // 生成发布日志
+  if (generatePublishLog.value.isEnable) {
+    let generateResult: DataResultType = {
+      code: 1,
+      msg: "success",
+      data: null,
+    };
+    switch (generatePublishLog.value.type) {
+      case "仅发布内容":
+        generateResult = await outPublishContents(
+          generatePublishLog.value.data,
+          projectAssemblyOutPath.value
+        );
+        break;
+      case "按日期":
+        generateResult = await outPublishContentByDates(
+          generatePublishLog.value.data,
+          generatePublishLog.value.displayPublishField,
+          projectAssemblyOutPath.value
+        );
+        break;
+      case "按用户":
+        generateResult = await outPublishContentByUsers(
+          generatePublishLog.value.data,
+          generatePublishLog.value.displayPublishField,
+          projectAssemblyOutPath.value
+        );
+        break;
+      default:
+        generateResult = await outDetaultPublishContents(
+          generatePublishLog.value.data,
+          generatePublishLog.value.displayPublishField,
+          projectAssemblyOutPath.value
+        );
+        break;
+    }
+    if (generateResult.code === 0) {
+      generatePublishLog.value.logs = generateResult.msg;
+    }
+  }
+  // console.log('generatePublishLog.value.data', generatePublishLog.value.data);
+  // 筛选变更项
+  const lines = generatePublishLog.value.data.split("\n");
+
+  // 解析 Git 日志，提取文件变更部分
+  let gitItems: string[] = [];
+  // 根据提供的Git日志格式，解析包含提交信息和文件变更的格式
+  let currentLineIndex = 0;
+  while (currentLineIndex < lines.length) {
+    const line = lines[currentLineIndex];
+    // 匹配提交哈希、作者、邮箱、日期和提交信息的格式
+    if (/^[a-f0-9]{40}\|/.test(line)) {
+      // 这是包含提交信息的一行，跳过
+    } else if (line.trim() && !line.startsWith('commit') && !line.startsWith('Author:') && !line.startsWith('Date:')) {
+      // 这可能是文件变更行，格式如：M	Modules/Common/Items/SIE.Items/Items/ItemController.cs
+      const fileChangeMatch = line.match(/^([MAD])\s+(.+)$/);
+      if (fileChangeMatch) {
+        gitItems.push(fileChangeMatch[2].trim());
+      }
+    }
+    currentLineIndex++;
+  }
+  console.log('gitItems', gitItems);
+  let dllFiles = new Array<string>();
+  console.log('bb');
+  console.log('ccccc');
+  const regex = new RegExp(`(SIE\\.[^/\\\\]+)|([^/\\\\]+)\\.csproj$`);
+  console.log('bushigemen')
+  for (let i = 0; i < gitItems.length; i++) {
+    console.log('wocenidema');
+    const aa = gitItems[i];
+    console.log('aa', aa);
+    const matches = regex.exec(aa);
+    console.log('matches', matches);
+    if (!matches) continue;
+    if (matches.length > 0) {
+      let dllName = matches[0];
+      if (dllName.endsWith(".csproj")) dllName = dllName.slice(0, -".csproj".length);
+      dllFiles.push(dllName + ".dll");
+    }
+  }
+  return [...new Set(dllFiles)];
+};
+
 // 查询Tfs信息
 const getTfsDetail = async (id: number) => {
   let dataResult = await tfsDb.getTfsById(id);
+  if (dataResult.code !== 0) {
+    printInfoLog(dataResult.msg, "log-error");
+    return null;
+  }
+  return dataResult.data.data;
+};
+
+// 查询Git信息
+const getGitDetail = async (id: number) => {
+  let dataResult = await gitDb.getGitById(id);
   if (dataResult.code !== 0) {
     printInfoLog(dataResult.msg, "log-error");
     return null;
@@ -2980,13 +3152,13 @@ const showDllMode = () => {
     } else {
       modelName += "latest";
     }
-  } 
-  // else if (modelName == "Git") {
-  //   const selectGitItem = JSON.parse(
-  //     String(state.publishData.appconfigData.dllModeValue)
-  //   ) as SelectGitType;
-  //   modelName += `：${selectGitItem.gitName}；分支：${selectGitItem.branchName}`;
-  // }
+  }
+  else if (modelName == "Git") {
+    // const selectGitItem = JSON.parse(
+    //   String(state.publishData.appconfigData.dllModeValue)
+    // ) as SelectGitType;
+    // modelName += `：${selectGitItem.gitName}；分支：${selectGitItem.branchName}`;
+  }
   return modelName;
 };
 

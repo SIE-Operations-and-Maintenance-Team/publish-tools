@@ -1,47 +1,21 @@
 <template>
   <div class="appconfig-container">
-    <el-dialog
-      v-model="state.dialog.show"
-      :title="state.dialog.title"
-      :close-on-click-modal="false"
-      modal-class="appconfig-dialog"
-      draggable
-      width="680px"
-    >
-      <el-form
-        ref="appconfigDialogFormRef"
-        size="default"
-        label-width="100px"
-        :model="state.ruleForm"
-        :rules="formRules"
-        :disabled="formDisabled"
-      >
+    <el-dialog v-model="state.dialog.show" :title="state.dialog.title" :close-on-click-modal="false"
+      modal-class="appconfig-dialog" draggable width="680px">
+      <el-form ref="appconfigDialogFormRef" size="default" label-width="100px" :model="state.ruleForm"
+        :rules="formRules" :disabled="formDisabled">
         <el-row :gutter="10">
           <el-col :span="24">
             <el-form-item label="项目管理" prop="projectId">
-              <el-select
-                filterable
-                placeholder="请选择项目管理"
-                size="default"
-                v-model="state.ruleForm.projectId"
-                @change="onProjectChange"
-              >
-                <el-option
-                  v-for="project in projectList"
-                  :key="project.id"
-                  :label="project.name"
-                  :value="project.id"
-                />
+              <el-select filterable placeholder="请选择项目管理" size="default" v-model="state.ruleForm.projectId"
+                @change="onProjectChange">
+                <el-option v-for="project in projectList" :key="project.id" :label="project.name" :value="project.id" />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="24">
             <div class="form-item-env">
-              <el-radio-group
-                size="default"
-                @change="onEnvironmentChange"
-                v-model="state.ruleForm.environment"
-              >
+              <el-radio-group size="default" @change="onEnvironmentChange" v-model="state.ruleForm.environment">
                 <el-radio border :value="1">Dev</el-radio>
                 <el-radio border :value="2">Uat</el-radio>
                 <el-radio border :value="3">Pro</el-radio>
@@ -51,11 +25,8 @@
           </el-col>
           <el-col :span="24">
             <div class="form-item-version">
-              <el-checkbox
-                v-model="state.ruleForm.configItems.isNewVersion"
-                label="是否 10.2+ 版本"
-                @change="onIsNewVersionChange"
-              />
+              <el-checkbox v-model="state.ruleForm.configItems.isNewVersion" label="是否 10.2+ 版本"
+                @change="onIsNewVersionChange" />
               <p class="version-remark">
                 提示：SMOM 10.2
                 版本之后，项目工程框架已升级至.NET6+，WpfClient发布方式和之前版本有所不同。
@@ -64,75 +35,52 @@
           </el-col>
           <el-col :span="9" class="mb15">
             <el-form-item label-width="100" label="获取dll方式" prop="dllMode">
-              <el-select
-                v-model="state.ruleForm.dllMode"
-                placeholder="请选择dll获取方式"
-                @change="onDllModeChange"
-              >
+              <el-select v-model="state.ruleForm.dllMode" placeholder="请选择dll获取方式" @change="onDllModeChange">
                 <el-option label="全部" value="全部" />
                 <el-option label="当天" value="当天" />
                 <el-option label="最近3天" value="最近3天" />
                 <el-option label="日期范围" value="日期范围" />
                 <el-option label="TFS" value="TFS" />
+                <el-option label="Git" value="Git" />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="15" class="mb15" v-show="state.ruleForm.dllMode === '日期范围'">
             <el-form-item label-width="0" prop="dllModeValue">
-              <el-date-picker
-                v-model="dllModeDate"
-                type="datetimerange"
-                range-separator="~"
-                start-placeholder="起始日期"
-                end-placeholder="截止日期"
-                @change="onDllModeDateChange"
-              />
+              <el-date-picker v-model="dllModeDate" type="datetimerange" range-separator="~" start-placeholder="起始日期"
+                end-placeholder="截止日期" @change="onDllModeDateChange" />
             </el-form-item>
           </el-col>
           <el-col :span="15" class="mb15" v-show="state.ruleForm.dllMode === 'TFS'">
             <el-form-item label-width="0" prop="tfsId">
-              <el-select
-                filterable
-                placeholder="请选择TFS"
-                size="default"
-                v-model="selectTfsItem.id"
-                @change="onTfsChange"
-              >
-                <el-option
-                  v-for="tfs in tfsList"
-                  :key="tfs.id"
-                  :label="tfs.tfsName"
-                  :value="tfs.id"
-                />
+              <el-select filterable placeholder="请选择TFS" size="default" v-model="selectTfsItem.id"
+                @change="onTfsChange">
+                <el-option v-for="tfs in tfsList" :key="tfs.id" :label="tfs.tfsName" :value="tfs.id" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="15" class="mb15" v-show="state.ruleForm.dllMode === 'Git'">
+            <el-form-item label-width="0" prop="gitId">
+              <el-select filterable placeholder="请选择Git" size="default" v-model="selectGitItem.id"
+                @change="onGitChange">
+                <el-option v-for="git in gitList" :key="git.id" :label="git.gitName" :value="git.id" />
               </el-select>
             </el-form-item>
           </el-col>
           <template v-if="state.ruleForm.dllMode === 'TFS' && selectTfsItem.id">
             <el-col :span="6" class="mb15" style="text-align: right">
-              <el-radio-group
-                v-model="selectTfsItem.selectModel"
-                @change="onSelectModelChange"
-              >
+              <el-radio-group v-model="selectTfsItem.selectModel" @change="onSelectTfsModelChange">
                 <el-radio-button label="日期" value="日期" />
                 <el-radio-button label="变更集" value="变更集" />
               </el-radio-group>
             </el-col>
             <el-col :span="8" class="mb10">
               <el-form-item label-width="0px">
-                <el-date-picker
-                  class="w100"
-                  v-if="selectTfsItem.selectModel === '日期'"
-                  v-model="selectTfsItem.selectValue[0].value"
-                  type="datetime"
-                  :placeholder="selectTfsItem.selectValue[0].placeholder"
-                />
-                <el-input
-                  v-else
-                  v-model="selectTfsItem.selectValue[0].value"
-                  :placeholder="selectTfsItem.selectValue[0].placeholder"
-                  maxlength="150"
-                  clearable
-                ></el-input>
+                <el-date-picker class="w100" v-if="selectTfsItem.selectModel === '日期'"
+                  v-model="selectTfsItem.selectValue[0].value" type="datetime"
+                  :placeholder="selectTfsItem.selectValue[0].placeholder" />
+                <el-input v-else v-model="selectTfsItem.selectValue[0].value"
+                  :placeholder="selectTfsItem.selectValue[0].placeholder" maxlength="150" clearable></el-input>
               </el-form-item>
             </el-col>
             <el-col :span="1" class="mb10">
@@ -140,29 +88,46 @@
             </el-col>
             <el-col :span="9" class="mb10">
               <el-form-item label-width="0px">
-                <el-date-picker
-                  class="w100"
-                  v-if="selectTfsItem.selectModel === '日期'"
-                  v-model="selectTfsItem.selectValue[1].value"
-                  type="datetime"
-                  :placeholder="selectTfsItem.selectValue[1].placeholder"
-                />
-                <el-input
-                  v-else
-                  v-model="selectTfsItem.selectValue[1].value"
-                  :placeholder="selectTfsItem.selectValue[1].placeholder"
-                  maxlength="150"
-                  clearable
-                ></el-input>
+                <el-date-picker class="w100" v-if="selectTfsItem.selectModel === '日期'"
+                  v-model="selectTfsItem.selectValue[1].value" type="datetime"
+                  :placeholder="selectTfsItem.selectValue[1].placeholder" />
+                <el-input v-else v-model="selectTfsItem.selectValue[1].value"
+                  :placeholder="selectTfsItem.selectValue[1].placeholder" maxlength="150" clearable></el-input>
               </el-form-item>
             </el-col>
           </template>
-          <el-tooltip
-            content="选择 *.sln 解决方案文件 ==> 解析生成路径"
-            placement="right"
-            effect="light"
-            v-if="formDisabled == false"
-          >
+          <!-- Git 配置项 -->
+          <template v-if="state.ruleForm.dllMode === 'Git' && selectGitItem.id">
+            <el-col :span="6" class="mb15" style="text-align: right">
+              <el-radio-group v-model="selectGitItem.selectModel" @change="onSelectGitModelChange">
+                <el-radio-button label="日期" value="日期" />
+                <el-radio-button label="变更集" value="变更集" />
+              </el-radio-group>
+            </el-col>
+            <el-col :span="8" class="mb10">
+              <el-form-item label-width="0px">
+                <el-date-picker class="w100" v-if="selectGitItem.selectModel === '日期'"
+                  v-model="selectGitItem.selectValue[0].value" type="datetime"
+                  :placeholder="selectGitItem.selectValue[0].placeholder" />
+                <el-input v-else v-model="selectGitItem.selectValue[0].value"
+                  :placeholder="selectGitItem.selectValue[0].placeholder" maxlength="150" clearable></el-input>
+              </el-form-item>
+            </el-col>
+            <el-col :span="1" class="mb10">
+              <div class="range-separator">~</div>
+            </el-col>
+            <el-col :span="9" class="mb10">
+              <el-form-item label-width="0px">
+                <el-date-picker class="w100" v-if="selectGitItem.selectModel === '日期'"
+                  v-model="selectGitItem.selectValue[1].value" type="datetime"
+                  :placeholder="selectGitItem.selectValue[1].placeholder" />
+                <el-input v-else v-model="selectGitItem.selectValue[1].value"
+                  :placeholder="selectGitItem.selectValue[1].placeholder" maxlength="150" clearable></el-input>
+              </el-form-item>
+            </el-col>
+          </template>
+          <el-tooltip content="选择 *.sln 解决方案文件 ==> 解析生成路径" placement="right" effect="light"
+            v-if="formDisabled == false">
             <div class="form-select-file" @click="onSlnFileChange">
               <el-icon>
                 <Files />
@@ -174,82 +139,39 @@
           <el-tab-pane label="WebApiHost">
             <el-row :gutter="10">
               <el-col :span="24" class="mb15">
-                <el-form-item
-                  label-width="135"
-                  label="客户端生成路径"
-                  prop="configItems.webApiHost.clientPath"
-                  :rules="[
-                    {
-                      required: false,
-                      message: '请输入客户端生成路径！',
-                      trigger: ['blur'],
-                    },
-                  ]"
-                >
-                  <el-input
-                    v-model="state.ruleForm.configItems.webApiHost.clientPath"
-                    placeholder="请输入客户端生成路径"
-                    maxlength="450"
-                    clearable
-                  ></el-input>
+                <el-form-item label-width="135" label="客户端生成路径" prop="configItems.webApiHost.clientPath" :rules="[
+                  {
+                    required: false,
+                    message: '请输入客户端生成路径！',
+                    trigger: ['blur'],
+                  },
+                ]">
+                  <el-input v-model="state.ruleForm.configItems.webApiHost.clientPath" placeholder="请输入客户端生成路径"
+                    maxlength="450" clearable></el-input>
                 </el-form-item>
               </el-col>
               <el-col :span="24">
                 <el-form-item label-width="135" label="应用服务器">
-                  <el-select
-                    filterable
-                    v-model="state.ruleForm.configItems.webApiHost.serverIds"
-                    multiple
-                    placeholder="请选择应用服务器"
-                    size="default"
-                    @change="onWebApiServerChange"
-                  >
-                    <el-option
-                      v-for="server in serverList"
-                      :key="server.id"
-                      :label="server.name"
-                      :value="server.id"
-                    />
+                  <el-select filterable v-model="state.ruleForm.configItems.webApiHost.serverIds" multiple
+                    placeholder="请选择应用服务器" size="default" @change="onWebApiServerChange">
+                    <el-option v-for="server in serverList" :key="server.id" :label="server.name" :value="server.id" />
                   </el-select>
                 </el-form-item>
               </el-col>
             </el-row>
-            <fieldset
-              class="form-server-fieldset"
-              v-for="(webApiServer, apiIndex) in state.ruleForm.configItems.webApiHost
-                .serverArr"
-              :key="apiIndex"
-            >
+            <fieldset class="form-server-fieldset" v-for="(webApiServer, apiIndex) in state.ruleForm.configItems.webApiHost
+              .serverArr" :key="apiIndex">
               <legend class="form-server-legend">{{ webApiServer.name }}</legend>
               <el-row>
-                <template
-                  v-for="(serverPath, index) in webApiServer.serverPathArr"
-                  :key="index"
-                >
-                  <el-col
-                    :span="22"
-                    :class="webApiServer.serverPathArr.length - 1 === index ? '' : 'mb15'"
-                  >
+                <template v-for="(serverPath, index) in webApiServer.serverPathArr" :key="index">
+                  <el-col :span="22" :class="webApiServer.serverPathArr.length - 1 === index ? '' : 'mb15'">
                     <el-form-item label-width="0" :label="serverPath.label">
-                      <template
-                        v-for="(serverVal, valIndex) in serverPath.value"
-                        :key="valIndex"
-                      >
-                        <el-input
-                          v-model="serverVal.identity"
-                          placeholder="请输入服务标识"
-                          maxlength="200"
-                          clearable
-                          class="mb5"
-                        >
+                      <template v-for="(serverVal, valIndex) in serverPath.value" :key="valIndex">
+                        <el-input v-model="serverVal.identity" placeholder="请输入服务标识" maxlength="200" clearable
+                          class="mb5">
                           <template #prepend>服务标识</template>
                         </el-input>
-                        <el-input
-                          v-model="serverVal.path"
-                          placeholder="请输入发布路径"
-                          maxlength="200"
-                          clearable
-                        >
+                        <el-input v-model="serverVal.path" placeholder="请输入发布路径" maxlength="200" clearable>
                           <template #prepend>发布路径</template>
                         </el-input>
                       </template>
@@ -257,22 +179,12 @@
                   </el-col>
                   <el-col :span="2" v-if="formDisabled === false">
                     <div class="server-path-plus pt22">
-                      <el-icon
-                        v-if="index === 0 && webApiServer.serverPathArr.length < 10"
-                        title="新增"
-                        color="#A8ABB2"
-                        :size="26"
-                        @click="addServerPath(webApiServer)"
-                      >
+                      <el-icon v-if="index === 0 && webApiServer.serverPathArr.length < 10" title="新增" color="#A8ABB2"
+                        :size="26" @click="addServerPath(webApiServer)">
                         <CirclePlus />
                       </el-icon>
-                      <el-icon
-                        v-else
-                        title="移除"
-                        color="#F56C6C"
-                        :size="26"
-                        @click="removeServerPath(webApiServer, index)"
-                      >
+                      <el-icon v-else title="移除" color="#F56C6C" :size="26"
+                        @click="removeServerPath(webApiServer, index)">
                         <Remove />
                       </el-icon>
                     </div>
@@ -284,82 +196,39 @@
           <el-tab-pane label="ScheduleServer">
             <el-row :gutter="10">
               <el-col :span="24" class="mb15">
-                <el-form-item
-                  label-width="135"
-                  label="客户端生成路径"
-                  prop="configItems.scheduleServer.clientPath"
-                  :rules="[
-                    {
-                      required: false,
-                      message: '请输入客户端生成路径！',
-                      trigger: ['blur'],
-                    },
-                  ]"
-                >
-                  <el-input
-                    v-model="state.ruleForm.configItems.scheduleServer.clientPath"
-                    placeholder="请输入客户端生成路径"
-                    maxlength="450"
-                    clearable
-                  ></el-input>
+                <el-form-item label-width="135" label="客户端生成路径" prop="configItems.scheduleServer.clientPath" :rules="[
+                  {
+                    required: false,
+                    message: '请输入客户端生成路径！',
+                    trigger: ['blur'],
+                  },
+                ]">
+                  <el-input v-model="state.ruleForm.configItems.scheduleServer.clientPath" placeholder="请输入客户端生成路径"
+                    maxlength="450" clearable></el-input>
                 </el-form-item>
               </el-col>
               <el-col :span="24">
                 <el-form-item label-width="135" label="应用服务器">
-                  <el-select
-                    filterable
-                    v-model="state.ruleForm.configItems.scheduleServer.serverIds"
-                    multiple
-                    placeholder="请选择应用服务器"
-                    size="default"
-                    @change="onScheduleServerChange"
-                  >
-                    <el-option
-                      v-for="server in serverList"
-                      :key="server.id"
-                      :label="server.name"
-                      :value="server.id"
-                    />
+                  <el-select filterable v-model="state.ruleForm.configItems.scheduleServer.serverIds" multiple
+                    placeholder="请选择应用服务器" size="default" @change="onScheduleServerChange">
+                    <el-option v-for="server in serverList" :key="server.id" :label="server.name" :value="server.id" />
                   </el-select>
                 </el-form-item>
               </el-col>
             </el-row>
-            <fieldset
-              class="form-server-fieldset"
-              v-for="(scheduleServer, scheduleIndex) in state.ruleForm.configItems
-                .scheduleServer.serverArr"
-              :key="scheduleIndex"
-            >
+            <fieldset class="form-server-fieldset" v-for="(scheduleServer, scheduleIndex) in state.ruleForm.configItems
+              .scheduleServer.serverArr" :key="scheduleIndex">
               <legend class="form-server-legend">{{ scheduleServer.name }}</legend>
               <el-row>
-                <template
-                  v-for="(serverPath, index) in scheduleServer.serverPathArr"
-                  :key="index"
-                >
-                  <el-col
-                    :span="22"
-                    :class="scheduleServer.serverPathArr.length - 1 === index ? '' : 'mb15'"
-                  >
+                <template v-for="(serverPath, index) in scheduleServer.serverPathArr" :key="index">
+                  <el-col :span="22" :class="scheduleServer.serverPathArr.length - 1 === index ? '' : 'mb15'">
                     <el-form-item label-width="0" :label="serverPath.label">
-                      <template
-                        v-for="(serverVal, valIndex) in serverPath.value"
-                        :key="valIndex"
-                      >
-                        <el-input
-                          v-model="serverVal.identity"
-                          placeholder="请输入服务标识"
-                          maxlength="200"
-                          clearable
-                          class="mb5"
-                        >
+                      <template v-for="(serverVal, valIndex) in serverPath.value" :key="valIndex">
+                        <el-input v-model="serverVal.identity" placeholder="请输入服务标识" maxlength="200" clearable
+                          class="mb5">
                           <template #prepend>服务标识</template>
                         </el-input>
-                        <el-input
-                          v-model="serverVal.path"
-                          placeholder="请输入发布路径"
-                          maxlength="200"
-                          clearable
-                        >
+                        <el-input v-model="serverVal.path" placeholder="请输入发布路径" maxlength="200" clearable>
                           <template #prepend>发布路径</template>
                         </el-input>
                       </template>
@@ -367,22 +236,12 @@
                   </el-col>
                   <el-col :span="2" v-if="formDisabled === false">
                     <div class="server-path-plus pt22">
-                      <el-icon
-                        v-if="index === 0 && scheduleServer.serverPathArr.length < 10"
-                        title="新增"
-                        color="#A8ABB2"
-                        :size="26"
-                        @click="addServerPath(scheduleServer)"
-                      >
+                      <el-icon v-if="index === 0 && scheduleServer.serverPathArr.length < 10" title="新增" color="#A8ABB2"
+                        :size="26" @click="addServerPath(scheduleServer)">
                         <CirclePlus />
                       </el-icon>
-                      <el-icon
-                        v-else
-                        title="移除"
-                        color="#F56C6C"
-                        :size="26"
-                        @click="removeServerPath(scheduleServer, index)"
-                      >
+                      <el-icon v-else title="移除" color="#F56C6C" :size="26"
+                        @click="removeServerPath(scheduleServer, index)">
                         <Remove />
                       </el-icon>
                     </div>
@@ -394,84 +253,40 @@
           <el-tab-pane label="WebClient">
             <el-row :gutter="10">
               <el-col :span="24" class="mb15">
-                <el-form-item
-                  label-width="135"
-                  label="客户端生成路径"
-                  prop="configItems.webClient.clientPath"
-                  :rules="[
-                    {
-                      required: false,
-                      message: '请输入客户端生成路径！',
-                      trigger: ['blur'],
-                    },
-                  ]"
-                >
-                  <el-input
-                    v-model="state.ruleForm.configItems.webClient.clientPath"
-                    placeholder="请输入客户端生成路径"
-                    maxlength="450"
-                    clearable
-                  ></el-input>
+                <el-form-item label-width="135" label="客户端生成路径" prop="configItems.webClient.clientPath" :rules="[
+                  {
+                    required: false,
+                    message: '请输入客户端生成路径！',
+                    trigger: ['blur'],
+                  },
+                ]">
+                  <el-input v-model="state.ruleForm.configItems.webClient.clientPath" placeholder="请输入客户端生成路径"
+                    maxlength="450" clearable></el-input>
                 </el-form-item>
               </el-col>
               <el-col :span="24">
                 <el-form-item label-width="135" label="应用服务器">
-                  <el-select
-                    filterable
-                    v-model="state.ruleForm.configItems.webClient.serverIds"
-                    multiple
-                    placeholder="请选择应用服务器"
-                    size="default"
-                    @change="onWebClientServerChange"
-                  >
-                    <el-option
-                      v-for="server in serverList"
-                      :key="server.id"
-                      :label="server.name"
-                      :value="server.id"
-                    />
+                  <el-select filterable v-model="state.ruleForm.configItems.webClient.serverIds" multiple
+                    placeholder="请选择应用服务器" size="default" @change="onWebClientServerChange">
+                    <el-option v-for="server in serverList" :key="server.id" :label="server.name" :value="server.id" />
                   </el-select>
                 </el-form-item>
               </el-col>
             </el-row>
-            <fieldset
-              class="form-server-fieldset"
-              v-for="(webClientServer, clientIndex) in state.ruleForm.configItems
-                .webClient.serverArr"
-              :key="clientIndex"
-            >
+            <fieldset class="form-server-fieldset" v-for="(webClientServer, clientIndex) in state.ruleForm.configItems
+              .webClient.serverArr" :key="clientIndex">
               <legend class="form-server-legend">{{ webClientServer.name }}</legend>
               <el-row>
-                <template
-                  v-for="(serverPath, index) in webClientServer.serverPathArr"
-                  :key="index"
-                >
-                  <el-col
-                    :span="22"
-                    :class="
-                      webClientServer.serverPathArr.length - 1 === index ? '' : 'mb15'
-                    "
-                  >
+                <template v-for="(serverPath, index) in webClientServer.serverPathArr" :key="index">
+                  <el-col :span="22" :class="webClientServer.serverPathArr.length - 1 === index ? '' : 'mb15'
+                    ">
                     <el-form-item label-width="0" :label="serverPath.label">
-                      <template
-                        v-for="(serverVal, valIndex) in serverPath.value"
-                        :key="valIndex"
-                      >
-                        <el-input
-                          v-model="serverVal.identity"
-                          placeholder="请输入服务标识"
-                          maxlength="200"
-                          clearable
-                          class="mb5"
-                        >
+                      <template v-for="(serverVal, valIndex) in serverPath.value" :key="valIndex">
+                        <el-input v-model="serverVal.identity" placeholder="请输入服务标识" maxlength="200" clearable
+                          class="mb5">
                           <template #prepend>服务标识</template>
                         </el-input>
-                        <el-input
-                          v-model="serverVal.path"
-                          placeholder="请输入发布路径"
-                          maxlength="200"
-                          clearable
-                        >
+                        <el-input v-model="serverVal.path" placeholder="请输入发布路径" maxlength="200" clearable>
                           <template #prepend>发布路径</template>
                         </el-input>
                       </template>
@@ -479,22 +294,12 @@
                   </el-col>
                   <el-col :span="2" v-if="formDisabled === false">
                     <div class="server-path-plus pt22">
-                      <el-icon
-                        v-if="index === 0 && webClientServer.serverPathArr.length < 10"
-                        title="新增"
-                        color="#A8ABB2"
-                        :size="26"
-                        @click="addServerPath(webClientServer)"
-                      >
+                      <el-icon v-if="index === 0 && webClientServer.serverPathArr.length < 10" title="新增"
+                        color="#A8ABB2" :size="26" @click="addServerPath(webClientServer)">
                         <CirclePlus />
                       </el-icon>
-                      <el-icon
-                        v-else
-                        title="移除"
-                        color="#F56C6C"
-                        :size="26"
-                        @click="removeServerPath(webClientServer, index)"
-                      >
+                      <el-icon v-else title="移除" color="#F56C6C" :size="26"
+                        @click="removeServerPath(webClientServer, index)">
                         <Remove />
                       </el-icon>
                     </div>
@@ -506,45 +311,26 @@
           <el-tab-pane label="WpfClient">
             <el-row :gutter="10">
               <el-col :span="24" class="mb15">
-                <el-form-item
-                  label-width="135"
-                  label="客户端生成路径"
-                  prop="configItems.wpfClient.clientPath"
-                  :rules="[
-                    {
-                      required: false,
-                      message: '请输入客户端生成路径！',
-                      trigger: ['blur'],
-                    },
-                  ]"
-                >
-                  <el-input
-                    v-model="state.ruleForm.configItems.wpfClient.clientPath"
-                    placeholder="请输入客户端生成路径"
-                    maxlength="450"
-                    clearable
-                  ></el-input>
+                <el-form-item label-width="135" label="客户端生成路径" prop="configItems.wpfClient.clientPath" :rules="[
+                  {
+                    required: false,
+                    message: '请输入客户端生成路径！',
+                    trigger: ['blur'],
+                  },
+                ]">
+                  <el-input v-model="state.ruleForm.configItems.wpfClient.clientPath" placeholder="请输入客户端生成路径"
+                    maxlength="450" clearable></el-input>
                 </el-form-item>
               </el-col>
               <el-col :span="24" class="mb15">
-                <el-form-item
-                  label-width="135"
-                  label="选择生成目录"
-                  prop="configItems.wpfClient.generateDirJson"
-                  :rules="[
-                    {
-                      required: false,
-                      message: '请选择生成目录！',
-                      trigger: ['blur', 'change'],
-                    },
-                  ]"
-                >
-                  <el-select
-                    v-model="generateDirs"
-                    multiple
-                    placeholder="选择生成的目录"
-                    @change="onGenerateDirChange"
-                  >
+                <el-form-item label-width="135" label="选择生成目录" prop="configItems.wpfClient.generateDirJson" :rules="[
+                  {
+                    required: false,
+                    message: '请选择生成目录！',
+                    trigger: ['blur', 'change'],
+                  },
+                ]">
+                  <el-select v-model="generateDirs" multiple placeholder="选择生成的目录" @change="onGenerateDirChange">
                     <el-option :disabled="true" label="AddIns" value="AddIns" />
                     <template v-if="state.ruleForm.configItems.isNewVersion">
                       <el-option label="Plugins" value="Plugins" />
@@ -555,57 +341,27 @@
                     </template>
                     <el-option label="Lib" value="Lib" />
                     <el-option :disabled="true" label="Templates" value="Templates" />
-                    <el-option
-                      :disabled="true"
-                      label="Localization"
-                      value="Localization"
-                    />
+                    <el-option :disabled="true" label="Localization" value="Localization" />
                   </el-select>
                 </el-form-item>
               </el-col>
               <el-col :span="24" class="mb15">
                 <el-form-item label-width="135" label="是否打包(压缩)" prop="isCompress">
-                  <el-tooltip
-                    effect="dark"
-                    content="[获取dll方式]为[全部]时，才允许打包(压缩)文件"
-                    placement="right-start"
-                  >
-                    <el-switch
-                      v-model="state.ruleForm.configItems.wpfClient.isCompress"
-                      :active-value="1"
-                      :inactive-value="0"
-                      :disabled="state.ruleForm.dllMode !== '全部'"
-                      inline-prompt
-                      active-text="是"
-                      inactive-text="否"
-                      size="default"
-                      @change="onCompressChange"
-                    />
+                  <el-tooltip effect="dark" content="[获取dll方式]为[全部]时，才允许打包(压缩)文件" placement="right-start">
+                    <el-switch v-model="state.ruleForm.configItems.wpfClient.isCompress" :active-value="1"
+                      :inactive-value="0" :disabled="state.ruleForm.dllMode !== '全部'" inline-prompt active-text="是"
+                      inactive-text="否" size="default" @change="onCompressChange" />
                   </el-tooltip>
                 </el-form-item>
               </el-col>
-              <el-col
-                :span="24"
-                class="mb15"
-                v-show="state.ruleForm.configItems.wpfClient.isCompress"
-              >
-                <el-form-item
-                  label-width="135"
-                  label="选择打包(压缩)文件"
-                  prop="configItems.wpfClient.compressFileJson"
-                  :rules="[
-                    {
-                      validator: validCompressFile,
-                      trigger: ['blur', 'change'],
-                    },
-                  ]"
-                >
-                  <el-select
-                    v-model="compressFiles"
-                    multiple
-                    placeholder="请选择压缩的文件"
-                    @change="onCompressFileChange"
-                  >
+              <el-col :span="24" class="mb15" v-show="state.ruleForm.configItems.wpfClient.isCompress">
+                <el-form-item label-width="135" label="选择打包(压缩)文件" prop="configItems.wpfClient.compressFileJson" :rules="[
+                  {
+                    validator: validCompressFile,
+                    trigger: ['blur', 'change'],
+                  },
+                ]">
+                  <el-select v-model="compressFiles" multiple placeholder="请选择压缩的文件" @change="onCompressFileChange">
                     <el-option label="AddIns.zip" value="AddIns.zip" />
                     <el-option label="Config.zip" value="Config.zip" />
                     <el-option label="Lib.zip" value="Lib.zip" />
@@ -619,30 +375,16 @@
               </el-col>
               <el-col :span="24" class="mb15">
                 <el-form-item label-width="135" label="应用服务器">
-                  <el-select
-                    filterable
-                    v-model="state.ruleForm.configItems.wpfClient.serverId"
-                    placeholder="请选择应用服务器"
-                    size="default"
-                    @change="onWpfClientServerChange"
-                  >
-                    <el-option
-                      v-for="server in serverList"
-                      :key="server.id"
-                      :label="server.name"
-                      :value="server.id"
-                    />
+                  <el-select filterable v-model="state.ruleForm.configItems.wpfClient.serverId" placeholder="请选择应用服务器"
+                    size="default" @change="onWpfClientServerChange">
+                    <el-option v-for="server in serverList" :key="server.id" :label="server.name" :value="server.id" />
                   </el-select>
                 </el-form-item>
               </el-col>
               <el-col :span="24">
                 <el-form-item label-width="135" label="服务发布路径">
-                  <el-input
-                    v-model="state.ruleForm.configItems.wpfClient.serverPath"
-                    placeholder="请输入服务发布路径"
-                    maxlength="450"
-                    clearable
-                  ></el-input>
+                  <el-input v-model="state.ruleForm.configItems.wpfClient.serverPath" placeholder="请输入服务发布路径"
+                    maxlength="450" clearable></el-input>
                 </el-form-item>
               </el-col>
             </el-row>
@@ -651,70 +393,32 @@
             <el-row :gutter="10">
               <el-col :span="24" class="mb15">
                 <el-form-item label-width="135" label="客户端生成路径">
-                  <el-input
-                    v-model="state.ruleForm.configItems.spcMonitor.clientPath"
-                    placeholder="请输入客户端生成路径"
-                    maxlength="450"
-                    clearable
-                  ></el-input>
+                  <el-input v-model="state.ruleForm.configItems.spcMonitor.clientPath" placeholder="请输入客户端生成路径"
+                    maxlength="450" clearable></el-input>
                 </el-form-item>
               </el-col>
               <el-col :span="24">
                 <el-form-item label-width="135" label="应用服务器">
-                  <el-select
-                    filterable
-                    v-model="state.ruleForm.configItems.spcMonitor.serverIds"
-                    multiple
-                    placeholder="请选择应用服务器"
-                    size="default"
-                    @change="onSpcMonitorServerChange"
-                  >
-                    <el-option
-                      v-for="server in serverList"
-                      :key="server.id"
-                      :label="server.name"
-                      :value="server.id"
-                    />
+                  <el-select filterable v-model="state.ruleForm.configItems.spcMonitor.serverIds" multiple
+                    placeholder="请选择应用服务器" size="default" @change="onSpcMonitorServerChange">
+                    <el-option v-for="server in serverList" :key="server.id" :label="server.name" :value="server.id" />
                   </el-select>
                 </el-form-item>
               </el-col>
             </el-row>
-            <fieldset
-              class="form-server-fieldset"
-              v-for="(spcMonitor, spcIndex) in state.ruleForm.configItems.spcMonitor
-                .serverArr"
-              :key="spcIndex"
-            >
+            <fieldset class="form-server-fieldset" v-for="(spcMonitor, spcIndex) in state.ruleForm.configItems.spcMonitor
+              .serverArr" :key="spcIndex">
               <legend class="form-server-legend">{{ spcMonitor.name }}</legend>
               <el-row>
-                <template
-                  v-for="(serverPath, index) in spcMonitor.serverPathArr"
-                  :key="index"
-                >
-                  <el-col
-                    :span="22"
-                    :class="spcMonitor.serverPathArr.length - 1 === index ? '' : 'mb15'"
-                  >
+                <template v-for="(serverPath, index) in spcMonitor.serverPathArr" :key="index">
+                  <el-col :span="22" :class="spcMonitor.serverPathArr.length - 1 === index ? '' : 'mb15'">
                     <el-form-item label-width="0" :label="serverPath.label">
-                      <template
-                        v-for="(serverVal, valIndex) in serverPath.value"
-                        :key="valIndex"
-                      >
-                        <el-input
-                          v-model="serverVal.identity"
-                          placeholder="请输入服务标识"
-                          maxlength="200"
-                          clearable
-                          class="mb5"
-                        >
+                      <template v-for="(serverVal, valIndex) in serverPath.value" :key="valIndex">
+                        <el-input v-model="serverVal.identity" placeholder="请输入服务标识" maxlength="200" clearable
+                          class="mb5">
                           <template #prepend>服务标识</template>
                         </el-input>
-                        <el-input
-                          v-model="serverVal.path"
-                          placeholder="请输入发布路径"
-                          maxlength="200"
-                          clearable
-                        >
+                        <el-input v-model="serverVal.path" placeholder="请输入发布路径" maxlength="200" clearable>
                           <template #prepend>发布路径</template>
                         </el-input>
                       </template>
@@ -722,22 +426,12 @@
                   </el-col>
                   <el-col :span="2" v-if="formDisabled === false">
                     <div class="server-path-plus pt22">
-                      <el-icon
-                        v-if="index === 0 && spcMonitor.serverPathArr.length < 10"
-                        title="新增"
-                        color="#A8ABB2"
-                        :size="26"
-                        @click="addServerPath(spcMonitor)"
-                      >
+                      <el-icon v-if="index === 0 && spcMonitor.serverPathArr.length < 10" title="新增" color="#A8ABB2"
+                        :size="26" @click="addServerPath(spcMonitor)">
                         <CirclePlus />
                       </el-icon>
-                      <el-icon
-                        v-else
-                        title="移除"
-                        color="#F56C6C"
-                        :size="26"
-                        @click="removeServerPath(spcMonitor, index)"
-                      >
+                      <el-icon v-else title="移除" color="#F56C6C" :size="26"
+                        @click="removeServerPath(spcMonitor, index)">
                         <Remove />
                       </el-icon>
                     </div>
@@ -751,49 +445,25 @@
           <el-col :span="24" class="mt15">
             <el-tooltip
               content="如：Visual Studio 2022 的 MsBuild.exe 编译路径为：{盘符}:\Program Files\Microsoft Visual Studio\2022\{Edition}\MSBuild\Current\Bin\MSBuild.exe"
-              placement="top"
-              effect="light"
-            >
+              placement="top" effect="light">
               <el-form-item label="MsBuild路径" prop="msBuildPath">
-                <el-input
-                  v-model="state.ruleForm.msBuildPath"
-                  placeholder="请输入MsBuild路径"
-                  maxlength="450"
-                  clearable
-                ></el-input>
+                <el-input v-model="state.ruleForm.msBuildPath" placeholder="请输入MsBuild路径" maxlength="450"
+                  clearable></el-input>
               </el-form-item>
             </el-tooltip>
           </el-col>
           <el-col :span="6" class="mt15">
             <el-form-item label="重新编译" prop="isRebuild">
-              <el-tooltip
-                content="【/t:Rebuild】建议勾选！"
-                placement="bottom"
-                effect="light"
-              >
-                <el-switch
-                  v-model="state.ruleForm.configItems.isRebuild"
-                  :active-value="1"
-                  :inactive-value="0"
-                  inline-prompt
-                  active-text="是"
-                  inactive-text="否"
-                  size="default"
-                />
+              <el-tooltip content="【/t:Rebuild】建议勾选！" placement="bottom" effect="light">
+                <el-switch v-model="state.ruleForm.configItems.isRebuild" :active-value="1" :inactive-value="0"
+                  inline-prompt active-text="是" inactive-text="否" size="default" />
               </el-tooltip>
             </el-form-item>
           </el-col>
           <el-col :span="6" class="mt15">
             <el-form-item label="发布前备份" prop="isBackup">
-              <el-switch
-                v-model="state.ruleForm.configItems.isBackup"
-                :active-value="1"
-                :inactive-value="0"
-                inline-prompt
-                active-text="开启"
-                inactive-text="关闭"
-                size="default"
-              />
+              <el-switch v-model="state.ruleForm.configItems.isBackup" :active-value="1" :inactive-value="0"
+                inline-prompt active-text="开启" inactive-text="关闭" size="default" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -801,13 +471,8 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="onCancel" size="default">取 消</el-button>
-          <el-button
-            type="primary"
-            size="default"
-            v-if="!formDisabled"
-            @click="submitValidate(appconfigDialogFormRef)"
-            >{{ state.dialog.submitTxt }}</el-button
-          >
+          <el-button type="primary" size="default" v-if="!formDisabled"
+            @click="submitValidate(appconfigDialogFormRef)">{{ state.dialog.submitTxt }}</el-button>
         </span>
       </template>
     </el-dialog>
@@ -826,6 +491,7 @@ import { useAppconfigDb } from "@/database/appconfig/index";
 import { useProjectDb } from "@/database/project/index";
 import { useServerDb } from "@/database/servers/index";
 import { useTfsDb } from "@/database/teamFoundationServer/index";
+import { useGitDb } from "@/database/git/index";
 import { formatDate } from "@/utils/formatTime";
 import { getDefaultSubObject, removeSlash } from "@/utils/other";
 
@@ -837,12 +503,14 @@ const appconfigDb = useAppconfigDb();
 const projectDb = useProjectDb();
 const serverDb = useServerDb();
 const tfsDb = useTfsDb();
+const gitDb = useGitDb();
 
 // 定义变量内容
 const appconfigDialogFormRef = ref();
 const projectList = ref<RowProjectType[]>();
 const serverList = ref<RowServerType[]>();
 const tfsList = ref<RowTfsType[]>();
+const gitList = ref<RowGitType[]>();
 const formDisabled = ref(false);
 const generateDirs = ref<string[]>([]);
 const compressFiles = ref([]);
@@ -850,6 +518,21 @@ const dllModeDate = ref<[Date, Date]>();
 const selectTfsItem = ref<SelectTfsType>({
   id: null,
   tfsName: null,
+  selectModel: "日期",
+  selectValue: [
+    {
+      placeholder: "日期开始(必填)",
+      value: "",
+    },
+    {
+      placeholder: "日期结束(选填，空为最新)",
+      value: "",
+    },
+  ],
+});
+const selectGitItem = ref<SelectGitType>({
+  id: null,
+  gitName: null,
   selectModel: "日期",
   selectValue: [
     {
@@ -1299,8 +982,18 @@ const onTfsChange = async (val: number) => {
   }
 };
 
+// 选择Git切换
+const onGitChange = async (val: number) => {
+  if (!gitList.value) return;
+  const gitItem = gitList.value.find((x) => x.id == val);
+  if (gitItem) {
+    selectGitItem.value.id = gitItem.id;
+    selectGitItem.value.gitName = gitItem.gitName;
+  }
+};
+
 // TFS模式切换
-const onSelectModelChange = (val: "日期" | "变更集") => {
+const onSelectTfsModelChange = (val: "日期" | "变更集") => {
   selectTfsItem.value.selectModel = val;
   if (val === "日期") {
     selectTfsItem.value.selectValue = [
@@ -1321,6 +1014,33 @@ const onSelectModelChange = (val: "日期" | "变更集") => {
       },
       {
         placeholder: "变更集结束(选填，空为最新)",
+        value: "",
+      },
+    ];
+  }
+};
+
+const onSelectGitModelChange = (val: "日期" | "commit") => {
+  selectGitItem.value.selectModel = val;
+  if (val === "日期") {
+    selectGitItem.value.selectValue = [
+      {
+        placeholder: "日期开始(必填)",
+        value: "",
+      },
+      {
+        placeholder: "日期结束(选填，空为最新)",
+        value: "",
+      },
+    ];
+  } else {
+    selectGitItem.value.selectValue = [
+      {
+        placeholder: "commit开始(必填)",
+        value: "",
+      },
+      {
+        placeholder: "commit结束(选填，空为最新)",
         value: "",
       },
     ];
@@ -1419,6 +1139,7 @@ const openDialog = async (type: string, row: RowAppconfigType | undefined) => {
   /* End: 重置表单内容 */
   await getProjectList();
   await getTfsList();
+  await getGitList();
   nextTick(async () => {
     if (type === "edit" || type === "viewer") {
       state.dialog.type = "edit";
@@ -1444,6 +1165,10 @@ const openDialog = async (type: string, row: RowAppconfigType | undefined) => {
 
       if (state.ruleForm.dllModeValue && state.ruleForm.dllMode == "TFS") {
         selectTfsItem.value = JSON.parse(state.ruleForm.dllModeValue);
+      }
+      
+      if (state.ruleForm.dllModeValue && state.ruleForm.dllMode == "Git") {
+        selectGitItem.value = JSON.parse(state.ruleForm.dllModeValue);
       }
 
       state.dialog.title = `${formDisabled.value ? "查看" : "修改"}应用配置`;
@@ -1472,6 +1197,21 @@ const onSubmit = async () => {
   state.ruleForm.configItemsJson = JSON.stringify(state.ruleForm.configItems);
   if (state.ruleForm.dllMode == "TFS") {
     const selectedItem = _.cloneDeep(selectTfsItem.value) as SelectTfsType;
+    for (let i = 0; i < selectedItem.selectValue.length; i++) {
+      const selItem = selectedItem.selectValue[i];
+      if (selectedItem.selectModel == "日期") {
+        let valDate = selItem.value as any;
+        if (!valDate) continue;
+        if (typeof valDate === "string") {
+          valDate = new Date(valDate);
+        }
+        selItem.value = formatDate(valDate, "YYYY-mm-dd HH:MM:SS");
+      }
+    }
+    state.ruleForm.dllModeValue = JSON.stringify(selectedItem);
+  }
+  if (state.ruleForm.dllMode == "Git") {
+    const selectedItem = _.cloneDeep(selectGitItem.value) as SelectGitType;
     for (let i = 0; i < selectedItem.selectValue.length; i++) {
       const selItem = selectedItem.selectValue[i];
       if (selectedItem.selectModel == "日期") {
@@ -1541,6 +1281,21 @@ const getTfsList = async () => {
   tfsList.value = dataResult.data.data;
 };
 
+const getGitList = async () => {
+  let dataResult = await gitDb.getGitList({
+    gitName: null,
+    gitRepository: null,
+    sorting: "id DESC",
+    skipCount: 0,
+    maxResultCount: 1000,
+  });
+  if (dataResult.code !== 0) {
+    ElMessage.error(dataResult.msg);
+    return;
+  }
+  gitList.value = dataResult.data.data;
+};
+
 // 查询服务器信息
 const getServerList = async (projectId: number | null) => {
   if (!projectId) return;
@@ -1583,6 +1338,7 @@ defineExpose({
   text-align: left;
   background-color: #fdf6ec;
   padding: 10px;
+
   .version-remark {
     font-size: 12px;
   }

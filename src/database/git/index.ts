@@ -12,7 +12,7 @@ export function useGitDb() {
      * @param {GetGitParams} params - 查询参数，包括Git名称、仓库地址、分页信息等。
      * @returns {Promise<DataResultType<RowGitType[]>>} - 查询结果。
      */
-    getGit: async (params: GetGitParams) => {
+    getGitList: async (params: GetGitParams) => {
       let dataSql =
         "SELECT id, git_name gitName, git_repository gitRepository, git_path gitPath, branch_name branchName, remark FROM t_git";
       let totalSql = "SELECT count(*) totalCount FROM t_git";
@@ -60,7 +60,41 @@ export function useGitDb() {
       }
       return dataResult;
     },
+        /**
+     * 根据ID获取 Git 信息
+     * @param {number} id - Git 信息ID。
+     * @returns {Promise<DataResultType<RowGitType>>} - 查询结果。
+     */
+    getGitById: async (id: number) => {
+      let selectSql = "SELECT id, git_name gitName, git_repository gitRepository, git_path gitPath, branch_name branchName, remark FROM t_git WHERE id=$1;";
 
+      let dataResult = {
+        code: 0,
+        msg: "",
+        data: {
+          data: null as RowGitType | null,
+        },
+      };
+
+      let bindValues = [id];
+
+      try {
+        // 修复：将类型从 RowGitType 改为 RowGitType[]
+        let selectData = await (await db()).select<RowGitType[]>(selectSql, bindValues);
+        if (selectData && selectData.length > 0) {
+          dataResult.data.data = selectData[0];
+          dataResult.msg = "查询Git信息成功";
+        } else {
+          dataResult.code = -1;
+          dataResult.msg = "未找到对应的Git信息";
+        }
+      } catch (error) {
+        dataResult.code = -1;
+        dataResult.msg = "查询Git信息出错：" + JSON.stringify(error);
+        console.error(error);
+      }
+      return dataResult;
+    },
     /**
      * 插入 Git 信息
      * @param {RowGitType} git - Git 信息对象。
@@ -164,60 +198,6 @@ export function useGitDb() {
         console.error(error);
       }
       return dataResult;
-    },
-
-    /**
-     * 根据ID获取 Git 信息
-     * @param {number} id - Git 信息ID。
-     * @returns {Promise<DataResultType<RowGitType>>} - 查询结果。
-     */
-    getGitById: async (id: number) => {
-      let selectSql = "SELECT id, git_name gitName, git_repository gitRepository, git_path gitPath, branch_name branchName, remark FROM t_git WHERE id=$1;";
-
-      let dataResult = {
-        code: 0,
-        msg: "",
-        data: {
-          data: null as RowGitType | null,
-        },
-      };
-
-      let bindValues = [id];
-
-      try {
-        // 修复：将类型从 RowGitType 改为 RowGitType[]
-        let selectData = await (await db()).select<RowGitType[]>(selectSql, bindValues);
-        if (selectData && selectData.length > 0) {
-          dataResult.data.data = selectData[0];
-          dataResult.msg = "查询Git信息成功";
-        } else {
-          dataResult.code = -1;
-          dataResult.msg = "未找到对应的Git信息";
-        }
-      } catch (error) {
-        dataResult.code = -1;
-        dataResult.msg = "查询Git信息出错：" + JSON.stringify(error);
-        console.error(error);
-      }
-      return dataResult;
-    },
+    }
   };
-}
-
-// 定义类型
-interface GetGitParams {
-  gitName: string | null;
-  gitRepository: string | null;
-  maxResultCount: number;
-  skipCount: number;
-  sorting?: string;
-}
-
-interface RowGitType {
-  id: number | null;
-  gitName: string | null;
-  gitRepository: string | null;
-  gitPath: string | null;
-  branchName: string | null;
-  remark: string | null;
 }
