@@ -214,12 +214,10 @@ import { cmdInvoke } from "@/utils/command";
 import { aesEncrypt } from "@/utils/other";
 import { useServerDb } from "@/database/servers/index";
 import { useProjectDb } from "@/database/project/index";
-import { useTfsDb } from "@/database/teamFoundationServer/index";
-import { useGitDb } from "@/database/git/index";
 import { formatDate } from "@/utils/formatTime";
 import { outPublishContents } from "@/utils/outPublishInfo";
 import { getDefaultSubObject, removeSlash, displayEnvironment } from "@/utils/other";
-import { getReadAllDlls } from "@/utils/backupAppconfig";
+import { getTfsDllFiles, getGitDllFiles, getReadAllDlls } from "@/utils/backupAppconfig";
 
 // 定义子组件向父组件传值/事件
 const emit = defineEmits(["refresh", "exec-application-assembly", "exec-done"]);
@@ -230,8 +228,6 @@ const props = defineProps({
 
 // 引入应用配置管理数据库
 const projectDb = useProjectDb();
-const tfsDb = useTfsDb();
-const gitDb = useGitDb();
 const serverDb = useServerDb();
 
 // 定义变量内容
@@ -1335,6 +1331,24 @@ const copyWpfAssemblyFile = async (
           });
           if (copyResult.code !== 0) break;
         }
+      } else if (state.ruleForm.dllMode == "Git") {
+        if (!state.ruleForm.dllModeValue) {
+          ElMessage.error(`未配置Git获取程序集的相关信息，请检查.`);
+          return false;
+        }
+        const selectGitItem = JSON.parse(state.ruleForm.dllModeValue) as SelectGitType;
+        const gitDllFiles = await getGitDllFiles(selectGitItem);
+        if (!gitDllFiles || gitDllFiles.length < 1) return false;
+
+        for (let j = 0; j < gitDllFiles.length; j++) {
+          const gitDllFile = gitDllFiles[j];
+          const clientPath = removeSlash(dirPath);
+          copyResult = await cmdInvoke("copy_path", {
+            source: `${clientPath}/${gitDllFile}`,
+            destination: `${toGenerateDir}/${gitDllFile}`,
+          });
+          if (copyResult.code !== 0) break;
+        }
       } else {
         if (dllModeDateRange.length < 1) {
           copyResult = await cmdInvoke("copy_path", {
@@ -1470,172 +1484,6 @@ const getServerDetail = async (id: number) => {
     return null;
   }
   return dataResult.data.data;
-};
-
-// 构造TFS命令
-const getTfsDllFiles = async (selectTfsItem: SelectTfsType) => {
-  const tfsItem = await getTfsDetail(Number(selectTfsItem.id));
-  if (!tfsItem) return null;
-  if (!tfsData.value) {
-    // 构造命令行
-    let execArgs = new Array<string>();
-    execArgs.push("history");
-    execArgs.push(`/collection:${tfsItem.tfsServerUrl}`);
-    execArgs.push(`${tfsItem.tfsSourcePath}`);
-    execArgs.push("/noprompt");
-    if (selectTfsItem.selectModel === "日期") {
-      const bDate = new Date(selectTfsItem.selectValue[0].value);
-      const beginDate = formatDate(bDate, "DYYYY-mm-ddTHH:MM:SS");
-      let endDate = "";
-      if (selectTfsItem.selectValue[1].value) {
-        const eDate = new Date(selectTfsItem.selectValue[1].value);
-        endDate = formatDate(eDate, "DYYYY-mm-ddTHH:MM:SS");
-      }
-      execArgs.push(`-V:${beginDate}~${endDate}`);
-    }
-    if (selectTfsItem.selectModel === "变更集") {
-      const beginChangeSets = `C${selectTfsItem.selectValue[0].value}`;
-      let endChangeSets = "";
-      if (selectTfsItem.selectValue[1].value) {
-        endChangeSets = `C${selectTfsItem.selectValue[1].value}`;
-      }
-      execArgs.push(`-V:${beginChangeSets}~${endChangeSets}`);
-    }
-    execArgs.push("-R");
-    execArgs.push("-F:detailed");
-    const execResult = await cmdInvoke("execute_local_command", {
-      command: tfsItem.tfvcPath,
-      args: execArgs,
-    });
-    if (execResult.code !== 0) {
-      ElMessage.error(`TFS命令执行失败：${execResult.data}`);
-      return null;
-    }
-    tfsData.value = execResult.data;
-  }
-
-  // 筛选变更项
-  const lines = tfsData.value.split("\n");
-  const filteredPaths = lines.filter((line: string) => {
-    let lineValues = line.trim().split("$");
-    if (lineValues.length < 2) return false;
-    return `$${_.trim(lineValues[0]).startsWith(String(tfsItem.tfsSourcePath))}`;
-  });
-  const tfsItems = filteredPaths.map((line: string) => _.trim(line).slice(2));
-  let dllFiles = new Array<string>();
-  const regex = new RegExp(`(SIE\.[^/]+)|([^/]+)\\.csproj$`);
-  for (let i = 0; i < tfsItems.length; i++) {
-    const tfsItem = tfsItems[i];
-    const matches = regex.exec(tfsItem);
-    if (!matches) continue;
-    if (matches.length > 0) {
-      let dllName = matches[0];
-      if (dllName.endsWith(".csproj")) dllName = dllName.slice(0, -".csproj".length);
-      dllFiles.push(dllName + ".dll");
-    }
-  }
-  return [...new Set(dllFiles)];
-};
-
-// 查询Tfs信息
-const getTfsDetail = async (id: number) => {
-  let dataResult = await tfsDb.getTfsById(id);
-  if (dataResult.code !== 0) {
-    console.error(dataResult.msg);
-    return null;
-  }
-  return dataResult.data.data;
-};
-
-// 查询Tfs信息
-const getGitDetail = async (id: number) => {
-  let dataResult = await gitDb.getGitById(id);
-  if (dataResult.code !== 0) {
-    console.error(dataResult.msg);
-    return null;
-  }
-  return dataResult.data.data;
-};
-
-/**
- * 根据选择的Git项获取相关的DLL文件列表
- * @param selectGitItem 选择的Git项
- * @returns DLL文件列表
- */
-const getGitDllFiles = async (selectGitItem: SelectGitType) => {
-  // 获取Git详情
-  const gitItem = await getGitDetail(Number(selectGitItem.id));
-  if (!gitItem) return null;
-
-  // 构造命令行
-  let execArgs = new Array<string | null>();
-  execArgs.push("log");
-  execArgs.push("--pretty=format:%H|%an|%ae|%ad|%s"); // 格式化输出
-  execArgs.push("--name-status"); // 包含文件变更状态
-
-  if (selectGitItem.selectModel === "日期") {
-    const bDate = new Date(selectGitItem.selectValue[0].value);
-    const beginDate = formatDate(bDate, "YYYY-mm-ddTHH:MM:SS");
-    let endDate = "";
-    if (selectGitItem.selectValue[1].value) {
-      const eDate = new Date(selectGitItem.selectValue[1].value);
-      endDate = formatDate(eDate, "YYYY-mm-ddTHH:MM:SS");
-    }
-    execArgs.push(`--since=${beginDate}`);
-    if (endDate) {
-      execArgs.push(`--until=${endDate}`);
-    }
-  }
-  if (selectGitItem.selectModel === "commit") {
-    const startSha = selectGitItem.selectValue[0].value;
-    const endSha = selectGitItem.selectValue[1].value;
-    // 如果只填写了起始SHA，则查询从该SHA到HEAD的所有提交（包含起始SHA）
-    if (startSha && !endSha) {
-      execArgs.push(`${startSha}..HEAD`);
-    }
-    // 如果填写了起始和结束SHA，则查询范围（包含起始SHA和结束SHA）
-    else if (startSha && endSha) {
-      execArgs.push(`${startSha}^..${endSha}`);
-    }
-    // 如果只填写了结束SHA（理论上不应该发生）
-    else if (!startSha && endSha) {
-      execArgs.push(endSha);
-    }
-  }
-  execArgs.push(gitItem.branchName);
-  const execResult = await cmdInvoke("execute_local_command_with_working_dir", {
-    command: gitItem.gitPath,
-    args: execArgs,
-    workingDir: gitItem.gitRepository
-  });
-
-  if (execResult.code !== 0) {
-    console.error(`Git命令执行失败：${execResult.data}`);
-    return null;
-  }
-  console.log('wocenidema')
-  console.log(execResult.data)
-
-  const tfsItems = execResult.data.map((line: string) => {
-    // 分割tab分隔的行，取路径部分
-    const parts = line.trim().split("|");
-    return parts.length > 1 ? parts[1] : '';
-  }); // 过滤空路径
-
-  let dllFiles = new Array<string>();
-  const regex = new RegExp(`(SIE\.[^/]+)|([^/]+)\\.csproj$`);
-  for (let i = 0; i < tfsItems.length; i++) {
-    const tfsItem = tfsItems[i];
-    const matches = regex.exec(tfsItem);
-    if (!matches) continue;
-    if (matches.length > 0) {
-      let dllName = matches[0];
-      if (dllName.endsWith(".csproj"))
-        dllName = dllName.slice(0, -".csproj".length);
-      dllFiles.push(dllName + ".dll");
-    }
-  }
-  return [...new Set(dllFiles)];
 };
 
 // 创建目录

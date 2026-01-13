@@ -6,6 +6,7 @@ import { useServerDb } from "@/database/servers/index";
 import { cmdInvoke } from "@/utils/command";
 import { displayOs, removeSlash } from "@/utils/other";
 import { useTfsDb } from "@/database/teamFoundationServer/index";
+import { useGitDb } from "@/database/git/index";
 
 // 查询Tfs信息
 const getTfsDetail = async (id: number) => {
@@ -18,7 +19,7 @@ const getTfsDetail = async (id: number) => {
 };
 
 // 构造TFS命令
-const getTfsDllFiles = async (selectTfsItem: SelectTfsType) => {
+export const getTfsDllFiles = async (selectTfsItem: SelectTfsType) => {
   const tfsItem = await getTfsDetail(Number(selectTfsItem.id));
   if (!tfsItem) return null;
   // 构造命令行
@@ -76,6 +77,108 @@ const getTfsDllFiles = async (selectTfsItem: SelectTfsType) => {
       let dllName = matches[0];
       if (dllName.endsWith(".csproj"))
         dllName = dllName.slice(0, -".csproj".length);
+      dllFiles.push(dllName + ".dll");
+    }
+  }
+  return [...new Set(dllFiles)];
+};
+
+const getGitDetail = async (id: number) => {
+  let dataResult = await useGitDb().getGitById(id);
+  if (dataResult.code !== 0) {
+    console.error(dataResult.msg);
+    return null;
+  }
+  return dataResult.data.data;
+};
+
+export const getGitDllFiles = async (selectGitItem: SelectGitType) => {
+  // 获取Git详情
+  const gitItem = await getGitDetail(Number(selectGitItem.id));
+  if (!gitItem) return null;
+
+  // 构造命令行
+  let execArgs = new Array<string | null>();
+  execArgs.push("log");
+  execArgs.push("--pretty=format:%H|%an|%ae|%ad|%s"); // 格式化输出
+  execArgs.push("--name-status"); // 包含文件变更状态
+
+  if (selectGitItem.selectModel === "日期") {
+    const bDate = new Date(selectGitItem.selectValue[0].value);
+    const beginDate = formatDate(bDate, "YYYY-mm-ddTHH:MM:SS");
+    let endDate = "";
+    if (selectGitItem.selectValue[1].value) {
+      const eDate = new Date(selectGitItem.selectValue[1].value);
+      endDate = formatDate(eDate, "YYYY-mm-ddTHH:MM:SS");
+    }
+    execArgs.push(`--since=${beginDate}`);
+    if (endDate) {
+      execArgs.push(`--until=${endDate}`);
+    }
+  }
+  if (selectGitItem.selectModel === "commit") {
+    const startSha = selectGitItem.selectValue[0].value;
+    const endSha = selectGitItem.selectValue[1].value;
+    // 如果只填写了起始SHA，则查询从该SHA到HEAD的所有提交（包含起始SHA）
+    if (startSha && !endSha) {
+      execArgs.push(`${startSha}..HEAD`);
+    }
+    // 如果填写了起始和结束SHA，则查询范围（包含起始SHA和结束SHA）
+    else if (startSha && endSha) {
+      execArgs.push(`${startSha}^..${endSha}`);
+    }
+    // 如果只填写了结束SHA（理论上不应该发生）
+    else if (!startSha && endSha) {
+      execArgs.push(endSha);
+    }
+  }
+  execArgs.push(gitItem.branchName);
+  const execResult = await cmdInvoke("execute_local_command_with_working_dir", {
+    command: gitItem.gitPath,
+    args: execArgs,
+    workingDir: gitItem.gitRepository
+  });
+
+  if (execResult.code !== 0) {
+    console.error(`Git命令执行失败：${execResult.data}`);
+    return null;
+  }
+  const lines = execResult.data.split("\n");
+
+  // 解析 Git 日志，提取文件变更部分
+  let gitItems: string[] = [];
+  // 根据提供的Git日志格式，解析包含提交信息和文件变更的格式
+  let currentLineIndex = 0;
+  while (currentLineIndex < lines.length) {
+    const line = lines[currentLineIndex];
+    // 匹配提交哈希、作者、邮箱、日期和提交信息的格式
+    if (/^[a-f0-9]{40}\|/.test(line)) {
+      // 这是包含提交信息的一行，跳过
+    } else if (line.trim() && !line.startsWith('commit') && !line.startsWith('Author:') && !line.startsWith('Date:')) {
+      // 这可能是文件变更行，格式如：M	Modules/Common/Items/SIE.Items/Items/ItemController.cs
+      const fileChangeMatch = line.match(/^([MAD])\s+(.+)$/);
+      if (fileChangeMatch) {
+        gitItems.push(fileChangeMatch[2].trim());
+      }
+    }
+    currentLineIndex++;
+  }
+  console.log('gitItems', gitItems);
+  let dllFiles = new Array<string>();
+  console.log('bb');
+  console.log('ccccc');
+  const regex = new RegExp(`(SIE\\.[^/\\\\]+)|([^/\\\\]+)\\.csproj$`);
+  console.log('bushigemen')
+  for (let i = 0; i < gitItems.length; i++) {
+    console.log('wocenidema');
+    const aa = gitItems[i];
+    console.log('aa', aa);
+    const matches = regex.exec(aa);
+    console.log('matches', matches);
+    if (!matches) continue;
+    if (matches.length > 0) {
+      let dllName = matches[0];
+      if (dllName.endsWith(".csproj")) dllName = dllName.slice(0, -".csproj".length);
       dllFiles.push(dllName + ".dll");
     }
   }
@@ -221,15 +324,15 @@ const getScheduleServerBackupItems = async (
     if (!scheduleServer.id) continue;
 
     var backupPaths: BackupPathType[] = new Array<BackupPathType>();
-    
+
     // 遍历服务器的所有路径配置
     for (let j = 0; j < scheduleServer.serverPathArr.length; j++) {
       const serverPath = scheduleServer.serverPathArr[j];
       if (!serverPath.value) continue;
-      
+
       for (let k = 0; k < serverPath.value.length; k++) {
         const pathValue = serverPath.value[k];
-        
+
         // 备份路径
         const bkPath = removeSlash(String(pathValue.path));
         const bkLastIndex = bkPath.lastIndexOf("/");
@@ -295,7 +398,7 @@ const getScheduleServerBackupItems = async (
         });
       }
     }
-    
+
     // 如果有备份路径，则添加到backupServer数组
     if (backupPaths.length > 0) {
       backupServer.push({
@@ -305,7 +408,7 @@ const getScheduleServerBackupItems = async (
       });
     }
   }
-  
+
   return backupServer;
 };
 
@@ -477,14 +580,14 @@ export async function loadBackupItems(
     dllMode = "日期范围";
   }
   let loading = null;
-  if(showLoading) {
+  if (showLoading) {
     loading = ElLoading.service({
       lock: false,
       text: "正在获取，请稍等...",
       background: "rgba(0, 0, 0, 0)",
     });
   }
-  
+
   var backupData: RowBackupType = {
     id: 0,
     projectId: appConfigItem.projectId,
@@ -525,7 +628,7 @@ export async function loadBackupItems(
     },
   };
   backupData.backupItemsJson = JSON.stringify(backupData.backupItems);
-  if(loading) loading.close();
+  if (loading) loading.close();
   return backupData;
 }
 
@@ -608,7 +711,7 @@ export async function backupRemoteServer(
 
       // 创建备份目录
       let createDirCmd;
-      if(osName == "Windows") {
+      if (osName == "Windows") {
         createDirCmd = `if not exist "${backupPath}" mkdir "${backupPath}"`;
         createDirCmd = createDirCmd.replace(/\//g, "\\");
       } else {
@@ -672,7 +775,7 @@ export async function backupRemoteServer(
             let cacheDir = `${publishPath}/cacheDir`;
             if (bfDir === "Domain" || bfDir === "UI") {
               cacheDir += `/Plugins`;
-            } 
+            }
             /*
             else if(isNewVision && (bfDir == "Plugins" || bfDir == "Lib"))
             {
@@ -721,7 +824,7 @@ export async function backupRemoteServer(
             // 备份
             for (let bf = 0; bf < bfFiles.length; bf++) {
               let pPath = `${cacheDir}/${bfDir}/${bfFiles[bf]}`;
-              if(isNewVision && (bfDir == "Plugins" || bfDir == "Lib")) {
+              if (isNewVision && (bfDir == "Plugins" || bfDir == "Lib")) {
                 pPath = `${cacheDir}/${bfFiles[bf]}`;
               }
               const bPath = `${backupPath}/${bfDir}/${bfFiles[bf]}`;
@@ -751,8 +854,8 @@ export async function backupRemoteServer(
             }
           }
         }
-      } 
-      
+      }
+
       // 删除缓存目录
       let removeTempDirCmd;
       if (osName === "Windows") {

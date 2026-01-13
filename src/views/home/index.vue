@@ -87,7 +87,8 @@
                     <th>获取dll方式</th>
                     <td colspan="3">{{ showDllMode() }}</td>
                   </tr>
-                  <tr v-show="state.publishData.appconfigData.dllMode == 'TFS'">
+                  <tr
+                    v-show="state.publishData.appconfigData.dllMode == 'TFS' || state.publishData.appconfigData.dllMode == 'Git'">
                     <th>生成发布日志</th>
                     <td>
                       <el-switch v-model="generatePublishLog.isEnable" :active-value="true" :inactive-value="false"
@@ -106,7 +107,7 @@
                       </el-select>
                     </td>
                   </tr>
-                  <tr v-show="state.publishData.appconfigData.dllMode == 'TFS' &&
+                  <tr v-show="(state.publishData.appconfigData.dllMode == 'TFS' || state.publishData.appconfigData.dllMode == 'Git') &&
                     generatePublishLog.type !== '仅发布内容' &&
                     generatePublishLog.isEnable
                     ">
@@ -2995,7 +2996,6 @@ const getGitDllFiles = async (selectGitItem: SelectGitType) => {
       generatePublishLog.value.logs = generateResult.msg;
     }
   }
-  // console.log('generatePublishLog.value.data', generatePublishLog.value.data);
   // 筛选变更项
   const lines = generatePublishLog.value.data.split("\n");
 
@@ -3017,18 +3017,11 @@ const getGitDllFiles = async (selectGitItem: SelectGitType) => {
     }
     currentLineIndex++;
   }
-  console.log('gitItems', gitItems);
   let dllFiles = new Array<string>();
-  console.log('bb');
-  console.log('ccccc');
   const regex = new RegExp(`(SIE\\.[^/\\\\]+)|([^/\\\\]+)\\.csproj$`);
-  console.log('bushigemen')
   for (let i = 0; i < gitItems.length; i++) {
-    console.log('wocenidema');
     const aa = gitItems[i];
-    console.log('aa', aa);
     const matches = regex.exec(aa);
-    console.log('matches', matches);
     if (!matches) continue;
     if (matches.length > 0) {
       let dllName = matches[0];
@@ -3154,10 +3147,15 @@ const showDllMode = () => {
     }
   }
   else if (modelName == "Git") {
-    // const selectGitItem = JSON.parse(
-    //   String(state.publishData.appconfigData.dllModeValue)
-    // ) as SelectGitType;
-    // modelName += `：${selectGitItem.gitName}；分支：${selectGitItem.branchName}`;
+    const selectGitItem = JSON.parse(
+      String(state.publishData.appconfigData.dllModeValue)
+    ) as SelectGitType;
+    modelName += `：${selectGitItem.gitName}；${selectGitItem.selectModel}：${selectGitItem.selectValue[0].value} ~ `;
+    if (selectGitItem.selectValue[1].value) {
+      modelName += `${selectGitItem.selectValue[1].value}`;
+    } else {
+      modelName += "latest";
+    }
   }
   return modelName;
 };
