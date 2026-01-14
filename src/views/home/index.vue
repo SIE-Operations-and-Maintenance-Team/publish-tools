@@ -508,6 +508,7 @@ import {
   outPublishContentByDates,
   outPublishContentByUsers,
 } from "@/utils/outPublishInfo";
+import { sendNotification } from '@tauri-apps/plugin-notification';
 
 const SvgIcon = defineAsyncComponent(() => import("@/components/svgIcon/index.vue"));
 
@@ -757,7 +758,14 @@ const projectPublish = async () => {
   }
   // 移除 WebClient 服务
   state.publishData.appconfigData.configItems.webClient.clientPath = "";
-
+  try {
+    sendNotification({
+      title: "发布完成",
+      body: "SMOM项目发布完成！"
+    });
+  } catch (err) {
+    console.error("发送通知失败:", err);
+  }
   return true;
 };
 
