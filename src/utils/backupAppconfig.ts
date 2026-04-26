@@ -48,6 +48,8 @@ export const getTfsDllFiles = async (selectTfsItem: SelectTfsType) => {
   }
   execArgs.push("-R");
   execArgs.push("-F:detailed");
+  console.log('execArgs',execArgs);
+  
   const execResult = await cmdInvoke("execute_local_command", {
     command: tfsItem.tfvcPath,
     args: execArgs,

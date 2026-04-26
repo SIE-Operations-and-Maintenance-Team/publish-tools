@@ -66,6 +66,16 @@ pub fn db_migration() -> Vec<Migration> {
         remark TEXT
     );";
 
+    // 表：Git
+    let t_git = "CREATE TABLE IF NOT EXISTS t_git (
+        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+        git_name TEXT,
+        git_repository TEXT,
+        git_path TEXT,
+        branch_name TEXT,
+        remark TEXT
+    );";
+
     let migrations = vec![
         // 数据迁移
         Migration {
@@ -102,6 +112,12 @@ pub fn db_migration() -> Vec<Migration> {
             version: 6,
             description: "初始化创建TFS[t_team_foundation_server]表.",
             sql: t_team_foundation_server,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 7,
+            description: "初始化创建Git[t_git]表.",
+            sql: t_git,
             kind: MigrationKind::Up,
         },
     ];
