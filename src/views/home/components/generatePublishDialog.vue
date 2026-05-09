@@ -1349,6 +1349,17 @@ const copyWpfAssemblyFile = async (
           });
           if (copyResult.code !== 0) break;
         }
+      } else if (state.ruleForm.dllMode == "DLL名称") {
+        const patterns = getDllModePatterns();
+        if (!patterns) {
+          ElMessage.error(`未配置DLL名称获取程序集的相关信息，请检查.`);
+          return false;
+        }
+        copyResult = await cmdInvoke("copy_dll_files_by_name", {
+          source: dirPath,
+          destination: `${outPath}/${generateDir}`,
+          patterns: patterns,
+        });
       } else {
         if (dllModeDateRange.length < 1) {
           copyResult = await cmdInvoke("copy_path", {
@@ -1425,6 +1436,18 @@ const copyAssemblyFile = async (
         if (copyResult.code !== 0) break;
       }
     }
+    else if (state.ruleForm.dllMode == "DLL名称") {
+      const patterns = getDllModePatterns();
+      if (!patterns) {
+        ElMessage.error(`未配置DLL名称获取程序集的相关信息，请检查.`);
+        return false;
+      }
+      copyResult = await cmdInvoke("copy_dll_files_by_name", {
+        source: clientPath,
+        destination: outPath,
+        patterns: patterns,
+      });
+    }
     else {
       let dllModeDateRange = getDllModeDateRange();
       if (dllModeDateRange.length < 1) {
@@ -1474,6 +1497,14 @@ const getDllModeDateRange = () => {
   }
   if (!startDate || !endDate) return [];
   return [startDate, endDate];
+};
+
+// 获取DLL名称模式
+const getDllModePatterns = () => {
+  if (state.ruleForm.dllMode == "DLL名称") {
+    return String(state.ruleForm.dllModeValue || "");
+  }
+  return "";
 };
 
 // 查询服务信息

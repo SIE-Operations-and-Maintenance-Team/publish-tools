@@ -40,6 +40,7 @@
                 <el-option label="当天" value="当天" />
                 <el-option label="最近3天" value="最近3天" />
                 <el-option label="日期范围" value="日期范围" />
+                <el-option label="DLL名称" value="DLL名称" />
                 <el-option label="TFS" value="TFS" />
                 <el-option label="Git" value="Git" />
               </el-select>
@@ -57,6 +58,12 @@
                 @change="onTfsChange">
                 <el-option v-for="tfs in tfsList" :key="tfs.id" :label="tfs.tfsName" :value="tfs.id" />
               </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="15" class="mb15" v-show="state.ruleForm.dllMode === 'DLL名称'">
+            <el-form-item label-width="0" prop="dllModeValue">
+              <el-input v-model="state.ruleForm.dllModeValue" type="textarea" :rows="3" placeholder="请输入DLL名称，每行一个，支持*和?通配符，顿号分隔"
+                maxlength="2000" clearable />
             </el-form-item>
           </el-col>
           <el-col :span="15" class="mb15" v-show="state.ruleForm.dllMode === 'Git'">
@@ -1054,14 +1061,17 @@ const formRules = reactive<FormRules>({
   dllModeValue: [
     {
       validator: (rule: any, value: any, callback: any) => {
-        if (!value && state.ruleForm.dllMode === "日期范围") {
+        const dllModeValue = state.ruleForm.dllModeValue;
+        if (!dllModeValue && state.ruleForm.dllMode === "日期范围") {
           callback(new Error("请选择日期范围！"));
+        } else if (!dllModeValue && state.ruleForm.dllMode === "DLL名称") {
+          callback(new Error("请输入DLL名称！"));
         } else {
           callback();
         }
         console.log(rule);
       },
-      trigger: "blur",
+      trigger: ["blur", "change"],
     },
   ],
 });
@@ -1170,6 +1180,8 @@ const openDialog = async (type: string, row: RowAppconfigType | undefined) => {
       if (state.ruleForm.dllModeValue && state.ruleForm.dllMode == "Git") {
         selectGitItem.value = JSON.parse(state.ruleForm.dllModeValue);
       }
+
+      appconfigDialogFormRef.value?.clearValidate();
 
       state.dialog.title = `${formDisabled.value ? "查看" : "修改"}应用配置`;
       state.dialog.submitTxt = "修 改";

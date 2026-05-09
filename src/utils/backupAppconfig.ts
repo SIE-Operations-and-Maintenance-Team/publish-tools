@@ -466,6 +466,17 @@ const getWpfClientConfigType = async (
         }
       }
       backFiles.push(cBackFile);
+    } else if (appconfigData.dllMode == "DLL名称") {
+      const patterns = getDllModePatterns(appconfigData.dllMode, appconfigData.dllModeValue);
+      if (!patterns) {
+        console.error("未配置DLL名称获取程序集的相关信息，请检查.");
+        return null;
+      }
+      var cBackFile = {} as any;
+      cBackFile[generateDir] = [];
+      let allDllFiles = await getReadAllDlls(cPath);
+      cBackFile[generateDir].push(...allDllFiles);
+      backFiles.push(cBackFile);
     } else {
       let dllModeDateRange = getDllModeDateRange(
         appconfigData.dllMode,
@@ -554,6 +565,14 @@ const getDllModeDateRange = (dllMode: string, dllModeValue: string) => {
   }
   if (!startDate || !endDate) return [];
   return [startDate, endDate];
+};
+
+// 获取DLL名称模式
+const getDllModePatterns = (dllMode: string, dllModeValue: string) => {
+  if (dllMode == "DLL名称") {
+    return String(dllModeValue || "");
+  }
+  return "";
 };
 
 /**

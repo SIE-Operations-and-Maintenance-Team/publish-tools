@@ -1557,3 +1557,149 @@ pub async fn copy_sie_dlls(src_dir: &str, dest_dir: &str) -> Result<bool, String
 pub async fn copy_non_sie_dlls(src_dir: &str, dest_dir: &str) -> Result<bool, String> {
     copy_dlls_with_filter(src_dir, dest_dir, |file_name| !file_name.starts_with("SIE"))
 }
+
+use regex::Regex;
+use std::collections::HashMap;
+use std::time::SystemTime;
+
+/// 将通配符模式转换为正则表达式
+fn wildcard_to_regex(pattern: &str) -> Result<Regex, regex::Error> {
+    let pattern = pattern.trim();
+    if pattern.is_empty() {
+        return Regex::new("^$");
+    }
+    let regex_str = if pattern.to_lowercase().ends_with(".dll") {
+        regex::escape(pattern)
+    } else {
+        format!("{}\\.dll", regex::escape(pattern))
+    };
+    let regex_str = regex_str.replace(r"\*", ".*").replace(r"\?", ".");
+    Regex::new(&format!("^{}$", regex_str))
+}
+
+/// 解析模式文本，支持换行和顿号分隔
+fn parse_patterns(patterns_text: &str) -> Vec<Regex> {
+    let mut patterns = Vec::new();
+    for line in patterns_text.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        // 如果行中包含顿号且不含通配符，则按顿号分割
+        if line.contains('、') && !line.contains('*') && !line.contains('?') {
+            for item in line.split('、') {
+                let item = item.trim();
+                if item.is_empty() {
+                    continue;
+                }
+                if let Ok(re) = wildcard_to_regex(item) {
+                    patterns.push(re);
+                }
+            }
+        } else {
+            if let Ok(re) = wildcard_to_regex(line) {
+                patterns.push(re);
+            }
+        }
+    }
+    patterns
+}
+
+/// 根据DLL名称模式复制文件（支持*和?通配符，同名文件保留最新的）
+///
+/// # 参数
+/// - `source`: 源目录
+/// - `destination`: 目标目录
+/// - `patterns`: DLL名称模式文本，每行一个，支持顿号分隔
+///
+/// # 返回值
+/// - `Ok(true)` 表示操作完成
+/// - `Err(String)` 表示过程中发生错误
+#[tauri::command]
+pub async fn copy_dll_files_by_name(
+    source: &str,
+    destination: &str,
+    patterns: &str,
+) -> Result<bool, String> {
+    let src_dir = Path::new(source);
+    let dst_dir = Path::new(destination);
+
+    if !src_dir.exists() {
+        return Err(format!("源目录不存在: {}", source));
+    }
+
+    // 确保目标目录存在
+    fs::create_dir_all(dst_dir)
+        .map_err(|e| format!("无法创建目标目录 {:?}: {}", dst_dir, e))?;
+
+    let regex_patterns = parse_patterns(patterns);
+    if regex_patterns.is_empty() {
+        return Err("未提供有效的DLL匹配模式".to_string());
+    }
+
+    // 字典：filename -> (mtime, full_path)
+    let mut latest_files: HashMap<String, (SystemTime, std::path::PathBuf)> = HashMap::new();
+
+    // 遍历源目录中的所有文件
+    for entry in fs::read_dir(src_dir)
+        .map_err(|e| format!("无法读取源目录 {:?}: {}", src_dir, e))?
+    {
+        let entry = entry.map_err(|e| format!("读取目录项失败: {}", e))?;
+        let path = entry.path();
+
+        // 跳过非文件项
+        if !path.is_file() {
+            continue;
+        }
+
+        let file_name = match path.file_name().and_then(|n| n.to_str()) {
+            Some(name) => name,
+            None => continue,
+        };
+
+        // 检查是否是 .dll 文件（不区分大小写）
+        if !file_name.to_lowercase().ends_with(".dll") {
+            continue;
+        }
+
+        // 尝试匹配任一模式
+        let mut matched = false;
+        for re in &regex_patterns {
+            if re.is_match(file_name) {
+                matched = true;
+                break;
+            }
+        }
+
+        if !matched {
+            continue;
+        }
+
+        let mtime = match fs::metadata(&path).and_then(|m| m.modified()) {
+            Ok(time) => time,
+            Err(_) => SystemTime::UNIX_EPOCH,
+        };
+
+        // 以文件名（忽略大小写）作为唯一键，保留修改时间最新的
+        let key = file_name.to_lowercase();
+        if let Some((existing_mtime, _)) = latest_files.get(&key) {
+            if mtime <= *existing_mtime {
+                continue;
+            }
+        }
+        latest_files.insert(key, (mtime, path));
+    }
+
+    // 复制匹配的文件
+    for (_, (_, src_path)) in latest_files {
+        let dest_path = dst_dir.join(
+            src_path
+                .file_name()
+                .ok_or_else(|| "无法获取文件名".to_string())?,
+        );
+        fs::copy(&src_path, &dest_path)
+            .map_err(|e| format!("复制文件 {:?} 到 {:?} 失败: {}", src_path, dest_path, e))?;
+    }
+
+    Ok(true)
+}
