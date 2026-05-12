@@ -1060,7 +1060,7 @@ const formRules = reactive<FormRules>({
   dllMode: [{ required: true, message: "请选择获取dll方式！", trigger: "change" }],
   dllModeValue: [
     {
-      validator: (rule: any, value: any, callback: any) => {
+      validator: (rule: any, _value: any, callback: any) => {
         const dllModeValue = state.ruleForm.dllModeValue;
         if (!dllModeValue && state.ruleForm.dllMode === "日期范围") {
           callback(new Error("请选择日期范围！"));
