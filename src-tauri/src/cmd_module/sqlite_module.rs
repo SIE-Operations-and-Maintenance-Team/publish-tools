@@ -20,7 +20,8 @@ pub fn db_migration() -> Vec<Migration> {
         ms_build_path TEXT,
         dll_mode TEXT,
         dll_mode_value TEXT,
-        config_items_json TEXT
+        config_items_json TEXT,
+        build_mode TEXT DEFAULT 'Debug'
     );";
 
     // 表：服务器

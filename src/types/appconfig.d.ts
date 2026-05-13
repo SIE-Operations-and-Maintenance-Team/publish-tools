@@ -67,6 +67,7 @@ declare type RowAppconfigType = {
 	msBuildPath: string | null;
 	dllMode: string | null;
 	dllModeValue: string | null;
+	buildMode: string | null;
 	configItemsJson: string;
 	configItems: ConfigItemsType;
 };

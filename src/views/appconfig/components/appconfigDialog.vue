@@ -33,6 +33,14 @@
               </p>
             </div>
           </el-col>
+          <el-col :span="24" class="mb15">
+            <el-form-item label="获取模式" prop="buildMode">
+              <el-select v-model="state.ruleForm.buildMode" placeholder="请选择获取模式" @change="onBuildModeChange">
+                <el-option label="Debug" value="Debug" />
+                <el-option label="Release" value="Release" />
+              </el-select>
+            </el-form-item>
+          </el-col>
           <el-col :span="9" class="mb15">
             <el-form-item label-width="100" label="获取dll方式" prop="dllMode">
               <el-select v-model="state.ruleForm.dllMode" placeholder="请选择dll获取方式" @change="onDllModeChange">
@@ -561,6 +569,7 @@ const state = reactive<FormDialogType<RowAppconfigType>>({
     msBuildPath: null,
     dllMode: "全部",
     dllModeValue: null,
+    buildMode: "Debug",
     configItemsJson: "",
     configItems: {
       webApiHost: {
@@ -641,6 +650,7 @@ const onSlnFileChange = async () => {
       moduleName,
       slnFilePath: slnFilePath,
       isNewVersion: state.ruleForm.configItems.isNewVersion,
+      buildMode: state.ruleForm.buildMode || "Debug",
     });
     if (parseSlnProjectResult.code !== 0) {
       console.warn(parseSlnProjectResult.data);
@@ -746,6 +756,54 @@ const onDllModeChange = async (val: string) => {
 // 环境切换
 const onEnvironmentChange = async (val: number) => {
   console.log("环境切换为：", val);
+};
+
+// 获取模式切换
+const onBuildModeChange = async (val: string) => {
+  if (!val || (val !== "Debug" && val !== "Release")) return;
+  
+  // 替换所有客户端生成路径中的 Debug/Release
+  const oldMode = val === "Debug" ? "Release" : "Debug";
+  
+  // WebApiHost
+  if (state.ruleForm.configItems.webApiHost.clientPath) {
+    state.ruleForm.configItems.webApiHost.clientPath = state.ruleForm.configItems.webApiHost.clientPath.replace(
+      new RegExp(`/bin/${oldMode}(/|$)`, 'g'),
+      `/bin/${val}$1`
+    );
+  }
+  
+  // ScheduleServer
+  if (state.ruleForm.configItems.scheduleServer.clientPath) {
+    state.ruleForm.configItems.scheduleServer.clientPath = state.ruleForm.configItems.scheduleServer.clientPath.replace(
+      new RegExp(`/bin/${oldMode}(/|$)`, 'g'),
+      `/bin/${val}$1`
+    );
+  }
+  
+  // WebClient
+  if (state.ruleForm.configItems.webClient.clientPath) {
+    state.ruleForm.configItems.webClient.clientPath = state.ruleForm.configItems.webClient.clientPath.replace(
+      new RegExp(`/bin/${oldMode}(/|$)`, 'g'),
+      `/bin/${val}$1`
+    );
+  }
+  
+  // WpfClient
+  if (state.ruleForm.configItems.wpfClient.clientPath) {
+    state.ruleForm.configItems.wpfClient.clientPath = state.ruleForm.configItems.wpfClient.clientPath.replace(
+      new RegExp(`/bin/${oldMode}(/|$)`, 'g'),
+      `/bin/${val}$1`
+    );
+  }
+  
+  // SpcMonitor
+  if (state.ruleForm.configItems.spcMonitor.clientPath) {
+    state.ruleForm.configItems.spcMonitor.clientPath = state.ruleForm.configItems.spcMonitor.clientPath.replace(
+      new RegExp(`/bin/${oldMode}(/|$)`, 'g'),
+      `/bin/${val}$1`
+    );
+  }
 };
 
 // 调度服务器切换
@@ -1108,6 +1166,7 @@ const formReset = () => {
   state.ruleForm = getDefaultSubObject(state.ruleForm);
   state.ruleForm.configItems.wpfClient.isCompress = null;
   state.ruleForm.dllMode = "全部";
+  state.ruleForm.buildMode = "Debug";
   if (state.ruleForm.projectId == 0) state.ruleForm.projectId = null;
   if (state.ruleForm.environment == 0) state.ruleForm.environment = 1;
   state.dialog.editId = null;

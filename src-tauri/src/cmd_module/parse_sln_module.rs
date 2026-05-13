@@ -11,11 +11,12 @@ use std::path::Path;
 /// * `module_name` - 模块名称
 /// * `sln_file_path` - .sln文件路径
 /// * `is_new_version` - 是否 10.2+ 版本
+/// * `build_mode` - 构建模式 (Debug/Release)
 ///
 /// # Returns
 /// * `Result<String, String>` - 执行结果和错误信息
 #[tauri::command]
-pub async fn parse_sln_project(module_name: &str, sln_file_path: &str, is_new_version: bool) -> Result<String, String> {
+pub async fn parse_sln_project(module_name: &str, sln_file_path: &str, is_new_version: bool, build_mode: &str) -> Result<String, String> {
     // sln文件目录
     let sln_dir_path = Path::new(sln_file_path).parent().unwrap().to_str().unwrap();
 
@@ -32,12 +33,12 @@ pub async fn parse_sln_project(module_name: &str, sln_file_path: &str, is_new_ve
             let cspj_dir = Path::new(&cspj_file).parent().unwrap().to_str().unwrap();
 
             if module_name.eq("WpfClient.csproj") && !is_new_version {
-                module_generate_path = format!("{}/bin/Debug", cspj_dir);
+                module_generate_path = format!("{}/bin/{}", cspj_dir, build_mode);
                 break;
             }
 
             let framework_version = find_target_framework(&cspj_file).await.unwrap();
-            module_generate_path = format!("{}/bin/Debug/{}", cspj_dir, framework_version);
+            module_generate_path = format!("{}/bin/{}/{}", cspj_dir, build_mode, framework_version);
             break;
         }
     }

@@ -75,6 +75,12 @@
           show-overflow-tooltip
         />
         <el-table-column
+          prop="buildMode"
+          label="获取模式"
+          width="100"
+          show-overflow-tooltip
+        />
+        <el-table-column
           prop="msBuildPath"
           label="MsBuild路径"
           min-width="240"

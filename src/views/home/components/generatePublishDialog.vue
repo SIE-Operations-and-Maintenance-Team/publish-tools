@@ -273,6 +273,7 @@ const state = reactive<FormDialogType<RowAppconfigType>>({
     msBuildPath: null,
     dllMode: "全部",
     dllModeValue: null,
+    buildMode: "Debug",
     configItemsJson: "",
     configItems: {
       webApiHost: {

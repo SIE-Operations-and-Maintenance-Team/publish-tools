@@ -9,7 +9,7 @@ export function useAppconfigDb() {
          * @returns { any }
          */
         getAppconfigList: async (params: GetAppconfigTableParams) => {
-            let dataSql = "select ta.id, ta.project_id projectId, tp.name projectName, ta.environment, ta.ms_build_path msBuildPath, ta.dll_mode dllMode, ta.dll_mode_value dllModeValue, ta.config_items_json configItemsJson from t_app_config ta left join t_project tp on ta.project_id = tp.id";
+            let dataSql = "select ta.id, ta.project_id projectId, tp.name projectName, ta.environment, ta.ms_build_path msBuildPath, ta.dll_mode dllMode, ta.dll_mode_value dllModeValue, ta.build_mode buildMode, ta.config_items_json configItemsJson from t_app_config ta left join t_project tp on ta.project_id = tp.id";
             let totalSql = "select count(*) totalCount from t_app_config ta";
             let where = " where 1=1 ";
             let orderBy = "";
@@ -57,7 +57,7 @@ export function useAppconfigDb() {
          * @param appconfigId 配置ID
          */
         getAppconfigById: async (appconfigId: number) => {
-            let dataSql = "select ta.id, ta.project_id projectId, tp.name projectName, ta.environment, ta.ms_build_path msBuildPath, ta.dll_mode dllMode, ta.dll_mode_value dllModeValue, ta.config_items_json configItemsJson from t_app_config ta left join t_project tp on ta.project_id = tp.id where ta.id = $1 ";
+            let dataSql = "select ta.id, ta.project_id projectId, tp.name projectName, ta.environment, ta.ms_build_path msBuildPath, ta.dll_mode dllMode, ta.dll_mode_value dllModeValue, ta.build_mode buildMode, ta.config_items_json configItemsJson from t_app_config ta left join t_project tp on ta.project_id = tp.id where ta.id = $1 ";
 
             // 定义(默认)响应结果
             let dataResult: DataResultType<TableResultType<RowAppconfigType>> = {
@@ -92,7 +92,7 @@ export function useAppconfigDb() {
          * @param environment 环境变量
          */
         getPublishAppconfigs: async (projectId: number, environment: number) => {
-            let dataSql = "select ta.id, ta.project_id projectId, tp.name projectName, ta.environment, ta.ms_build_path msBuildPath, ta.dll_mode dllMode, ta.dll_mode_value dllModeValue, ta.config_items_json configItemsJson from t_app_config ta left join t_project tp on ta.project_id = tp.id";
+            let dataSql = "select ta.id, ta.project_id projectId, tp.name projectName, ta.environment, ta.ms_build_path msBuildPath, ta.dll_mode dllMode, ta.dll_mode_value dllModeValue, ta.build_mode buildMode, ta.config_items_json configItemsJson from t_app_config ta left join t_project tp on ta.project_id = tp.id";
             let where = " where ta.project_id = $1 and ta.environment = $2";
             dataSql += where;
 
@@ -129,7 +129,7 @@ export function useAppconfigDb() {
          * @param appconfig 应用配置
          */
         insertAppconfig: async (appconfig: RowAppconfigType) => {
-            let insertSql = "INSERT INTO t_app_config (project_id, environment, ms_build_path, dll_mode, dll_mode_value, config_items_json) VALUES($1, $2, $3, $4, $5, $6) RETURNING id;";
+            let insertSql = "INSERT INTO t_app_config (project_id, environment, ms_build_path, dll_mode, dll_mode_value, build_mode, config_items_json) VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING id;";
             // 定义(默认)响应结果
             let dataResult: DataResultType<number> = {
                 code: 1,
@@ -150,7 +150,7 @@ export function useAppconfigDb() {
                     return dataResult;
                 }
 
-                let rowResult = await (await db()).execute(insertSql, [appconfig.projectId, appconfig.environment, appconfig.msBuildPath, appconfig.dllMode, appconfig.dllModeValue, appconfig.configItemsJson]);
+                let rowResult = await (await db()).execute(insertSql, [appconfig.projectId, appconfig.environment, appconfig.msBuildPath, appconfig.dllMode, appconfig.dllModeValue, appconfig.buildMode || 'Debug', appconfig.configItemsJson]);
                 if (rowResult.lastInsertId && rowResult.lastInsertId > 0) {
                     dataResult.code = 0;
                     dataResult.data = rowResult.lastInsertId;
@@ -172,7 +172,7 @@ export function useAppconfigDb() {
          * @param appconfig 应用配置
          */
         updateAppconfig: async (appconfig: RowAppconfigType) => {
-            let updateSql = "UPDATE t_app_config SET project_id=$1, environment=$2, ms_build_path=$3, dll_mode=$4, dll_mode_value=$5, config_items_json=$6 WHERE id=$7;";
+            let updateSql = "UPDATE t_app_config SET project_id=$1, environment=$2, ms_build_path=$3, dll_mode=$4, dll_mode_value=$5, build_mode=$6, config_items_json=$7 WHERE id=$8;";
 
             // 定义(默认)响应结果
             let dataResult: DataResultType<boolean> = {
@@ -194,7 +194,7 @@ export function useAppconfigDb() {
                     return dataResult;
                 }
 
-                let rowResult = await (await db()).execute(updateSql, [appconfig.projectId, appconfig.environment, appconfig.msBuildPath, appconfig.dllMode, appconfig.dllModeValue, appconfig.configItemsJson, appconfig.id]);
+                let rowResult = await (await db()).execute(updateSql, [appconfig.projectId, appconfig.environment, appconfig.msBuildPath, appconfig.dllMode, appconfig.dllModeValue, appconfig.buildMode || 'Debug', appconfig.configItemsJson, appconfig.id]);
                 if (rowResult.rowsAffected > 0) {
                     dataResult.code = 0;
                     dataResult.data = true;
