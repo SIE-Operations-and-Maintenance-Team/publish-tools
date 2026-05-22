@@ -3170,9 +3170,8 @@ const getProjectDefault = async () => {
   if (dataResult.code == 0 && dataResult.data.data?.id) {
     state.publishData.projectId = dataResult.data.data.id;
     state.publishData.projectName = String(dataResult.data.data.name);
-    if (dataResult.data.data.assemblyOutPath) {
-      state.publishData.assemblyOutPath = String(dataResult.data.data.assemblyOutPath);
-    }
+    // 无论是否有配置，都要更新 assemblyOutPath
+    state.publishData.assemblyOutPath = dataResult.data.data.assemblyOutPath ? String(dataResult.data.data.assemblyOutPath) : "";
     state.publishData.environment = 1;
   }
   await getProjectList();
@@ -3252,8 +3251,8 @@ const onProjectChange = async (val: number) => {
   let projectObj = projectList.value?.find((item) => item.id === val);
   if (projectObj) {
     state.publishData.projectName = String(projectObj.name);
-    if (projectObj.assemblyOutPath)
-      state.publishData.assemblyOutPath = String(projectObj.assemblyOutPath);
+    // 无论是否有配置，都要更新 assemblyOutPath
+    state.publishData.assemblyOutPath = projectObj.assemblyOutPath ? String(projectObj.assemblyOutPath) : "";
   }
   await getPublishAppconfigs();
 };
