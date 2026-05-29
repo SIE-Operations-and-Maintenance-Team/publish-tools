@@ -3165,14 +3165,58 @@ const onOpenAppConfig = async () => {
 };
 
 // 获取默认项目
+// 获取默认项目并恢复环境
 const getProjectDefault = async () => {
   let dataResult = await projectDb.getProjectDefault();
   if (dataResult.code == 0 && dataResult.data.data?.id) {
-    state.publishData.projectId = dataResult.data.data.id;
+    const projectId = dataResult.data.data.id;
+    
+    console.log('=== getProjectDefault 开始执行 ===');
+    console.log('  - 默认项目ID:', projectId);
+    
+    // 更新项目信息
+    state.publishData.projectId = projectId;
     state.publishData.projectName = String(dataResult.data.data.name);
-    // 无论是否有配置，都要更新 assemblyOutPath
-    state.publishData.assemblyOutPath = dataResult.data.data.assemblyOutPath ? String(dataResult.data.data.assemblyOutPath) : "";
-    state.publishData.environment = 1;
+    state.publishData.assemblyOutPath = dataResult.data.data.assemblyOutPath 
+      ? String(dataResult.data.data.assemblyOutPath) 
+      : "";
+    
+    // 查询该项目有哪些环境配置
+    const appconfigDb = useAppconfigDb();
+    let availableEnvironments: number[] = [];
+    for (let env = 1; env <= 4; env++) {
+      const result = await appconfigDb.getPublishAppconfigs(projectId, env);
+      if (result.code === 0 && result.data.data && result.data.data.id) {
+        availableEnvironments.push(env);
+      }
+    }
+    
+    console.log('  - 可用环境配置:', availableEnvironments);
+    
+    // 决定使用哪个环境
+    let targetEnvironment = 1; // 默认 Dev
+    
+    // 1. 先尝试恢复 localStorage 中保存的环境
+    const savedEnvironment = restoreEnvironmentFromStorage(projectId);
+    if (savedEnvironment && availableEnvironments.includes(savedEnvironment)) {
+      // 保存的环境存在且有配置
+      targetEnvironment = savedEnvironment;
+      console.log('  >>> 恢复保存的环境:', savedEnvironment);
+    } else if (availableEnvironments.length > 0) {
+      // 2. 如果保存的环境不可用，找第一个有配置的环境
+      // 优先级：Dev(1) > Uat(2) > Pro(3) > Other(4)
+      availableEnvironments.sort((a, b) => a - b);
+      targetEnvironment = availableEnvironments[0];
+      console.log('  >>> 保存的环境不可用，使用第一个有配置的环境:', targetEnvironment);
+    } else {
+      console.log('  >>> 该项目没有任何环境配置，使用默认 Dev');
+    }
+    
+    state.publishData.environment = targetEnvironment;
+    
+    console.log('=== getProjectDefault 执行完毕 ===');
+    console.log('  - projectId:', state.publishData.projectId);
+    console.log('  - environment:', state.publishData.environment);
   }
   await getProjectList();
   await getPublishAppconfigs();
@@ -3192,6 +3236,28 @@ const getPublishAppconfigs = async () => {
     state.publishData.appconfigData = getDefaultSubObject(
       state.publishData.appconfigData
     );
+  }
+};
+
+// 保存环境选择到本地存储
+const saveEnvironmentToStorage = (projectId: number, environment: number) => {
+  try {
+    const storageKey = `project_environment_${projectId}`;
+    localStorage.setItem(storageKey, String(environment));
+  } catch (error) {
+    console.error('保存环境选择失败:', error);
+  }
+};
+
+// 从本地存储恢复环境选择
+const restoreEnvironmentFromStorage = (projectId: number): number | null => {
+  try {
+    const storageKey = `project_environment_${projectId}`;
+    const savedEnv = localStorage.getItem(storageKey);
+    return savedEnv ? Number(savedEnv) : null;
+  } catch (error) {
+    console.error('恢复环境选择失败:', error);
+    return null;
   }
 };
 
@@ -3248,18 +3314,40 @@ const showCompressFile = (jsonValue: string) => {
 
 // 项目切换
 const onProjectChange = async (val: number) => {
+  console.log('=== 手动切换项目 ===');
+  console.log('  - 新项目ID:', val);
+  
   let projectObj = projectList.value?.find((item) => item.id === val);
   if (projectObj) {
     state.publishData.projectName = String(projectObj.name);
-    // 无论是否有配置，都要更新 assemblyOutPath
-    state.publishData.assemblyOutPath = projectObj.assemblyOutPath ? String(projectObj.assemblyOutPath) : "";
+    state.publishData.assemblyOutPath = projectObj.assemblyOutPath 
+      ? String(projectObj.assemblyOutPath) 
+      : "";
+    
+    // 恢复该项目之前选择的环境
+    const savedEnvironment = restoreEnvironmentFromStorage(val);
+    if (savedEnvironment) {
+      state.publishData.environment = savedEnvironment;
+      console.log('  >>> 恢复保存的环境:', savedEnvironment);
+    } else {
+      state.publishData.environment = 1;
+      console.log('  >>> 无保存的环境，使用默认 Dev');
+    }
   }
   await getPublishAppconfigs();
 };
 
 // 环境切换
 const onEnvironmentChange = async (val: number) => {
-  console.log("环境切换：" + val);
+  console.log('=== 环境切换事件触发 ===');
+  console.log('  - 新项目ID:', state.publishData.projectId);
+  console.log('  - 新环境值:', val);
+  
+  // 保存环境选择到本地存储
+  saveEnvironmentToStorage(state.publishData.projectId, val);
+  
+  console.log('  - 环境已保存到 localStorage');
+  
   await getPublishAppconfigs();
 };
 
@@ -3318,13 +3406,15 @@ const printInfoLog = (
 
 // 页面加载完时
 onBeforeMount(async () => {
+  console.log('=== onBeforeMount 被调用 ===');
   await getProjectDefault();
 });
 
 onActivated(async () => {
-  if (!state.publishData.projectId) {
-    await getProjectDefault();
-  }
+  console.log('=== onActivated 被调用 ===');
+  // 每次进入页面都重新查询默认项目并恢复环境
+  await getProjectDefault();
+  
   if (state.funModule[currModuleIndex.value].loading == true) {
     console.log("当前模块正在加载中…");
     return;

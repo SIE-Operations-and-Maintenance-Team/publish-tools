@@ -246,6 +246,9 @@ const onIsDefault = async (val: number, project: RowProjectType) => {
     project.isDefault = val == 1 ? 0 : 1;
     return;
   }
+  
+  console.log('项目管理界面 - 设置默认项目:', project.id, '是否默认:', val);
+  
   onSearch();
 };
 
