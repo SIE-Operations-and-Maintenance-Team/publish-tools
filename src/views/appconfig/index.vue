@@ -138,7 +138,7 @@
 </template>
 
 <script setup lang="ts" name="smomAppconfig">
-import { ref, reactive, onBeforeMount, onMounted, onActivated, defineAsyncComponent } from "vue";
+import { ref, reactive, onBeforeMount, onMounted, defineAsyncComponent } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import _ from "lodash";
 import { useProjectDb } from "@/database/project/index";
@@ -291,11 +291,6 @@ onBeforeMount(async () => {
 });
 
 onMounted(async () => {
-  await getTableData();
-});
-
-onActivated(async () => {
-  await getProjectList();
   await getTableData();
 });
 </script>

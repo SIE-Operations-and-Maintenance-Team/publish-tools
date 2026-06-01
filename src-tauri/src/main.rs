@@ -85,6 +85,7 @@ fn main() {
             file_module::copy_dll_files_by_name,
             wpf_upgrade_module::upgrade_module_version,
             parse_sln_module::parse_sln_project,
+            parse_sln_module::find_assembly_name,
         ])
         // 保持前端在后台运行
         .on_window_event(|window, event| match event {

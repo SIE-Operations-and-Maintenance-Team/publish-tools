@@ -3,16 +3,11 @@
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist",
-    "devUrl": "http://localhost:5200"
+    "devUrl": "http://localhost:15200"
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "deb",
-      "dmg",
-      "nsis",
-      "msi"
-    ],
+    "targets": ["deb", "dmg", "nsis", "msi"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

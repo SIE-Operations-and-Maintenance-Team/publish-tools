@@ -42,6 +42,7 @@
         <el-table-column prop="tfsName" label="TFS名称" width="180" />
         <el-table-column prop="tfsServerUrl" label="服务地址" show-overflow-tooltip width="300" />
         <el-table-column prop="tfsSourcePath" label="源位置" show-overflow-tooltip width="240" />
+        <el-table-column prop="tfsLocalPath" label="本地根目录" show-overflow-tooltip width="260" />
         <el-table-column prop="tfvcPath" label="TFVC工具" show-overflow-tooltip width="350" />
         <el-table-column prop="remark" min-width="240" label="备注" show-overflow-tooltip />
         <el-table-column label="操作" width="275" fixed="right">

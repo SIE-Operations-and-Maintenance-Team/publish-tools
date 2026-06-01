@@ -99,12 +99,12 @@ import { reactive, ref } from "vue";
 import { cmdInvoke } from "@/utils/command";
 import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage, ElMessageBox } from "element-plus";
-import _ from "lodash";
 import {
   outPublishContents,
   outDetaultPublishContents,
   outPublishContentByDates,
   outPublishContentByUsers,
+  type DllResolveOptions,
 } from "@/utils/outPublishInfo";
 import { getDefaultSubObject } from "@/utils/other";
 import { formatDate } from "@/utils/formatTime";
@@ -142,6 +142,7 @@ const state = reactive<FormDialogType<RowTfsType>>({
     tfsName: null,
     tfsServerUrl: null,
     tfsSourcePath: null,
+    tfsLocalPath: null,
     tfvcPath: null,
     remark: null,
   },
@@ -259,6 +260,10 @@ const onSubmit = async () => {
       msg: "success",
       data: null,
     };
+    const dllResolveOptions: DllResolveOptions = {
+      repositoryPath: state.ruleForm.tfsLocalPath,
+      sourcePath: state.ruleForm.tfsSourcePath,
+    };
     switch (generatePublishLog.value.type) {
       case "仅发布内容":
         generateResult = await outPublishContents(execResult.data, "", false);
@@ -268,7 +273,8 @@ const onSubmit = async () => {
           execResult.data,
           generatePublishLog.value.displayPublishField,
           "",
-          false
+          false,
+          dllResolveOptions
         );
         break;
       case "按用户":
@@ -276,7 +282,8 @@ const onSubmit = async () => {
           execResult.data,
           generatePublishLog.value.displayPublishField,
           "",
-          false
+          false,
+          dllResolveOptions
         );
         break;
       default:
@@ -284,7 +291,8 @@ const onSubmit = async () => {
           execResult.data,
           generatePublishLog.value.displayPublishField,
           "",
-          false
+          false,
+          dllResolveOptions
         );
         break;
     }

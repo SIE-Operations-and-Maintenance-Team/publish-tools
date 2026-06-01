@@ -1,5 +1,4 @@
 import { ElLoading } from "element-plus";
-import _ from "lodash";
 import { useAppconfigDb } from "@/database/appconfig/index";
 import { formatDate } from "@/utils/formatTime";
 import { useServerDb } from "@/database/servers/index";
@@ -7,6 +6,7 @@ import { cmdInvoke } from "@/utils/command";
 import { displayOs, removeSlash } from "@/utils/other";
 import { useTfsDb } from "@/database/teamFoundationServer/index";
 import { useGitDb } from "@/database/git/index";
+import { getDllFilesByChangedItems, getTfsChangedPath } from "@/utils/outPublishInfo";
 
 // 查询Tfs信息
 const getTfsDetail = async (id: number) => {
@@ -61,28 +61,13 @@ export const getTfsDllFiles = async (selectTfsItem: SelectTfsType) => {
 
   // 筛选变更项
   const lines = execResult.data.split("\n");
-  const filteredPaths = lines.filter((line: string) => {
-    let lineValues = line.trim().split("$");
-    if (lineValues.length < 2) return false;
-    return `$${_.trim(lineValues[0]).startsWith(
-      String(tfsItem.tfsSourcePath)
-    )}`;
+  const tfsItems = lines
+    .map((line: string) => getTfsChangedPath(line, tfsItem.tfsSourcePath))
+    .filter((item: string) => item);
+  return await getDllFilesByChangedItems(tfsItems, {
+    repositoryPath: tfsItem.tfsLocalPath,
+    sourcePath: tfsItem.tfsSourcePath,
   });
-  const tfsItems = filteredPaths.map((line: string) => _.trim(line).slice(2));
-  let dllFiles = new Array<string>();
-  const regex = new RegExp(`(SIE\.[^/]+)|([^/]+)\\.csproj$`);
-  for (let i = 0; i < tfsItems.length; i++) {
-    const tfsItem = tfsItems[i];
-    const matches = regex.exec(tfsItem);
-    if (!matches) continue;
-    if (matches.length > 0) {
-      let dllName = matches[0];
-      if (dllName.endsWith(".csproj"))
-        dllName = dllName.slice(0, -".csproj".length);
-      dllFiles.push(dllName + ".dll");
-    }
-  }
-  return [...new Set(dllFiles)];
 };
 
 const getGitDetail = async (id: number) => {
@@ -165,26 +150,9 @@ export const getGitDllFiles = async (selectGitItem: SelectGitType) => {
     }
     currentLineIndex++;
   }
-  console.log('gitItems', gitItems);
-  let dllFiles = new Array<string>();
-  console.log('bb');
-  console.log('ccccc');
-  const regex = new RegExp(`(SIE\\.[^/\\\\]+)|([^/\\\\]+)\\.csproj$`);
-  console.log('bushigemen')
-  for (let i = 0; i < gitItems.length; i++) {
-    console.log('wocenidema');
-    const aa = gitItems[i];
-    console.log('aa', aa);
-    const matches = regex.exec(aa);
-    console.log('matches', matches);
-    if (!matches) continue;
-    if (matches.length > 0) {
-      let dllName = matches[0];
-      if (dllName.endsWith(".csproj")) dllName = dllName.slice(0, -".csproj".length);
-      dllFiles.push(dllName + ".dll");
-    }
-  }
-  return [...new Set(dllFiles)];
+  return await getDllFilesByChangedItems(gitItems, {
+    repositoryPath: gitItem.gitRepository,
+  });
 };
 
 /**

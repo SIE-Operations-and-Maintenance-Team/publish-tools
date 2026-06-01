@@ -2,7 +2,7 @@
   <div class="tfs-container">
     <el-dialog :title="state.dialog.title" v-model="state.dialog.show" :close-on-click-modal="false"
       modal-class="tfs-dialog" draggable width="680px">
-      <el-form ref="tfsDialogFormRef" size="default" label-width="90px" :model="state.ruleForm" :rules="formRules"
+      <el-form ref="tfsDialogFormRef" size="default" label-width="110px" :model="state.ruleForm" :rules="formRules"
         :disabled="state.dialog.type == 'viewer'">
         <el-row :gutter="10">
           <el-col :span="24" class="mb20">
@@ -20,6 +20,12 @@
             <el-form-item label="源位置" prop="tfsSourcePath">
               <el-input v-model="state.ruleForm.tfsSourcePath" maxlength="150" clearable
                 placeholder="请输入TFS源位置"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="24" class="mb20">
+            <el-form-item label="本地根目录" prop="tfsLocalPath">
+              <el-input v-model="state.ruleForm.tfsLocalPath" maxlength="500" clearable
+                placeholder="请输入TFS本地根目录"></el-input>
             </el-form-item>
           </el-col>
           <el-col :span="24">
@@ -61,7 +67,6 @@
 import { nextTick, reactive, ref } from "vue";
 import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage } from "element-plus";
-import _ from "lodash";
 import { getDefaultSubObject } from "@/utils/other";
 import { useTfsDb } from "@/database/teamFoundationServer/index";
 
@@ -79,6 +84,7 @@ const state = reactive<FormDialogType<RowTfsType>>({
     tfsName: null,
     tfsServerUrl: null,
     tfsSourcePath: null,
+    tfsLocalPath: null,
     tfvcPath: null,
     remark: null,
   },
@@ -96,6 +102,7 @@ const formRules = reactive<FormRules>({
   tfsName: [{ required: true, message: "请输入TFS名称！", trigger: "blur" }],
   tfsServerUrl: [{ required: true, message: "请输入TFS服务地址！", trigger: "blur" }],
   tfsSourcePath: [{ required: true, message: "请输入TFS源位置！", trigger: "blur" }],
+  tfsLocalPath: [{ required: true, message: "请输入本地根目录！", trigger: "blur" }],
   tfvcPath: [{ required: true, message: "请输入TFVC工具路径！", trigger: "blur" }],
 });
 
@@ -181,6 +188,10 @@ defineExpose({
 </style>
 
 <style lang="scss" scoped>
+:deep(.el-form-item__label) {
+  white-space: nowrap;
+}
+
 .tfvc-info-text {
   margin-top: 15px;
   padding: 5px;
