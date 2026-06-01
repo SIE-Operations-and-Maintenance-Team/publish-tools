@@ -25,6 +25,7 @@ declare type RowTfsType = {
 	tfsName: string | null;
 	tfsServerUrl: string | null;
 	tfsSourcePath: string | null;
+	tfsLocalPath: string | null;
 	tfvcPath: string | null;
 	remark: string | null;
 };

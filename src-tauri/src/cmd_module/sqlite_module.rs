@@ -77,6 +77,9 @@ pub fn db_migration() -> Vec<Migration> {
         remark TEXT
     );";
 
+    let mark_build_mode_migration = "SELECT 1;";
+    let add_tfs_local_path_migration = "ALTER TABLE t_team_foundation_server ADD COLUMN tfs_local_path TEXT;";
+
     let migrations = vec![
         // 数据迁移
         Migration {
@@ -119,6 +122,18 @@ pub fn db_migration() -> Vec<Migration> {
             version: 7,
             description: "初始化创建Git[t_git]表.",
             sql: t_git,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 8,
+            description: "应用配置[t_app_config]构建模式字段兼容占位.",
+            sql: mark_build_mode_migration,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 9,
+            description: "TFS[t_team_foundation_server]增加本地工作区路径字段.",
+            sql: add_tfs_local_path_migration,
             kind: MigrationKind::Up,
         },
     ];

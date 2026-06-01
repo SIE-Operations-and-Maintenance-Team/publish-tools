@@ -9,7 +9,7 @@ export function useTfsDb() {
          */
         getTfsList: async (params: GetTfsTableParams) => {
             let dataSql =
-                "select id, tfs_name tfsName, tfs_server_url tfsServerUrl, tfs_source_path tfsSourcePath, tfvc_path tfvcPath, remark from t_team_foundation_server";
+                "select id, tfs_name tfsName, tfs_server_url tfsServerUrl, tfs_source_path tfsSourcePath, tfs_local_path tfsLocalPath, tfvc_path tfvcPath, remark from t_team_foundation_server";
             let totalSql = "select count(*) totalCount from t_team_foundation_server";
             let where = " where 1=1 ";
             let orderBy = "";
@@ -64,7 +64,7 @@ export function useTfsDb() {
          */
         getTfsById: async (id: number) => {
             let dataSql =
-                "select id, tfs_name tfsName, tfs_server_url tfsServerUrl, tfs_source_path tfsSourcePath, tfvc_path tfvcPath, remark from t_team_foundation_server where id = $1;";
+                "select id, tfs_name tfsName, tfs_server_url tfsServerUrl, tfs_source_path tfsSourcePath, tfs_local_path tfsLocalPath, tfvc_path tfvcPath, remark from t_team_foundation_server where id = $1;";
 
             // 定义(默认)响应结果
             let dataResult: DataResultType<TableResultType<RowTfsType>> = {
@@ -99,7 +99,7 @@ export function useTfsDb() {
          */
         insertTfs: async (tfs: RowTfsType) => {
             let insertSql =
-                "INSERT INTO t_team_foundation_server (tfs_name, tfs_server_url, tfs_source_path, tfvc_path, remark) VALUES($1, $2, $3, $4, $5) RETURNING id;";
+                "INSERT INTO t_team_foundation_server (tfs_name, tfs_server_url, tfs_source_path, tfs_local_path, tfvc_path, remark) VALUES($1, $2, $3, $4, $5, $6) RETURNING id;";
 
             // 定义(默认)响应结果
             let dataResult: DataResultType<number> = {
@@ -128,6 +128,7 @@ export function useTfsDb() {
                     tfs.tfsName,
                     tfs.tfsServerUrl,
                     tfs.tfsSourcePath,
+                    tfs.tfsLocalPath,
                     tfs.tfvcPath,
                     tfs.remark
                 ]);
@@ -155,7 +156,7 @@ export function useTfsDb() {
          */
         updateTfs: async (tfs: RowTfsType) => {
             let updateSql =
-                "UPDATE t_team_foundation_server SET tfs_name=$1, tfs_server_url=$2, tfs_source_path=$3, tfvc_path=$4, remark=$5 WHERE id=$6;";
+                "UPDATE t_team_foundation_server SET tfs_name=$1, tfs_server_url=$2, tfs_source_path=$3, tfs_local_path=$4, tfvc_path=$5, remark=$6 WHERE id=$7;";
 
             // 定义(默认)响应结果
             let dataResult: DataResultType<boolean> = {
@@ -183,6 +184,7 @@ export function useTfsDb() {
                     tfs.tfsName,
                     tfs.tfsServerUrl,
                     tfs.tfsSourcePath,
+                    tfs.tfsLocalPath,
                     tfs.tfvcPath,
                     tfs.remark,
                     tfs.id

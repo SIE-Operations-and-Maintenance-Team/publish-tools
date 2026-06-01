@@ -5,6 +5,129 @@ import {
   removeSlash
 } from "@/utils/other";
 
+export type DllResolveOptions = {
+    repositoryPath?: string | null;
+    sourcePath?: string | null;
+};
+
+const getChangedCsprojInfo = (item: string) => {
+    const normalizedItem = item.trim().replace(/\\/g, "/");
+    const matches = [...normalizedItem.matchAll(/([^\s"'<>|]+?\.csproj)/gi)];
+    if (matches.length < 1) return null;
+
+    const projectPath = matches[matches.length - 1][1];
+    const fileNameMatch = projectPath.match(/([^/]+)\.csproj$/i);
+    if (!fileNameMatch) return null;
+
+    return {
+        projectPath,
+        projectName: fileNameMatch[1],
+    };
+};
+
+const getChangedCsprojPath = (projectPath: string, options: DllResolveOptions = {}) => {
+    if (/^[a-zA-Z]:\//.test(projectPath) || projectPath.startsWith("//")) return projectPath;
+    if (projectPath.startsWith("$/")) {
+        if (!options.repositoryPath || !options.sourcePath) return "";
+        const normalizedProjectPath = removeSlash(projectPath, "/");
+        const normalizedSourcePath = removeSlash(options.sourcePath, "/");
+        if (!normalizedProjectPath.toLowerCase().startsWith(normalizedSourcePath.toLowerCase())) return "";
+        const relativePath = normalizedProjectPath.slice(normalizedSourcePath.length).replace(/^\/+/, "");
+        return relativePath ? `${removeSlash(options.repositoryPath)}/${relativePath}` : removeSlash(options.repositoryPath);
+    }
+    if (!options.repositoryPath) return "";
+
+    return `${removeSlash(options.repositoryPath)}/${projectPath.replace(/^\/+/, "")}`;
+};
+
+const getChangedSieDirectoryInfo = (item: string) => {
+    const normalizedItem = item.trim().replace(/\\/g, "/");
+    const matches = [...normalizedItem.matchAll(/(^|\/)(SIE\.[^/\s"'<>|]+)(?=\/|$)/g)];
+    if (matches.length < 1) return null;
+
+    const match = matches[matches.length - 1];
+    const directoryPath = normalizedItem.slice(0, Number(match.index) + match[0].length);
+
+    return {
+        directoryPath,
+        directoryName: match[2],
+    };
+};
+
+const getAssemblyName = async (projectPath: string) => {
+    if (!projectPath) return "";
+    const assemblyNameResult = await cmdInvoke<string | null>("find_assembly_name", {
+        projectPath,
+    });
+    if (assemblyNameResult.code !== 0 || !assemblyNameResult.data) return "";
+    return assemblyNameResult.data;
+};
+
+const getDllFileByCsprojInfo = async (csprojInfo: NonNullable<ReturnType<typeof getChangedCsprojInfo>>, options: DllResolveOptions = {}) => {
+    const projectPath = getChangedCsprojPath(csprojInfo.projectPath, options);
+    const assemblyName = await getAssemblyName(projectPath);
+    return `${assemblyName || csprojInfo.projectName}.dll`;
+};
+
+const getCsprojInfoFromDirectory = async (directoryPath: string, directoryName: string) => {
+    const readFilesResult = await cmdInvoke<string[]>("read_files", {
+        path: directoryPath,
+    });
+    if (readFilesResult.code !== 0 || !readFilesResult.data) return null;
+
+    const csprojFiles = readFilesResult.data
+        .filter((fileName) => fileName.toLowerCase().endsWith(".csproj"))
+        .sort((a, b) => a.localeCompare(b));
+    if (csprojFiles.length < 1) return null;
+
+    const preferredProjectFile = csprojFiles.find(
+        (fileName) => fileName.slice(0, -".csproj".length).toLowerCase() === directoryName.toLowerCase()
+    ) || csprojFiles[0];
+
+    return getChangedCsprojInfo(`${removeSlash(directoryPath)}/${preferredProjectFile}`);
+};
+
+const getDllFileBySieDirectory = async (item: string, options: DllResolveOptions = {}) => {
+    const sieDirectoryInfo = getChangedSieDirectoryInfo(item);
+    if (!sieDirectoryInfo) return "";
+
+    const directoryPath = getChangedCsprojPath(sieDirectoryInfo.directoryPath, options);
+    if (directoryPath) {
+        const csprojInfo = await getCsprojInfoFromDirectory(directoryPath, sieDirectoryInfo.directoryName);
+        if (csprojInfo) return await getDllFileByCsprojInfo(csprojInfo, options);
+    }
+
+    return `${sieDirectoryInfo.directoryName}.dll`;
+};
+
+export async function getDllFileByChangedItem(item: string, options: DllResolveOptions = {}) {
+    const csprojInfo = getChangedCsprojInfo(item);
+    if (csprojInfo) return await getDllFileByCsprojInfo(csprojInfo, options);
+
+    return await getDllFileBySieDirectory(item, options);
+}
+
+export const getTfsChangedPath = (line: string, sourcePath?: string | null) => {
+    const changedPath = line.match(/\$\/[^\r\n]+/)?.[0]?.trim() || "";
+    if (!changedPath) return "";
+    if (!sourcePath) return changedPath;
+
+    const normalizedChangedPath = removeSlash(changedPath, "/");
+    const normalizedSourcePath = removeSlash(sourcePath, "/");
+    return normalizedChangedPath.toLowerCase().startsWith(normalizedSourcePath.toLowerCase())
+        ? normalizedChangedPath
+        : "";
+};
+
+export async function getDllFilesByChangedItems(items: string[], options: DllResolveOptions = {}) {
+    let dllFiles = new Array<string>();
+    for (let i = 0; i < items.length; i++) {
+        const dllFile = await getDllFileByChangedItem(items[i], options);
+        if (dllFile) dllFiles.push(dllFile);
+    }
+    return [...new Set(dllFiles)];
+}
+
 /**
  * 输出[按用户]日志信息
  * @param content 日志信息
@@ -12,7 +135,7 @@ import {
  * @param outPath 输出路径(默认为桌面目录)
  * @param isDelOldFile 删除旧文件
  */
-export async function outPublishContentByUsers(content: string, displayPublishField: DisplayPublishFieldType, outPath: string = "", isDelOldFile = true): Promise<DataResultType> {
+export async function outPublishContentByUsers(content: string, displayPublishField: DisplayPublishFieldType, outPath: string = "", isDelOldFile = true, options: DllResolveOptions = {}): Promise<DataResultType> {
     if (!outPath) {
         outPath = await path.desktopDir();
     }
@@ -53,7 +176,7 @@ export async function outPublishContentByUsers(content: string, displayPublishFi
             if(displayPublishField.isDateTime) dateTimeText = `[日期:${publishInfo.dateTime}]`;
             
             if(displayPublishField.isDll) {
-                const dllFiles = await getItemsDll(publishInfo.items);
+                const dllFiles = await getItemsDll(publishInfo.items, options);
                 if (dllFiles.length > 0) dllArr.push(...new Set(dllFiles));
             }
             contentArr.push(`${(i+1)}.${changeSetText}${dateTimeText}${publishInfo.commentText}`);
@@ -87,7 +210,7 @@ export async function outPublishContentByUsers(content: string, displayPublishFi
  * @param outPath 输出路径(默认为桌面目录)
  * @param isDelOldFile 删除旧文件
  */
-export async function outPublishContentByDates(content: string, displayPublishField: DisplayPublishFieldType, outPath: string = "", isDelOldFile = true): Promise<DataResultType> {
+export async function outPublishContentByDates(content: string, displayPublishField: DisplayPublishFieldType, outPath: string = "", isDelOldFile = true, options: DllResolveOptions = {}): Promise<DataResultType> {
     if (!outPath) {
         outPath = await path.desktopDir();
     }
@@ -131,7 +254,7 @@ export async function outPublishContentByDates(content: string, displayPublishFi
             if(displayPublishField.isDateTime) dateTimeText = `[日期:${publishInfo.dateTime}]`;
             
             if(displayPublishField.isDll) {
-                const dllFiles = await getItemsDll(publishInfo.items);
+                const dllFiles = await getItemsDll(publishInfo.items, options);
                 if (dllFiles.length > 0) dllArr.push(...new Set(dllFiles));
             }
             contentArr.push(`${(i+1)}.${changeSetText}${userText}${dateTimeText}${publishInfo.commentText}`);
@@ -205,7 +328,7 @@ export async function outPublishContents(content: string, outPath: string = "", 
  * @param outPath 输出路径(默认为桌面目录)
  * @param isDelOldFile 删除旧文件
  */
-export async function outDetaultPublishContents(content: string, displayPublishField: DisplayPublishFieldType, outPath: string = "", isDelOldFile = true): Promise<DataResultType> {
+export async function outDetaultPublishContents(content: string, displayPublishField: DisplayPublishFieldType, outPath: string = "", isDelOldFile = true, options: DllResolveOptions = {}): Promise<DataResultType> {
     if (!outPath) {
         outPath = await path.desktopDir();
     }
@@ -234,7 +357,7 @@ export async function outDetaultPublishContents(content: string, displayPublishF
             publishContents.push(`日期: ${publishInfo.dateTime}\n`);
         }
         if(displayPublishField.isDll) {
-            const dllFiles = await getItemsDll(publishInfo.items);
+            const dllFiles = await getItemsDll(publishInfo.items, options);
             if (dllFiles.length > 0) {
                 publishContents.push(`DLL文件: ${dllFiles.join('、')}\n`);
             }
@@ -258,20 +381,8 @@ export async function outDetaultPublishContents(content: string, displayPublishF
  * 获取DLL发布文件
  * @param items 日志信息中的项
  */
-export async function getItemsDll(items: string[]): Promise<string[]> {
-    let dllFiles = new Array<string>();
-    const regex = new RegExp(`(SIE\.[^/]+)|([^/]+)\\.csproj$`);
-    for (let i = 0; i < items.length; i++) {
-        const tfsItem = items[i];
-        const matches = regex.exec(tfsItem);
-        if (!matches) continue;
-        if (matches.length > 0) {
-            let dllName = matches[0];
-            if (dllName.endsWith(".csproj")) dllName = dllName.slice(0, -".csproj".length);
-            dllFiles.push(dllName + ".dll");
-        }
-    }
-    return [...new Set(dllFiles)];
+export async function getItemsDll(items: string[], options: DllResolveOptions = {}): Promise<string[]> {
+    return await getDllFilesByChangedItems(items, options);
 }
 
 /**

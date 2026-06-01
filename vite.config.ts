@@ -33,7 +33,7 @@ export default defineConfig((mode: ConfigEnv) => {
     server: {
       host: '0.0.0.0',
 			https: false,   // 需要开启https服务
-      port: 5200,
+      port: 15200,
       open: Boolean(env.VITE_OPEN),
       hmr: true,
       strictPort: true,

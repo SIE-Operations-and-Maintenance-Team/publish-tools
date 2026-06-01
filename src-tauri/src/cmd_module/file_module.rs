@@ -1203,7 +1203,6 @@ pub async fn exec_local_command_spawn(command: &str, args: Vec<String>) -> Resul
         .creation_flags(0x08000000) // CREATE_NO_WINDOW
         .spawn()
         .map_err(|e| format!("命令失败，出现错误: {}", e))?;
-    
 
     let status = child.wait().map_err(|e| format!("无法等待 child: {}", e))?;
 
@@ -1226,9 +1225,9 @@ pub async fn exec_local_command_spawn(command: &str, args: Vec<String>) -> Resul
 /// * `Err(String)` 失败
 #[tauri::command]
 pub async fn execute_local_command_with_working_dir(
-    command: &str, 
+    command: &str,
     args: Vec<String>,
-    working_dir: &str
+    working_dir: &str,
 ) -> Result<String, String> {
     let mut attempts = 0;
     let mut err_msg = String::new();
@@ -1260,9 +1259,9 @@ pub async fn execute_local_command_with_working_dir(
 /// * `Ok(String)` 成功
 /// * `Err(String)` 失败
 async fn exec_local_command_with_working_dir(
-    command: &str, 
+    command: &str,
     args: Vec<String>,
-    working_dir: &str
+    working_dir: &str,
 ) -> Result<String, String> {
     match Command::new(command)
         .args(args)
@@ -1432,7 +1431,7 @@ pub async fn read_content_to_file(file_path: &str) -> Result<String, String> {
 #[tauri::command]
 pub async fn get_encryption_key() -> String {
     // 先写死
-    let key = "REX_SMOM_5200";
+    let key = "REX_SMOM_15200";
     // ...
     return key.to_string();
 }
@@ -1486,11 +1485,7 @@ pub async fn delete_files_with_prefix(dir_path: &str, prefix: &str) -> Result<bo
 /// # 返回值
 /// - `Ok(true)` 表示操作完成
 /// - `Err(String)` 表示过程中发生错误
-fn copy_dlls_with_filter<P, F>(
-    src_dir: P,
-    dest_dir: P,
-    filter: F,
-) -> Result<bool, String>
+fn copy_dlls_with_filter<P, F>(src_dir: P, dest_dir: P, filter: F) -> Result<bool, String>
 where
     P: AsRef<Path>,
     F: Fn(&str) -> bool,
@@ -1629,8 +1624,7 @@ pub async fn copy_dll_files_by_name(
     }
 
     // 确保目标目录存在
-    fs::create_dir_all(dst_dir)
-        .map_err(|e| format!("无法创建目标目录 {:?}: {}", dst_dir, e))?;
+    fs::create_dir_all(dst_dir).map_err(|e| format!("无法创建目标目录 {:?}: {}", dst_dir, e))?;
 
     let regex_patterns = parse_patterns(patterns);
     if regex_patterns.is_empty() {
@@ -1641,8 +1635,8 @@ pub async fn copy_dll_files_by_name(
     let mut latest_files: HashMap<String, (SystemTime, std::path::PathBuf)> = HashMap::new();
 
     // 遍历源目录中的所有文件
-    for entry in fs::read_dir(src_dir)
-        .map_err(|e| format!("无法读取源目录 {:?}: {}", src_dir, e))?
+    for entry in
+        fs::read_dir(src_dir).map_err(|e| format!("无法读取源目录 {:?}: {}", src_dir, e))?
     {
         let entry = entry.map_err(|e| format!("读取目录项失败: {}", e))?;
         let path = entry.path();

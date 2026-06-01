@@ -87,3 +87,34 @@ pub async fn find_target_framework(project_path: &str) -> Option<String> {
 
     target_framework
 }
+
+// 查找 .csproj 程序集名称
+#[tauri::command]
+pub async fn find_assembly_name(project_path: &str) -> Result<Option<String>, String> {
+    let file_content = fs::read_to_string(project_path)
+        .map_err(|e| format!("无法读取.csproj文件 {}: {}", project_path, e))?;
+    let mut reader = Reader::from_str(&file_content);
+    reader.trim_text(true);
+
+    let mut buf = Vec::new();
+    let mut assembly_name = None;
+
+    while let Ok(event) = reader.read_event(&mut buf) {
+        match event {
+            Event::Start(ref e) if e.name() == b"AssemblyName" => {
+                if let Ok(Event::Text(e)) = reader.read_event(&mut buf) {
+                    let value = e.unescape_and_decode(&reader).unwrap_or_default();
+                    let value = value.trim();
+                    if !value.is_empty() {
+                        assembly_name = Some(value.to_string());
+                    }
+                }
+            }
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(assembly_name)
+}

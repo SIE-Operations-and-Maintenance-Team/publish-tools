@@ -78,7 +78,6 @@
 import { reactive, ref } from "vue";
 import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage } from "element-plus";
-import _ from "lodash";
 import { cmdInvoke } from "@/utils/command";
 import { getDefaultSubObject } from "@/utils/other";
 import { formatDate } from "@/utils/formatTime";
@@ -105,6 +104,7 @@ const state = reactive<FormDialogType<RowTfsType>>({
     tfsName: null,
     tfsServerUrl: null,
     tfsSourcePath: null,
+    tfsLocalPath: null,
     tfvcPath: null,
     remark: null,
   },

@@ -299,6 +299,7 @@ const onSubmit = async () => {
         data: null,
       };
 
+      const dllResolveOptions = { repositoryPath: state.ruleForm.gitRepository };
       switch (generateGitLog.value.type) {
         case "仅发布内容":
           generateResult = await outPublishContents(execResult.data, "", false);
@@ -308,7 +309,8 @@ const onSubmit = async () => {
             execResult.data,
             generateGitLog.value.displayPublishField,
             "",
-            false
+            false,
+            dllResolveOptions
           );
           break;
         case "按作者":
@@ -316,7 +318,8 @@ const onSubmit = async () => {
             execResult.data,
             generateGitLog.value.displayPublishField,
             "",
-            false
+            false,
+            dllResolveOptions
           );
           break;
         default:
@@ -324,7 +327,8 @@ const onSubmit = async () => {
             execResult.data,
             generateGitLog.value.displayPublishField,
             "",
-            false
+            false,
+            dllResolveOptions
           );
           break;
       }
