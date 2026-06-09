@@ -78,6 +78,21 @@ pub fn db_migration() -> Vec<Migration> {
         remark TEXT
     );";
 
+    // 表：定时发布
+    let t_publish_schedule = "CREATE TABLE IF NOT EXISTS t_publish_schedule (
+        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER,
+        project_name TEXT,
+        environment INTEGER,
+        appconfig_id INTEGER,
+        publish_type TEXT,
+        scheduled_time TEXT,
+        status TEXT DEFAULT 'pending',
+        create_time TEXT,
+        execute_time TEXT,
+        result_log TEXT
+    );";
+
     let migrations = vec![
         // 数据迁移
         Migration {
@@ -120,6 +135,12 @@ pub fn db_migration() -> Vec<Migration> {
             version: 7,
             description: "初始化创建Git[t_git]表.",
             sql: t_git,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 8,
+            description: "初始化创建定时发布[t_publish_schedule]表.",
+            sql: t_publish_schedule,
             kind: MigrationKind::Up,
         },
     ];
