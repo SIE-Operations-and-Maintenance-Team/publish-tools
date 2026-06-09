@@ -30,3 +30,6 @@ dist-ssr
 
 # Tauri signing keys
 src-tauri/tauri.key
+
+/doc
+.codegraph/daemon.pid

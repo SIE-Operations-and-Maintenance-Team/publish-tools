@@ -5,7 +5,6 @@ use std::process;
 use tauri::Manager;
 use SmomPublish::cmd_module::file_module;
 use SmomPublish::cmd_module::parse_sln_module;
-use SmomPublish::cmd_module::sqlite_module;
 use SmomPublish::cmd_module::wpf_upgrade_module;
 
 // 了解更多关于 Tauri 命令的信息，请访问：https://tauri.app/v1/guides/features/command
@@ -29,7 +28,6 @@ fn main() {
         .plugin(tauri_plugin_notification::init())
         .plugin(
             tauri_plugin_sql::Builder::default()
-                .add_migrations("sqlite:smom.db", sqlite_module::db_migration())
                 .build(),
         )
         .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
