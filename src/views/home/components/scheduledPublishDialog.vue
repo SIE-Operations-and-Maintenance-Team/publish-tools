@@ -4,7 +4,7 @@
 			modal-class="scheduled-publish-dialog" draggable width="720px">
 			<el-form ref="scheduleFormRef" size="default" label-width="110px" :model="state.ruleForm" :rules="formRules">
 				<el-row :gutter="10">
-					<el-col :span="24">
+					<el-col :span="24" style="margin-bottom: 15px">
 						<el-form-item label="发布类型" prop="publishType">
 							<el-radio-group v-model="state.ruleForm.publishType" size="default">
 								<el-radio value="一键发布" border>一键发布</el-radio>
