@@ -547,6 +547,7 @@ const initPublishLocalServer = () => {
 
 // 关闭弹窗
 const closeDialog = () => {
+  emit("refresh");
   state.dialog.show = false;
 };
 

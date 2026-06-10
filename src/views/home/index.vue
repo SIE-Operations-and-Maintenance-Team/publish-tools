@@ -467,9 +467,9 @@
         </div>
       </el-col>
     </el-row>
-    <appconfig-dialog ref="appconfigDialogRef" @refresh="getPublishAppconfigs()" />
+    <appconfig-dialog ref="appconfigDialogRef" @environment-change="onAppConfigEnvChange" @refresh="getPublishAppconfigs()" />
     <generate-publish-dialog :done="execApplicationAssemblyDone" @exec-application-assembly="onExecApplicationAssembly"
-      @exec-done="onExecDone" ref="generatePublishDialogRef" />
+      @exec-done="onExecDone" @refresh="getPublishAppconfigs()" ref="generatePublishDialogRef" />
     <scheduled-publish-dialog ref="scheduledPublishDialogRef" @refresh="getPublishAppconfigs()" />
   </div>
 </template>
@@ -3314,6 +3314,15 @@ const getProjectDefault = async (options?: { keepCurrentEnvironment?: boolean })
   }
 };
 
+// 应用配置弹框环境变更
+const onAppConfigEnvChange = (newEnv: number) => {
+  console.log('=== 应用配置弹框环境变更 ===');
+  console.log('  - 旧 environment:', state.publishData.environment);
+  console.log('  - 新 environment:', newEnv);
+  state.publishData.environment = newEnv;
+  console.log('  - 已更新 environment:', state.publishData.environment);
+};
+
 // 获取发布的应用程序配置
 const getPublishAppconfigs = async () => {
   let dataResult = await appconfigDb.getPublishAppconfigs(
@@ -3406,24 +3415,31 @@ const showCompressFile = (jsonValue: string) => {
 
 // 项目切换
 const onProjectChange = async (val: number) => {
-  console.log('=== 手动切换项目 ===');
-  console.log('  - 新项目ID:', val);
-  
   let projectObj = projectList.value?.find((item) => item.id === val);
   if (projectObj) {
     state.publishData.projectName = String(projectObj.name);
-    state.publishData.assemblyOutPath = projectObj.assemblyOutPath 
-      ? String(projectObj.assemblyOutPath) 
+    state.publishData.assemblyOutPath = projectObj.assemblyOutPath
+      ? String(projectObj.assemblyOutPath)
       : "";
-    
-    // 恢复该项目之前选择的环境
+
+    // 从数据库查该项目有哪些环境有配置
+    let availableEnvironments: number[] = [];
+    for (let env = 1; env <= 4; env++) {
+      const result = await appconfigDb.getPublishAppconfigs(val, env);
+      if (result.code === 0 && result.data.data && result.data.data.id) {
+        availableEnvironments.push(env);
+      }
+    }
+
+    // 恢复环境：优先用缓存（需有对应配置），否则取第一个有配置的环境
     const savedEnvironment = restoreEnvironmentFromStorage(val);
-    if (savedEnvironment) {
+    if (savedEnvironment && availableEnvironments.includes(savedEnvironment)) {
       state.publishData.environment = savedEnvironment;
-      console.log('  >>> 恢复保存的环境:', savedEnvironment);
+    } else if (availableEnvironments.length > 0) {
+      availableEnvironments.sort((a, b) => a - b);
+      state.publishData.environment = availableEnvironments[0];
     } else {
       state.publishData.environment = 1;
-      console.log('  >>> 无保存的环境，使用默认 Dev');
     }
   }
   await getPublishAppconfigs();

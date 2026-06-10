@@ -511,7 +511,7 @@ import { formatDate } from "@/utils/formatTime";
 import { getDefaultSubObject, removeSlash } from "@/utils/other";
 
 // 定义子组件向父组件传值/事件
-const emit = defineEmits(["refresh"]);
+const emit = defineEmits(["refresh", "environment-change"]);
 
 // 引入应用配置管理数据库
 const appconfigDb = useAppconfigDb();
@@ -1301,7 +1301,10 @@ const onSubmit = async () => {
     let updateResult = await appconfigDb.updateAppconfig(state.ruleForm);
     if (updateResult.code === 0) {
       ElMessage.success("修改成功！");
+      console.log('=== appconfigDialog 保存成功 ===');
+      console.log('  - state.ruleForm.environment:', state.ruleForm.environment);
       closeDialog(); // 关闭弹窗
+      emit("environment-change", state.ruleForm.environment);
       emit("refresh");
     } else {
       ElMessage.error(updateResult.msg);
@@ -1314,6 +1317,7 @@ const onSubmit = async () => {
   if (insertResult.code === 0) {
     ElMessage.success("添加成功！");
     closeDialog(); // 关闭弹窗
+    emit("environment-change", state.ruleForm.environment);
     emit("refresh");
   } else {
     ElMessage.error(insertResult.msg);
