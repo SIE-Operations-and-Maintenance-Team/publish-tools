@@ -227,7 +227,7 @@ pub async fn build_project_release(
 ) -> Result<bool, String> {
     match build_project(project_file_path, msbuild_path, is_rebuild) {
         Ok(_) => Ok(true),
-        Err(e) => Err(e.to_string()),
+        Err(e) => Err(e),
     }
 }
 

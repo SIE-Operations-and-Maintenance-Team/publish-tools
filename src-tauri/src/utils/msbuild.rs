@@ -1,4 +1,3 @@
-use std::io::{self, ErrorKind};
 use std::os::windows::process::CommandExt;
 use std::process::{Command, Stdio};
 
@@ -10,36 +9,60 @@ use std::process::{Command, Stdio};
 /// * `is_rebuild` - 是否重新编译
 ///
 /// # Returns
-/// * `OK` 成功
-/// * `Err` 失败
+/// * `Ok(())` 成功
+/// * `Err(String)` 失败，返回 MSBuild 错误输出
 pub fn build_project(
     project_file_path: &str,
     msbuild_path: &str,
     is_rebuild: bool,
-) -> Result<(), io::Error> {
+) -> Result<(), String> {
     let mut command = Command::new(msbuild_path);
 
+    // 编译目标：Rebuild 或 Build
     if is_rebuild {
         command.arg("/t:Rebuild");
+    } else {
+        command.arg("/t:Build");
     }
 
     let output = command
         .arg(project_file_path)
-        .arg("-p:Configuration=Release")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .arg("/restore")
+        .arg("/p:Configuration=Release")
+        .arg("/m")
+        .arg("/v:quiet")
+        .arg("/clp:ErrorsOnly")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .creation_flags(0x08000000) // CREATE_NO_WINDOW
-        .output()?;
+        .output()
+        .map_err(|e| format!("启动 MSBuild 进程失败: {}", e))?;
 
     if output.status.success() {
         println!("编译 【{}】 成功.", project_file_path);
         Ok(())
     } else {
-        eprintln!(
-            "编译 【{}】 失败: {}",
-            project_file_path,
-            String::from_utf8_lossy(&output.stderr)
-        );
-        Err(io::Error::new(ErrorKind::Other, "Build failed"))
+        // 过滤输出，只保留包含错误/警告的行，去掉 MSBuild 版本横幅等无关信息
+        let all_output = String::from_utf8_lossy(&output.stdout).to_string();
+        let fallback_output = String::from_utf8_lossy(&output.stderr).to_string();
+
+        let final_msg = all_output
+            .lines()
+            .chain(fallback_output.lines())
+            .filter(|line| {
+                line.contains(": error") || line.contains(": warning")
+            })
+            .map(|line| line.trim())
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let final_msg = if !final_msg.is_empty() {
+            final_msg
+        } else {
+            "编译失败，但未捕获到错误输出。请检查 MSBuild 路径或项目配置。".to_string()
+        };
+
+        eprintln!("编译 【{}】 失败: {}", project_file_path, final_msg);
+        Err(final_msg)
     }
 }
