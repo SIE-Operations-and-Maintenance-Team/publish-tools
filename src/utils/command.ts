@@ -28,3 +28,11 @@ export function cmdInvoke<T = any>(cmd: string, args?: InvokeArgs): Promise<Data
         // reject(err);
     });
 }
+
+/**
+ * 将 Windows 远程命令兼容处理
+ * @param command 原始命令（可能含 cmd 内置语法：if / mkdir / cd /d / && 等）
+ */
+export const wrapWinCmd = (command: string): string => {
+  return command;
+};

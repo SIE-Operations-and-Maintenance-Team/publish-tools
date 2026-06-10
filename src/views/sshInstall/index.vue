@@ -31,6 +31,15 @@
           />
         </p>
         <p class="ssh-info-text mb5">
+          OpenSSH离线安装包下载：<a
+            class="ssh-link-download"
+            href="https://github.com/PowerShell/Win32-OpenSSH/tags"
+            target="_blank"
+          >
+            https://github.com/PowerShell/Win32-OpenSSH/tags </a
+          >，推荐下载v9.8.x版本(较为稳定)，下载完成后，双击安装包即可安装 OpenSSH。
+        </p>
+        <p class="ssh-info-text mb5">
           <code>
             # 开启服务命令 <br />
             net start sshd <br /><br /># 关闭服务<br />
@@ -291,6 +300,14 @@ const threeImgList = ref([
       border: 1px solid #dcdfe6;
       width: 100%;
       margin: 5px 0px;
+    }
+    .ssh-link-download {
+      text-decoration: none;
+      color: #303133;
+    }
+    .ssh-link-download:hover {
+      text-decoration: underline;
+      cursor: pointer;
     }
   }
 }

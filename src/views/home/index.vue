@@ -132,7 +132,7 @@
                     <td colspan="3">{{ state.publishData.appconfigData.msBuildPath }}</td>
                   </tr>
                   <tr>
-                    <th>重新编译</th>
+                    <th>强制重新生成</th>
                     <td>
                       {{
                         state.publishData.appconfigData.configItems.isRebuild == 1
@@ -147,6 +147,40 @@
                         active-text="开启" inactive-text="关闭" size="default" />
                     </td>
                   </tr>
+                  <tr>
+                    <th>异步上传</th>
+                    <td>
+                      <el-switch
+                        v-model="isAsyncMode"
+                        :active-value="true"
+                        :inactive-value="false"
+                        :disabled="state.funModule[currModuleIndex].loading == true"
+                        inline-prompt
+                        active-text="开启"
+                        inactive-text="关闭"
+                        size="default"
+                      />
+                      <el-tooltip
+                        content="异步模式下仅 WebApiHost / ScheduleServer / WpfClient / SpcMonitor 并行执行，WebClient 仍需等待所有 WebApiHost 完成后才执行。"
+                        placement="top"
+                        effect="light"
+                      >
+                        <el-icon
+                          style="
+                            margin-left: 10px;
+                            position: relative;
+                            top: 4px;
+                            cursor: help;
+                            color: #909399;
+                          "
+                        >
+                          <QuestionFilled />
+                        </el-icon>
+                      </el-tooltip>
+                    </td>
+                    <th></th>
+                    <td></td>
+                  </tr>
                 </table>
               </div>
               <div class="card-item-appconfig">
@@ -160,9 +194,26 @@
                   <tr>
                     <th>客户端生成路径</th>
                     <td>
-                      {{
-                        state.publishData.appconfigData.configItems.webApiHost.clientPath
-                      }}
+                      <a
+                        class="t-link-path"
+                        href="javascript:void(0);"
+                        title="打开客户端生成路径"
+                        @click="
+                          onOpenClientPath(
+                            state.publishData.appconfigData.configItems.webApiHost
+                              .clientPath
+                          )
+                        "
+                        v-if="
+                          state.publishData.appconfigData.configItems.webApiHost
+                            .clientPath
+                        "
+                        >{{
+                          state.publishData.appconfigData.configItems.webApiHost
+                            .clientPath
+                        }}</a
+                      >
+                      <label v-else></label>
                     </td>
                   </tr>
                   <template v-for="(apiServer, asIndex) in state.publishData.appconfigData
@@ -209,9 +260,23 @@
                   <tr>
                     <th>客户端生成路径</th>
                     <td>
-                      {{
-                        state.publishData.appconfigData.configItems.webClient.clientPath
-                      }}
+                      <a
+                        class="t-link-path"
+                        href="javascript:void(0);"
+                        title="打开客户端生成路径"
+                        @click="
+                          onOpenClientPath(
+                            state.publishData.appconfigData.configItems.webClient.clientPath
+                          )
+                        "
+                        v-if="
+                          state.publishData.appconfigData.configItems.webClient.clientPath
+                        "
+                        >{{
+                          state.publishData.appconfigData.configItems.webClient.clientPath
+                        }}</a
+                      >
+                      <label v-else></label>
                     </td>
                   </tr>
                   <template v-for="(webServer, wsIndex) in state.publishData.appconfigData
@@ -259,10 +324,26 @@
                   <tr>
                     <th>客户端生成路径</th>
                     <td>
-                      {{
-                        state.publishData.appconfigData.configItems.scheduleServer
-                          .clientPath
-                      }}
+                      <a
+                        class="t-link-path"
+                        href="javascript:void(0);"
+                        title="打开客户端生成路径"
+                        @click="
+                          onOpenClientPath(
+                            state.publishData.appconfigData.configItems.scheduleServer
+                              .clientPath
+                          )
+                        "
+                        v-if="
+                          state.publishData.appconfigData.configItems.scheduleServer
+                            .clientPath
+                        "
+                        >{{
+                          state.publishData.appconfigData.configItems.scheduleServer
+                            .clientPath
+                        }}</a
+                      >
+                      <label v-else></label>
                     </td>
                   </tr>
                   <template v-for="(scheduleServer, asIndex) in state.publishData.appconfigData
@@ -309,9 +390,26 @@
                   <tr>
                     <th>客户端生成路径</th>
                     <td>
-                      {{
-                        state.publishData.appconfigData.configItems.wpfClient.clientPath
-                      }}
+                      <a
+                        class="t-link-path"
+                        href="javascript:void(0);"
+                        title="打开客户端生成路径"
+                        @click="
+                          onOpenClientPath(
+                            state.publishData.appconfigData.configItems.wpfClient
+                              .clientPath
+                          )
+                        "
+                        v-if="
+                          state.publishData.appconfigData.configItems.wpfClient
+                            .clientPath
+                        "
+                        >{{
+                          state.publishData.appconfigData.configItems.wpfClient
+                            .clientPath
+                        }}</a
+                      >
+                      <label v-else></label>
                     </td>
                   </tr>
                   <tr>
@@ -390,9 +488,26 @@
                   <tr>
                     <th>客户端生成路径</th>
                     <td>
-                      {{
-                        state.publishData.appconfigData.configItems.spcMonitor.clientPath
-                      }}
+                      <a
+                        class="t-link-path"
+                        href="javascript:void(0);"
+                        title="打开客户端生成路径"
+                        @click="
+                          onOpenClientPath(
+                            state.publishData.appconfigData.configItems.spcMonitor
+                              .clientPath
+                          )
+                        "
+                        v-if="
+                          state.publishData.appconfigData.configItems.spcMonitor
+                            .clientPath
+                        "
+                        >{{
+                          state.publishData.appconfigData.configItems.spcMonitor
+                            .clientPath
+                        }}</a
+                      >
+                      <label v-else></label>
                     </td>
                   </tr>
                   <template v-for="(spcServer, ssIndex) in state.publishData.appconfigData
@@ -487,7 +602,7 @@ import {
 } from "vue";
 import { ElMessage } from "element-plus";
 import _ from "lodash";
-import { Refresh, CircleClose, EditPen } from "@element-plus/icons-vue";
+import { Refresh, CircleClose, EditPen, QuestionFilled } from "@element-plus/icons-vue";
 import { useProjectDb } from "@/database/project/index";
 import { useAppconfigDb } from "@/database/appconfig/index";
 import { useServerDb } from "@/database/servers/index";
@@ -552,6 +667,8 @@ const webClientName = ref("WebClient");
 const wpfClientName = ref("WpfClient");
 const spcMonitorName = ref("SpcMonitor");
 const projectAssemblyOutPath = ref("");
+// 异步上传模式
+const isAsyncMode = ref(false);
 const logContentRef = ref();
 const logPrintInfo = ref<LogPrintType[]>([]);
 const generatePublishLog = ref({
@@ -1432,6 +1549,10 @@ const newPublishWpfClient = async () => {
       );
       return false;
     }
+    printInfoLog(
+      `已将 ${dirName}.zip 版本号更新为 ${upgradePluginsVersionResult.data}.`,
+      "log-success"
+    );
 
     // 将本地 Manifest.xml 上传到服务器
     const remoteManifestPath = `${removeSlash(serverPath)}/Manifest.xml`;
@@ -1699,6 +1820,10 @@ const publishWpfClient = async () => {
       );
       return false;
     }
+    printInfoLog(
+      `已将 ${dirName}.zip 版本号更新为 ${upgradePluginsVersionResult.data}.`,
+      "log-success"
+    );
 
     // 将本地 Manifest.xml 上传到服务器
     const remoteManifestPath = `${removeSlash(serverPath)}/Manifest.xml`;
@@ -1930,6 +2055,12 @@ const readDirFiles = async (dirPath: string) => {
 
 // 打开程序集输出路径
 const onOpenAssemblyOutPath = async (path: string) => {
+  if (!path) return;
+  await cmdInvoke("open_dir", { path });
+};
+
+// 打开客户端生成路径
+const onOpenClientPath = async (path: string) => {
   if (!path) return;
   await cmdInvoke("open_dir", { path });
 };
@@ -3816,6 +3947,16 @@ $homeNavLengh: 8;
 
   .t-border-none {
     border: 0px solid white !important;
+  }
+
+  .t-link-path {
+    text-decoration: none;
+    color: #409eff;
+  }
+
+  .t-link-path:hover {
+    text-decoration: underline;
+    cursor: pointer;
   }
 }
 </style>

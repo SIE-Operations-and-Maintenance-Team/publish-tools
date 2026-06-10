@@ -55,12 +55,25 @@
           </el-icon>
           新增
         </el-button>
+        <el-button
+          size="default"
+          type="danger"
+          :disabled="selectedRows.length === 0"
+          @click="onBatchDel"
+        >
+          <el-icon>
+            <ele-Delete />
+          </el-icon>
+          批量删除
+        </el-button>
       </template>
       <el-table
         :data="state.tableData.data"
         v-loading="state.tableData.loading"
         style="width: 100%"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column type="selection" width="50" />
         <el-table-column fixed type="index" label="序号" width="60" />
         <el-table-column prop="projectName" label="项目名称" width="200" />
         <el-table-column prop="environment" label="环境" width="90">
@@ -263,6 +276,13 @@ const onCopyAppconfig = async (row: RowAppconfigType) => {
 //   backupDialogRef.value.openDialog("add", backupData);
 // };
 
+// 多选
+const selectedRows = ref<RowAppconfigType[]>([]);
+
+const handleSelectionChange = (rows: RowAppconfigType[]) => {
+  selectedRows.value = rows;
+};
+
 // 删除项目
 const onRowDel = (row: RowAppconfigType) => {
   ElMessageBox.confirm(
@@ -283,6 +303,33 @@ const onRowDel = (row: RowAppconfigType) => {
     }
     await getTableData();
     ElMessage.success("删除成功");
+  });
+};
+
+// 批量删除
+const onBatchDel = () => {
+  const names = selectedRows.value
+    .map(
+      (r) =>
+        `${r.projectName}-${displayEnvironment(Number(r.environment))}`
+    )
+    .join("、");
+  ElMessageBox.confirm(
+    `此操作将永久删除以下应用配置：【${names}】，是否确认?`,
+    "批量删除",
+    {
+      confirmButtonText: "确认",
+      cancelButtonText: "取消",
+      type: "warning",
+    }
+  ).then(async () => {
+    const ids = selectedRows.value.map((r) => Number(r.id));
+    for (const id of ids) {
+      await appconfigDb.deleteAppconfig(id);
+    }
+    selectedRows.value = [];
+    await getTableData();
+    ElMessage.success("批量删除成功");
   });
 };
 

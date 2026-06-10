@@ -569,6 +569,10 @@ const localPublishWpfServer = async (
       );
       return false;
     }
+    printInfoLog(
+      `已将 ${dirName}.zip 版本号更新为 ${upgradePluginsVersionResult.data}.`,
+      "log-success"
+    );
 
     // 将本机 Manifest.xml 上传到服务器
     const remoteManifestPath = `${removeSlash(publishServer.publishPath)}/Manifest.xml`;
@@ -1359,6 +1363,10 @@ const newRemotePublishWpfServer = async (
       );
       return false;
     }
+    printInfoLog(
+      `已将 ${dirName}.zip 版本号更新为 ${upgradePluginsVersionResult.data}.`,
+      "log-success"
+    );
 
     // 将本机 Manifest.xml 上传到服务器
     const remoteManifestPath = `${removeSlash(publishServer.publishPath)}/Manifest.xml`;
@@ -1595,6 +1603,10 @@ const remotePublishWpfServer = async (
       );
       return false;
     }
+    printInfoLog(
+      `已将 ${dirName}.zip 版本号更新为 ${upgradePluginsVersionResult.data}.`,
+      "log-success"
+    );
 
     // 将本机 Manifest.xml 上传到服务器
     const remoteManifestPath = `${removeSlash(publishServer.publishPath)}/Manifest.xml`;

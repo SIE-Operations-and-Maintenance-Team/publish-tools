@@ -349,7 +349,10 @@ const restoreLocalWpfServer = async (
       );
       return false;
     }
-    printInfoLog(`更新 ${moduleName} 模块版本成功.`, "log-success");
+    printInfoLog(
+      `已将 ${moduleName} 版本号更新为 ${upgradePluginsVersionResult.data}.`,
+      "log-success"
+    );
   }
 
   // 删除一个临时还原目录
@@ -373,12 +376,32 @@ const switchWinService = async (serviceName: string, action: "stop" | "start") =
   const isStop = await isWinServiceStop(serviceName);
   if (action == "stop" && isStop) return true;
   if (action == "start" && !isStop) return true;
+
+  // 使用 sc stop/start 代替 net stop/start，避免命令执行不彻底的问题
   const switchServerResult = await cmdInvoke("execute_local_command", {
-    command: "net",
+    command: "sc",
     args: [action, serviceName],
   });
-  if (switchServerResult.code !== 0) printInfoLog(switchServerResult.data, "log-error");
-  return switchServerResult.code === 0;
+  if (switchServerResult.code !== 0) {
+    printInfoLog(switchServerResult.data, "log-error");
+    return false;
+  }
+
+  // 轮询等待服务达到目标状态（sc 命令为非阻塞，需轮询确认）
+  const maxRetries = 30;
+  const retryInterval = 2000;
+  for (let i = 0; i < maxRetries; i++) {
+    await new Promise((resolve) => setTimeout(resolve, retryInterval));
+    const stopped = await isWinServiceStop(serviceName);
+    if (action === "stop" && stopped) return true;
+    if (action === "start" && !stopped) return true;
+  }
+
+  printInfoLog(
+    `服务 ${serviceName} ${action === "stop" ? "关闭" : "启动"}超时，请手动检查.`,
+    "log-warning"
+  );
+  return false;
 };
 
 // 切换Docker服务

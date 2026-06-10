@@ -1,26 +1,44 @@
+use crate::cmd_module::ssh_pool;
 use crate::utils::compression::{create_zip, unzip_files};
 use crate::utils::msbuild::build_project;
 use chrono::{DateTime, Local, NaiveDateTime};
 use encoding_rs::GBK;
 use encoding_rs::UTF_8;
-use ssh2::Session;
 use std::env;
 use std::ffi::OsStr;
 use std::fs;
 use std::fs::File;
 use std::io::ErrorKind;
 use std::io::{self, Read, Write};
-use std::net::TcpStream;
 use std::os::windows::process::CommandExt;
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::str;
+use std::time::Instant;
 use std::{thread, time::Duration};
 use walkdir::WalkDir;
 use zip::{write::FileOptions, ZipWriter};
 
 const MAX_RETRIES: u32 = 3;
 const RETRY_DELAY: Duration = Duration::from_secs(2);
+
+/// 智能解码字节流：优先尝试 UTF-8，失败回退到 GBK
+///
+/// 适配混合服务器场景：
+/// - Linux 服务器：默认输出为 UTF-8
+/// - Windows 服务器/本地 cmd：默认输出为 GBK（简体中文 ANSI 代码页）
+///
+/// 由于 UTF-8 格式严格（非法字节序列一定校验失败），可作为安全的首选尝试；
+/// 失败后再回退到 GBK，避免 Linux 输出被当作 GBK 解码产生乱码。
+fn smart_decode_bytes(bytes: &[u8]) -> String {
+    match std::str::from_utf8(bytes) {
+        Ok(s) => s.to_string(),
+        Err(_) => {
+            let (cow, _, _) = GBK.decode(bytes);
+            cow.to_string()
+        }
+    }
+}
 
 /// 连接远程服务器
 ///
@@ -38,22 +56,13 @@ pub async fn server_connection(
     password: &str,
     server: &str,
 ) -> Result<bool, String> {
-    // 连接到服务器
-    let tcp = TcpStream::connect(server).map_err(|e| format!("无法连接到服务器: {}", e))?;
-    let mut sess = Session::new().map_err(|e| format!("无法创建 SSH 会话: {}", e))?;
-    sess.set_tcp_stream(tcp);
-    sess.handshake()
-        .map_err(|e| format!("SSH 握手失败: {}", e))?;
+    // 测试连接需要严格校验"当前传入的密码"，先丢弃池中可能存在的旧会话，
+    // 否则若用户改了密码但池中仍缓存着旧会话，会误报连通成功。
+    ssh_pool::invalidate(username, server);
 
-    // 进行身份验证
-    sess.userauth_password(username, password)
-        .map_err(|e| format!("身份验证失败: {}", e))?;
-
-    // 检查认证是否成功
-    if sess.authenticated() {
-        Ok(true)
-    } else {
-        Ok(false)
+    match ssh_pool::get_session(username, password, server) {
+        Ok(_) => Ok(true),
+        Err(e) => Err(e),
     }
 }
 
@@ -110,60 +119,77 @@ async fn remote_command(
     server: &str,
     command: &str,
 ) -> Result<String, String> {
-    // 连接到服务器
-    let tcp = TcpStream::connect(server).map_err(|_| "无法连接到服务器".to_string())?;
-    let mut sess = Session::new().map_err(|_| "无法创建 SSH 会话".to_string())?;
-    sess.set_tcp_stream(tcp);
-    sess.handshake().map_err(|_| "SSH 握手失败".to_string())?;
+    // 从连接池取（或新建）已认证的 SSH 会话
+    let shared = ssh_pool::get_session(username, password, server)?;
 
-    // 进行身份验证
-    sess.userauth_password(username, password)
-        .map_err(|_| "身份验证失败".to_string())?;
+    // 在锁内完成 channel 全生命周期，避免 libssh2 同会话并发使用
+    let channel_outcome: Result<(i32, String, String), String> = (|| {
+        let mut entry = shared
+            .lock()
+            .map_err(|_| "SSH 会话锁中毒".to_string())?;
 
-    if !sess.authenticated() {
-        return Err("身份验证失败".to_string());
+        let (exit_status, stdout, stderr) = {
+            let mut channel = entry
+                .session
+                .channel_session()
+                .map_err(|_| "无法打开远程命令通道".to_string())?;
+            println!("执行远程命令: {}", command);
+            channel
+                .exec(command)
+                .map_err(|_| "无法执行命令".to_string())?;
+
+            let mut stdout_bytes = Vec::new();
+            let mut stderr_bytes = Vec::new();
+            channel
+                .read_to_end(&mut stdout_bytes)
+                .map_err(|_| "无法读取命令输出".to_string())?;
+            channel
+                .stderr()
+                .read_to_end(&mut stderr_bytes)
+                .map_err(|_| "无法读取命令错误输出".to_string())?;
+            channel
+                .wait_close()
+                .map_err(|_| "无法关闭命令通道".to_string())?;
+            let status = channel
+                .exit_status()
+                .map_err(|_| "无法获取命令退出状态".to_string())?;
+
+            (
+                status,
+                smart_decode_bytes(&stdout_bytes),
+                smart_decode_bytes(&stderr_bytes),
+            )
+        };
+
+        entry.last_used = Instant::now();
+        Ok((exit_status, stdout, stderr))
+    })();
+
+    match channel_outcome {
+        Ok((exit_status, stdout, stderr)) => {
+            if exit_status == 0 {
+                Ok(stdout)
+            } else {
+                // 命令业务级失败：会话本身仍可继续复用，无需丢弃
+                Err(format!(
+                    "命令执行异常。退出状态：{}。输出：{}；错误输出：{}",
+                    exit_status, stdout, stderr
+                ))
+            }
+        }
+        Err(e) => {
+            // 通道级错误（连接断开等），使会话失效以便下次重建
+            ssh_pool::invalidate(username, server);
+            Err(e)
+        }
     }
+}
 
-    let mut channel = sess
-        .channel_session()
-        .map_err(|_| "无法打开远程命令通道".to_string())?;
-    println!("执行命令: {}", command);
-    channel
-        .exec(command)
-        .map_err(|_| "无法执行命令".to_string())?;
-
-    // 读取标准输出和错误输出
-    let mut stdout_bytes = Vec::new();
-    let mut stderr_bytes = Vec::new();
-
-    channel
-        .read_to_end(&mut stdout_bytes)
-        .map_err(|_| "无法读取命令输出".to_string())?;
-    channel
-        .stderr()
-        .read_to_end(&mut stderr_bytes)
-        .map_err(|_| "无法读取命令错误输出".to_string())?;
-
-    channel
-        .wait_close()
-        .map_err(|_| "无法关闭命令通道".to_string())?;
-    let exit_status = channel
-        .exit_status()
-        .map_err(|_| "无法获取命令退出状态".to_string())?;
-
-    // 将字节转换为 GBK 编码
-    let (stdout, _, _) = GBK.decode(&stdout_bytes);
-    let (stderr, _, _) = GBK.decode(&stderr_bytes);
-    // println!("输出信息：{}", stdout);
-    // println!("错误信息：{}", stderr);
-    if exit_status == 0 || stderr.is_empty() {
-        Ok(stdout.to_string())
-    } else {
-        Err(format!(
-            "命令执行异常。退出状态：{}。输出：{}；错误输出：{}",
-            exit_status, stdout, stderr
-        ))
-    }
+/// 使某个 SSH 连接池中的会话失效（切换项目后调用）
+#[tauri::command]
+pub async fn invalidate_ssh_session(username: &str, server: &str) -> Result<bool, String> {
+    ssh_pool::invalidate(username, server);
+    Ok(true)
 }
 
 /// 判断文件或目录是否存在
@@ -855,56 +881,58 @@ async fn exec_download_server_files(
         return Err("本地路径和远程路径的数量必须相同.".into());
     }
 
-    // 连接到服务器
-    let tcp = TcpStream::connect(server).map_err(|e| format!("无法连接到服务器: {}", e))?;
-    let mut sess = Session::new().map_err(|e| format!("无法创建 SSH 会话: {}", e))?;
+    // 从连接池取（或新建）已认证的 SSH 会话
+    let shared = ssh_pool::get_session(username, password, server)?;
 
-    sess.set_tcp_stream(tcp);
-    sess.handshake()
-        .map_err(|e| format!("SSH 握手失败: {}", e))?;
+    let outcome: Result<bool, String> = (|| {
+        let mut entry = shared
+            .lock()
+            .map_err(|_| "SSH 会话锁中毒".to_string())?;
 
-    // 进行身份验证
-    sess.userauth_password(username, password)
-        .map_err(|e| format!("身份验证失败: {}", e))?;
-
-    // 检查认证是否成功
-    if !sess.authenticated() {
-        return Ok(false);
-    }
-
-    // 打开SFTP会话
-    let sftp = sess
-        .sftp()
-        .map_err(|e| format!("无法创建 SFTP 会话: {}", e))?;
-    for (local_path, remote_path) in local_paths.iter().zip(remote_paths.iter()) {
-        let local_path = Path::new(local_path);
-        let remote_path = Path::new(remote_path);
-        if remote_path_is_dir(&sftp, remote_path) {
-            // 递归下载目录
-            for entry in WalkDir::new(remote_path) {
-                let entry = entry.map_err(|e| format!("无法读取目录条目: {}", e))?;
-                let entry_path = entry.path();
-                let relative_path = entry_path.strip_prefix(remote_path).unwrap();
-                let local_file_path = local_path.join(relative_path);
-                if remote_path_is_dir(&sftp, entry_path) {
-                    // 创建本地目录
-                    std::fs::create_dir_all(&local_file_path)
-                        .map_err(|e| format!("无法创建本地目录: {:?}", e))?;
-                } else {
-                    // 下载文件
-                    if !download_server_file(&entry_path, &local_file_path, &sftp) {
-                        return Err(format!("下载文件[{}]失败！", entry_path.display()));
+        let sftp = entry
+            .session
+            .sftp()
+            .map_err(|e| format!("无法创建 SFTP 会话: {}", e))?;
+        for (local_path, remote_path) in local_paths.iter().zip(remote_paths.iter()) {
+            let local_path = Path::new(local_path);
+            let remote_path = Path::new(remote_path);
+            if remote_path_is_dir(&sftp, remote_path) {
+                // 递归下载目录
+                for entry in WalkDir::new(remote_path) {
+                    let entry = entry.map_err(|e| format!("无法读取目录条目: {}", e))?;
+                    let entry_path = entry.path();
+                    let relative_path = entry_path.strip_prefix(remote_path).unwrap();
+                    let local_file_path = local_path.join(relative_path);
+                    if remote_path_is_dir(&sftp, entry_path) {
+                        // 创建本地目录
+                        std::fs::create_dir_all(&local_file_path)
+                            .map_err(|e| format!("无法创建本地目录: {:?}", e))?;
+                    } else {
+                        // 下载文件
+                        if !download_server_file(&entry_path, &local_file_path, &sftp) {
+                            return Err(format!("下载文件[{}]失败！", entry_path.display()));
+                        }
                     }
                 }
-            }
-        } else {
-            // 下载单个文件
-            if !download_server_file(remote_path, local_path, &sftp) {
-                return Err(format!("下载文件[{}]失败！", remote_path.display()));
+            } else {
+                // 下载单个文件
+                if !download_server_file(remote_path, local_path, &sftp) {
+                    return Err(format!("下载文件[{}]失败！", remote_path.display()));
+                }
             }
         }
+
+        entry.last_used = Instant::now();
+        Ok(true)
+    })();
+
+    match outcome {
+        Ok(_) => Ok(true),
+        Err(e) => {
+            ssh_pool::invalidate(username, server);
+            Err(e)
+        }
     }
-    Ok(true)
 }
 
 /// 验证远程服务器路径是否是目录
@@ -1024,56 +1052,59 @@ async fn exec_upload_server_files(
         return Err("本地路径和远程路径的数量必须相同.".into());
     }
 
-    // 连接到服务器
-    let tcp = TcpStream::connect(server).map_err(|e| format!("无法连接到服务器: {}", e))?;
-    let mut sess = Session::new().map_err(|e| format!("无法创建 SSH 会话: {}", e))?;
-    sess.set_tcp_stream(tcp);
-    sess.handshake()
-        .map_err(|e| format!("SSH 握手失败: {}", e))?;
+    // 从连接池取（或新建）已认证的 SSH 会话
+    let shared = ssh_pool::get_session(username, password, server)?;
 
-    // 进行身份验证
-    sess.userauth_password(username, password)
-        .map_err(|e| format!("身份验证失败: {}", e))?;
+    let outcome: Result<bool, String> = (|| {
+        let mut entry = shared
+            .lock()
+            .map_err(|_| "SSH 会话锁中毒".to_string())?;
 
-    // 检查认证是否成功
-    if !sess.authenticated() {
-        return Ok(false);
-    }
-
-    // 打开SFTP会话
-    let sftp = sess
-        .sftp()
-        .map_err(|e| format!("无法创建 SFTP 会话: {}", e))?;
-    for (local_path, remote_path) in local_paths.iter().zip(remote_paths.iter()) {
-        let local_path = Path::new(local_path);
-        let remote_path = Path::new(remote_path);
-        if local_path.is_dir() {
-            // 递归上传目录
-            for entry in WalkDir::new(local_path) {
-                let entry = entry.map_err(|e| format!("无法读取目录条目: {}", e))?;
-                let entry_path = entry.path();
-                let relative_path = entry_path.strip_prefix(local_path).unwrap();
-                let remote_file_path = remote_path.join(relative_path);
-                if entry_path.is_dir() {
-                    // 创建远程目录
-                    println!("创建远程目录: {}", remote_file_path.display());
-                    sftp.mkdir(&remote_file_path, 0o755)
-                        .map_err(|e| format!("无法创建远程目录: {:?}", e))?;
-                } else {
-                    // 上传文件
-                    if !upload_server_file(&entry_path, &remote_file_path, &sftp) {
-                        return Err(format!("上传文件[{}]失败！", entry_path.display()));
+        let sftp = entry
+            .session
+            .sftp()
+            .map_err(|e| format!("无法创建 SFTP 会话: {}", e))?;
+        for (local_path, remote_path) in local_paths.iter().zip(remote_paths.iter()) {
+            let local_path = Path::new(local_path);
+            let remote_path = Path::new(remote_path);
+            if local_path.is_dir() {
+                // 递归上传目录
+                for entry in WalkDir::new(local_path) {
+                    let entry = entry.map_err(|e| format!("无法读取目录条目: {}", e))?;
+                    let entry_path = entry.path();
+                    let relative_path = entry_path.strip_prefix(local_path).unwrap();
+                    let remote_file_path = remote_path.join(relative_path);
+                    if entry_path.is_dir() {
+                        // 创建远程目录
+                        println!("创建远程目录: {}", remote_file_path.display());
+                        sftp.mkdir(&remote_file_path, 0o755)
+                            .map_err(|e| format!("无法创建远程目录: {:?}", e))?;
+                    } else {
+                        // 上传文件
+                        if !upload_server_file(&entry_path, &remote_file_path, &sftp) {
+                            return Err(format!("上传文件[{}]失败！", entry_path.display()));
+                        }
                     }
                 }
-            }
-        } else {
-            // 上传单个文件
-            if !upload_server_file(local_path, remote_path, &sftp) {
-                return Err(format!("上传文件[{}]失败！", local_path.display()));
+            } else {
+                // 上传单个文件
+                if !upload_server_file(local_path, remote_path, &sftp) {
+                    return Err(format!("上传文件[{}]失败！", local_path.display()));
+                }
             }
         }
+
+        entry.last_used = Instant::now();
+        Ok(true)
+    })();
+
+    match outcome {
+        Ok(_) => Ok(true),
+        Err(e) => {
+            ssh_pool::invalidate(username, server);
+            Err(e)
+        }
     }
-    Ok(true)
 }
 
 /// 上传服务器文件

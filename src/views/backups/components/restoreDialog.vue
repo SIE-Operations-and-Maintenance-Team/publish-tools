@@ -79,7 +79,7 @@ import { path } from "@tauri-apps/api";
 import { CircleClose } from "@element-plus/icons-vue";
 import _ from "lodash";
 import { useServerDb } from "@/database/servers/index";
-import { cmdInvoke } from "@/utils/command";
+import { cmdInvoke, wrapWinCmd } from "@/utils/command";
 import {
   getDefaultSubObject,
   displayOs,
@@ -331,7 +331,7 @@ const restoreRemoteWpfServer = async (
       let tempRestoreDirCmd;
       if (osName == "Windows") {
         tempRestoreDirCmd = `if not exist "${tempRestoreDir}" mkdir "${tempRestoreDir}"`;
-        tempRestoreDirCmd = tempRestoreDirCmd.replace(/\//g, "\\");
+        tempRestoreDirCmd = wrapWinCmd(tempRestoreDirCmd);
       } else {
         tempRestoreDirCmd = `mkdir -p ${tempRestoreDir}`;
       }
@@ -456,7 +456,7 @@ const restoreRemoteWpfServer = async (
             });
             if (execRemoteCmdResult.code !== 0) {
               printInfoLog(
-                `服务[${serviceName}]还原失败：${unZipCmdResult.data}`,
+                `服务[${serviceName}]还原失败：${execRemoteCmdResult.data}`,
                 "log-error"
               );
               return false;
@@ -560,7 +560,10 @@ const restoreRemoteWpfServer = async (
           );
           return false;
         }
-        printInfoLog(`更新 ${dirName} 模块版本成功.`, "log-success");
+        printInfoLog(
+          `已将 ${dirName} 版本号更新为 ${upgradePluginsVersionResult.data}.`,
+          "log-success"
+        );
       }
 
       // 将本地 Manifest.xml 上传到服务器
@@ -602,14 +605,34 @@ const switchWinService = async (
   const isStop = await isWinServiceStop(username, password, server, serviceName);
   if (action == "stop" && isStop) return true;
   if (action == "start" && !isStop) return true;
+
+  // 使用 sc stop/start 代替 net stop/start，避免 SSH 会话中执行不彻底的问题
   const switchServerResult = await cmdInvoke("execute_remote_command", {
     username,
     password,
     server,
-    command: `net ${action} ${serviceName}`,
+    command: `sc ${action} ${serviceName}`,
   });
-  if (switchServerResult.code !== 0) printInfoLog(switchServerResult.data, "log-error");
-  return switchServerResult.code === 0;
+  if (switchServerResult.code !== 0) {
+    printInfoLog(switchServerResult.data, "log-error");
+    return false;
+  }
+
+  // 轮询等待服务达到目标状态（sc 命令为非阻塞，需轮询确认）
+  const maxRetries = 30;
+  const retryInterval = 2000;
+  for (let i = 0; i < maxRetries; i++) {
+    await new Promise((resolve) => setTimeout(resolve, retryInterval));
+    const stopped = await isWinServiceStop(username, password, server, serviceName);
+    if (action === "stop" && stopped) return true;
+    if (action === "start" && !stopped) return true;
+  }
+
+  printInfoLog(
+    `服务 ${serviceName} ${action === "stop" ? "关闭" : "启动"}超时，请手动检查.`,
+    "log-warning"
+  );
+  return false;
 };
 
 // 切换Docker服务
