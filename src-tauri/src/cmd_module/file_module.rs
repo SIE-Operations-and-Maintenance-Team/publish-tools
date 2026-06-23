@@ -224,8 +224,9 @@ pub async fn build_project_release(
     project_file_path: &str,
     msbuild_path: &str,
     is_rebuild: bool,
+    build_mode: &str,
 ) -> Result<bool, String> {
-    match build_project(project_file_path, msbuild_path, is_rebuild) {
+    match build_project(project_file_path, msbuild_path, is_rebuild, build_mode) {
         Ok(_) => Ok(true),
         Err(e) => Err(e),
     }

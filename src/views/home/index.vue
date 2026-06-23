@@ -2107,6 +2107,7 @@ const buildProjects = async () => {
       projectFilePath: webApiHostPath,
       msbuildPath: msBuildPath,
       isRebuild,
+      buildMode: state.publishData.appconfigData.buildMode || "Release",
     });
 
     // 编译结果

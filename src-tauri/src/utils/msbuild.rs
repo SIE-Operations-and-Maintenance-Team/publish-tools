@@ -15,6 +15,7 @@ pub fn build_project(
     project_file_path: &str,
     msbuild_path: &str,
     is_rebuild: bool,
+    build_mode: &str,
 ) -> Result<(), String> {
     let mut command = Command::new(msbuild_path);
 
@@ -25,10 +26,12 @@ pub fn build_project(
         command.arg("/t:Build");
     }
 
+    let configuration = format!("/p:Configuration={}", build_mode);
+
     let output = command
         .arg(project_file_path)
         .arg("/restore")
-        .arg("/p:Configuration=Release")
+        .arg(&configuration)
         .arg("/m")
         .arg("/v:quiet")
         .arg("/clp:ErrorsOnly")
@@ -49,9 +52,7 @@ pub fn build_project(
         let final_msg = all_output
             .lines()
             .chain(fallback_output.lines())
-            .filter(|line| {
-                line.contains(": error") || line.contains(": warning")
-            })
+            .filter(|line| line.contains(": error"))
             .map(|line| line.trim())
             .collect::<Vec<_>>()
             .join("\n");

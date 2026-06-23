@@ -719,10 +719,10 @@ export async function backupRemoteServer(
           const pPath = `${publishPath}/${backFile}`;
           const bPath = `${backupPath}/${backFile}`;
           if (osName === "Windows") {
-            command = `if exist "${pPath}" copy "${pPath}" "${bPath}"`;
-            command = command.replace(/\//g, "\\") + " /Y";
+            command = `if exist "${pPath}" xcopy /Y /K "${pPath}" "${backupPath}/"`;
+            command = command.replace(/\//g, "\\");
           } else {
-            command = `[ -e "${pPath}" ] && cp "${pPath}" "${bPath}"`;
+            command = `[ -e "${pPath}" ] && cp -p "${pPath}" "${bPath}"`;
           }
           const execRemoteCmdResult = await cmdInvoke(
             "execute_remote_command",
@@ -819,10 +819,10 @@ export async function backupRemoteServer(
               const bPath = `${backupPath}/${bfDir}/${bfFiles[bf]}`;
               let command;
               if (osName === "Windows") {
-                command = `copy "${pPath}" "${bPath}"`;
-                command = command.replace(/\//g, "\\") + " /Y";
+                command = `xcopy /Y /K "${pPath}" "${backupPath}/${bfDir}/"`;
+                command = command.replace(/\//g, "\\");
               } else {
-                command = `cp ${pPath} ${bPath}`;
+                command = `cp -p ${pPath} ${bPath}`;
               }
               const execRemoteCmdResult = await cmdInvoke(
                 "execute_remote_command",
