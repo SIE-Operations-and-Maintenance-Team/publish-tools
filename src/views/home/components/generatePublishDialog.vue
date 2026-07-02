@@ -669,6 +669,7 @@ const generateLocalPublish = async () => {
   localPublishConfig.publishMode = publishMode.value;
   localPublishConfig.generateDate = formatDate(new Date(), "YYYY-mm-dd HH:MM:SS");
   localPublishConfig.isNewVersion = state.ruleForm.configItems.isNewVersion;
+  localPublishConfig.backupBasePath = state.ruleForm.configItems.backupBasePath || undefined;
   localPublishConfig.webApiHost = {} as PublishServerType;
 
   if (
@@ -1019,6 +1020,7 @@ const generateRemotePublish = async () => {
   remotePublishConfig.publishMode = publishMode.value;
   remotePublishConfig.generateDate = formatDate(new Date(), "YYYY-mm-dd HH:MM:SS");
   remotePublishConfig.isNewVersion = state.ruleForm.configItems.isNewVersion;
+  remotePublishConfig.backupBasePath = state.ruleForm.configItems.backupBasePath || undefined;
 
   remotePublishConfig.webApiHost = [] as PublishServerType[];
   if (state.ruleForm.configItems.webApiHost.clientPath) {

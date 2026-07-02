@@ -61,16 +61,6 @@
             </el-form-item>
           </el-col>
           <el-col :span="24" class="mb20">
-            <el-form-item label="备份基础路径" prop="backupBasePath">
-              <el-input
-                v-model="state.ruleForm.backupBasePath"
-                placeholder="选填，如 /home/backups/smom"
-                maxlength="450"
-                clearable
-              ></el-input>
-            </el-form-item>
-          </el-col>
-          <el-col :span="24" class="mb20">
             <el-form-item label="描述" prop="description">
               <el-input
                 type="textarea"
@@ -124,7 +114,6 @@ const state = reactive<FormDialogType<RowProjectType>>({
     description: null,
     isDefault: 0,
     assemblyOutPath: null,
-    backupBasePath: null,
   },
   dialog: {
     show: false,

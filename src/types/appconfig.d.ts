@@ -56,6 +56,7 @@ declare type ConfigItemsType = {
 	isRebuild: number | null;
 	isBackup: number | null;
 	isNewVersion: boolean | null;
+	backupBasePath?: string | null;  // 服务端备份基础路径
 }
 
 // appconfig

@@ -21,7 +21,6 @@ async function ensureSchema(database: Database) {
         name TEXT,
         is_default INTEGER,
         assembly_out_path TEXT,
-        backup_base_path TEXT,
         description TEXT
     )`);
 
@@ -104,15 +103,6 @@ async function ensureSchema(database: Database) {
     const hasBuildMode = columns.some((column) => column.name === "build_mode");
     if (!hasBuildMode) {
         await database.execute("ALTER TABLE t_app_config ADD COLUMN build_mode TEXT DEFAULT 'Debug'");
-    }
-
-    // 为已有 t_project 表补充 backup_base_path 列
-    const projectColumns = await database.select<{ name: string }[]>(
-        "PRAGMA table_info(t_project)"
-    );
-    const hasBackupBasePath = projectColumns.some((col) => col.name === "backup_base_path");
-    if (!hasBackupBasePath) {
-        await database.execute("ALTER TABLE t_project ADD COLUMN backup_base_path TEXT");
     }
 }
 

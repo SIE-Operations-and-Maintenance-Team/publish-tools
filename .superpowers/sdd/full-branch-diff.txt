@@ -1,0 +1,1029 @@
+diff --git a/src/database/project/index.ts b/src/database/project/index.ts
+index e7fcc56..1821584 100644
+--- a/src/database/project/index.ts
++++ b/src/database/project/index.ts
+@@ -2,21 +2,21 @@ import { db } from "@/database/sqlite";
+ 
+ export function useProjectDb() {
+     return {
+         /**
+          * 查询项目管理(分页)列表信息
+          * @param { object } params
+          * @returns 分页查询结果
+          */
+         getProjectList: async (params: GetProjectTableParams) => {
+             let dataSql =
+-                "select id,code,name,description,is_default isDefault, assembly_out_path assemblyOutPath from t_project";
++                "select id,code,name,description,is_default isDefault, assembly_out_path assemblyOutPath, backup_base_path backupBasePath from t_project";
+             let totalSql = "select count(*) totalCount from t_project";
+             let where = " where 1=1 ";
+             let orderBy = "";
+             if (params) {
+                 if (params.code) where += " and code = $1 ";
+                 if (params.name) where += " and name like $2 ";
+                 if (params.sorting) orderBy += ` order by ${ params.sorting } `;
+             }
+             dataSql += where + orderBy;
+             dataSql += " LIMIT $3 OFFSET $4;";
+@@ -57,40 +57,40 @@ export function useProjectDb() {
+             }
+             return dataResult;
+         },
+ 
+         /**
+          * 获取默认的项目信息
+          * @returns 项目默认信息
+          */
+         getProjectDefault: async () => {
+             let dataSql =
+-                "select id,code,name,description,is_default isDefault, assembly_out_path assemblyOutPath from t_project where is_default = 1;";
++                "select id,code,name,description,is_default isDefault, assembly_out_path assemblyOutPath, backup_base_path backupBasePath from t_project where is_default = 1;";
+ 
+             // 定义(默认)响应结果
+             let dataResult: DataResultType<TableResultType<RowProjectType>> = {
+                 code: 0,
+                 msg: "",
+                 data: {
+                     data: {} as RowProjectType,
+                     total: 0
+                 },
+             };
+             try {
+                 // 查询数据
+                 let projectList: RowProjectType[] = await (
+                     await db()
+                 ).select<RowProjectType[]>(dataSql);
+                 // 没有默认的项目，就取最近的一条数据
+                 if (projectList.length < 1) {
+                     let dataMaxIdSql =
+-                        "select id,code,name,description,is_default isDefault, assembly_out_path assemblyOutPath from t_project order by id desc LIMIT 1;";
++                        "select id,code,name,description,is_default isDefault, assembly_out_path assemblyOutPath, backup_base_path backupBasePath from t_project order by id desc LIMIT 1;";
+                     projectList = await (
+                         await db()
+                     ).select<RowProjectType[]>(dataMaxIdSql);
+                 }
+                 if (projectList && projectList.length > 0) {
+                     dataResult.data.data = projectList[0];
+                 }
+                 dataResult.msg = "获取默认的项目信息成功";
+             } catch (error) {
+                 dataResult.code = -1;
+@@ -100,21 +100,21 @@ export function useProjectDb() {
+             return dataResult;
+         },
+ 
+         /**
+          * 根据ID获取项目信息
+          * @param projectId 项目ID
+          * @returns 项目信息
+          */
+         getProjectById: async (projectId: number) => {
+             let dataSql =
+-                "select id,code,name,description,is_default isDefault, assembly_out_path assemblyOutPath from t_project where id = $1;";
++                "select id,code,name,description,is_default isDefault, assembly_out_path assemblyOutPath, backup_base_path backupBasePath from t_project where id = $1;";
+ 
+             // 定义(默认)响应结果
+             let dataResult: DataResultType<TableResultType<RowProjectType>> = {
+                 code: 0,
+                 msg: "",
+                 data: {
+                     data: {} as RowProjectType,
+                     total: 0
+                 },
+             };
+@@ -135,21 +135,21 @@ export function useProjectDb() {
+             return dataResult;
+         },
+ 
+         /**
+          * 插入项目信息
+          * @param project 项目管理
+          * @returns 插入结果
+          */
+         insertProject: async (project: RowProjectType) => {
+             let insertSql =
+-                "INSERT INTO t_project (code, name, description, is_default, assembly_out_path) VALUES($1, $2, $3, $4, $5) RETURNING id;";
++                "INSERT INTO t_project (code, name, description, is_default, assembly_out_path, backup_base_path) VALUES($1, $2, $3, $4, $5, $6) RETURNING id;";
+ 
+             let updateDefaultSql = "";
+             if (project.isDefault === 1) {
+                 updateDefaultSql = "UPDATE t_project SET is_default = 0 WHERE is_default = 1;";
+             }
+ 
+             // 开启事务执行
+             let execSql = `BEGIN TRANSACTION;${updateDefaultSql}${insertSql}COMMIT;`;
+             // 定义(默认)响应结果
+             let dataResult: DataResultType<number> = {
+@@ -171,21 +171,22 @@ export function useProjectDb() {
+                     return dataResult;
+                 }
+ 
+                 let rowResult = await (
+                     await db()
+                 ).execute(execSql, [
+                     project.code,
+                     project.name,
+                     project.description,
+                     project.isDefault,
+-                    project.assemblyOutPath
++                    project.assemblyOutPath,
++                    project.backupBasePath
+                 ]);
+                 if (rowResult.lastInsertId && rowResult.lastInsertId > 0) {
+                     dataResult.code = 0;
+                     dataResult.data = rowResult.lastInsertId;
+                     dataResult.msg = "新增项目信息成功！";
+                 } else {
+                     dataResult.code = 1;
+                     dataResult.msg = "新增项目信息失败！";
+                 }
+ 
+@@ -197,21 +198,21 @@ export function useProjectDb() {
+             return dataResult;
+         },
+ 
+         /**
+          * 修改项目信息
+          * @param project 项目管理
+          * @returns 修改结果
+          */
+         updateProject: async (project: RowProjectType) => {
+             let updateSql =
+-                "UPDATE t_project SET code=$1, name=$2, description=$3, is_default=$4, assembly_out_path=$5 WHERE id=$6;";
++                "UPDATE t_project SET code=$1, name=$2, description=$3, is_default=$4, assembly_out_path=$5, backup_base_path=$6 WHERE id=$7;";
+ 
+             let updateDefaultSql = "";
+             if (project.isDefault === 1) {
+                 updateDefaultSql = "UPDATE t_project SET is_default = 0 WHERE is_default = 1;";
+             }
+             // 开启事务执行
+             let execSql = `BEGIN TRANSACTION;${updateDefaultSql}${updateSql}COMMIT;`;
+             // 定义(默认)响应结果
+             let dataResult: DataResultType<boolean> = {
+                 code: 1,
+@@ -232,20 +233,21 @@ export function useProjectDb() {
+                     return dataResult;
+                 }
+                 let rowResult = await (
+                     await db()
+                 ).execute(execSql, [
+                     project.code,
+                     project.name,
+                     project.description,
+                     project.isDefault,
+                     project.assemblyOutPath,
++                    project.backupBasePath,
+                     project.id
+                 ]);
+                 if (rowResult.rowsAffected > 0) {
+                     dataResult.code = 0;
+                     dataResult.data = true;
+                     dataResult.msg = "修改项目信息成功！";
+                 } else {
+                     dataResult.code = 1;
+                     dataResult.data = false;
+                     dataResult.msg = "修改项目信息失败！";
+diff --git a/src/database/sqlite.ts b/src/database/sqlite.ts
+index f8d7f15..cba198d 100644
+--- a/src/database/sqlite.ts
++++ b/src/database/sqlite.ts
+@@ -14,20 +14,21 @@ export async function db(): Promise<Database> {
+ }
+ 
+ async function ensureSchema(database: Database) {
+     // ========== 建表（CREATE TABLE IF NOT EXISTS，幂等安全） ==========
+     await database.execute(`CREATE TABLE IF NOT EXISTS t_project (
+         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+         code TEXT,
+         name TEXT,
+         is_default INTEGER,
+         assembly_out_path TEXT,
++        backup_base_path TEXT,
+         description TEXT
+     )`);
+ 
+     await database.execute(`CREATE TABLE IF NOT EXISTS t_app_config (
+         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+         project_id INTEGER,
+         environment INTEGER,
+         ms_build_path TEXT,
+         dll_mode TEXT,
+         dll_mode_value TEXT,
+@@ -97,19 +98,28 @@ async function ensureSchema(database: Database) {
+         execute_time TEXT,
+         result_log TEXT
+     )`);
+ 
+     // ========== 改表（已有表加字段，先检查是否存在） ==========
+     const columns = await database.select<{ name: string }[]>("PRAGMA table_info(t_app_config)");
+     const hasBuildMode = columns.some((column) => column.name === "build_mode");
+     if (!hasBuildMode) {
+         await database.execute("ALTER TABLE t_app_config ADD COLUMN build_mode TEXT DEFAULT 'Debug'");
+     }
++
++    // 为已有 t_project 表补充 backup_base_path 列
++    const projectColumns = await database.select<{ name: string }[]>(
++        "PRAGMA table_info(t_project)"
++    );
++    const hasBackupBasePath = projectColumns.some((col) => col.name === "backup_base_path");
++    if (!hasBackupBasePath) {
++        await database.execute("ALTER TABLE t_project ADD COLUMN backup_base_path TEXT");
++    }
+ }
+ 
+ // 关闭数据库连接
+ export async function closeDb() {
+     if (!database) return;
+     await database.close();
+     database = null;
+     schemaReady = false;
+ }
+\ No newline at end of file
+diff --git a/src/types/manuallyPublish.d.ts b/src/types/manuallyPublish.d.ts
+index 96bcdd7..2a63809 100644
+--- a/src/types/manuallyPublish.d.ts
++++ b/src/types/manuallyPublish.d.ts
+@@ -1,19 +1,20 @@
+ // PapersPublish
+ declare type CommonPapersPublishType = {
+ 	projectName: string;
+ 	environment: number;
+ 	publishMode: number;
+ 	isBackup: number;
+ 	generateDate: string;
+ 	notes?: string;
+ 	isNewVersion: boolean | null;
++	backupBasePath?: string;  // 服务端备份基础路径，从数据库按项目回填
+ }
+ 
+ declare type PublishServerConfigType = {
+ 	serverIdentity: string;
+ 	publishPath: string;
+ 	publishFiles: string[];
+ }
+ 
+ // PublishServer
+ declare type PublishServerType = {
+diff --git a/src/types/project.d.ts b/src/types/project.d.ts
+index 8014d65..06bf77e 100644
+--- a/src/types/project.d.ts
++++ b/src/types/project.d.ts
+@@ -8,19 +8,20 @@ declare type GetProjectTableParams = {
+ }
+ 
+ // project
+ declare type RowProjectType = {
+ 	id: number | null;
+ 	code: string | null;
+ 	name: string | null;
+ 	description: string | null;
+ 	isDefault: number | null;
+ 	assemblyOutPath: string | null;
++	backupBasePath: string | null;
+ };
+ 
+ interface ProjectTableType extends TableType<GetProjectTableParams> {
+ 	data: RowProjectType[];
+ }
+ 
+ declare interface ProjectState {
+ 	tableData: ProjectTableType;
+ }
+diff --git a/src/views/papersPublish/index.vue b/src/views/papersPublish/index.vue
+index a89d80a..8a9e6b7 100644
+--- a/src/views/papersPublish/index.vue
++++ b/src/views/papersPublish/index.vue
+@@ -75,20 +75,31 @@
+                           :disabled="publishItem.loading"
+                           :active-value="1"
+                           :inactive-value="0"
+                           inline-prompt
+                           active-text="开启"
+                           inactive-text="关闭"
+                           size="default"
+                         />
+                       </td>
+                     </tr>
++                    <tr>
++                      <th>备份路径</th>
++                      <td colspan="3">
++                        <el-input
++                          v-model="publishConfig.backupBasePath"
++                          placeholder="选填，配置后备份到指定路径；不填则使用默认路径"
++                          :disabled="publishItem.loading"
++                          clearable
++                        />
++                      </td>
++                    </tr>
+                     <tr v-show="publishConfig.notes">
+                       <th style="vertical-align: top">发布信息</th>
+                       <td colspan="3">
+                         <pre class="publish-content">{{ publishConfig.notes }}</pre>
+                       </td>
+                     </tr>
+                   </table>
+                   <remote-publish-item
+                     v-if="publishConfig.publishMode === 0"
+                     ref="remotePublishItemRef"
+@@ -159,51 +170,102 @@
+               </p>
+             </div>
+           </div>
+         </div>
+       </el-col>
+     </el-row>
+   </div>
+ </template>
+ 
+ <script setup lang="ts" name="smomPapersPublish">
+-import { ref, reactive, onBeforeMount, defineAsyncComponent, nextTick } from "vue";
++import { ref, reactive, onBeforeMount, defineAsyncComponent, nextTick, watch } from "vue";
+ import { open } from "@tauri-apps/plugin-dialog";
+ import { path } from "@tauri-apps/api";
+ import { ElMessage } from "element-plus";
+ import _ from "lodash";
+ import { useBackupDb } from "@/database/backups/index";
+ import { formatDate } from "@/utils/formatTime";
+ import { CircleClose } from "@element-plus/icons-vue";
+ import { Promotion } from "@element-plus/icons-vue";
+ import { cmdInvoke } from "@/utils/command";
+ import { removeSlash, displayEnvironment, displayOs, aesDecrypt } from "@/utils/other";
++import { useProjectDb } from "@/database/project/index";
+ 
+ const SvgIcon = defineAsyncComponent(() => import("@/components/svgIcon/index.vue"));
+ const RemotePublishItem = defineAsyncComponent(
+   () => import("@/views/papersPublish/components/remotePublishItem.vue")
+ );
+ const LocalPublishItem = defineAsyncComponent(
+   () => import("@/views/papersPublish/components/localPublishItem.vue")
+ );
+ 
+ // 定义变量
+ const publishConfig = reactive({} as any);
+ const remotePublishConfig = ref<RemotePublishType>();
+ const localPublishConfig = ref<LocalPublishType>();
+ const mpLogContentRef = ref();
+ const logPrintInfo = ref<LogPrintType[]>([]);
+ const publishItem = ref({
+   loading: false,
+   loadingText: "发布中",
+ });
+ 
++// 备份路径持久化
++const projectDbForBackup = useProjectDb();
++const isLoadingBackupPath = ref(false);
++let saveBackupPathTimer: ReturnType<typeof setTimeout>;
++
++// 回填：解析 .smom 后，从数据库加载备份路径
++const loadBackupBasePath = async () => {
++  if (!publishConfig.projectName) return;
++  isLoadingBackupPath.value = true;
++  try {
++    const result = await projectDbForBackup.getProjectList({
++      code: null, name: publishConfig.projectName, sorting: null,
++      skipCount: 0, maxResultCount: 1000,
++    });
++    if (result.code === 0) {
++      // getProjectList 的 name 是 LIKE 模糊匹配，前端精确过滤
++      const project = result.data.data.find(p => p.name === publishConfig.projectName);
++      if (project) publishConfig.backupBasePath = project.backupBasePath ?? '';
++    }
++  } catch (e) {
++    console.error('加载备份路径失败:', e);
++  } finally {
++    isLoadingBackupPath.value = false;
++  }
++};
++
++// 用户修改时自动持久化（debounce 800ms）
++watch(
++  () => publishConfig.backupBasePath,
++  (newVal) => {
++    if (isLoadingBackupPath.value || !publishConfig.projectName) return;
++    clearTimeout(saveBackupPathTimer);
++    saveBackupPathTimer = setTimeout(async () => {
++      try {
++        const result = await projectDbForBackup.getProjectList({
++          code: null, name: publishConfig.projectName, sorting: null,
++          skipCount: 0, maxResultCount: 1000,
++        });
++        if (result.code !== 0) return;
++        const project = result.data.data.find(p => p.name === publishConfig.projectName);
++        if (!project) return;
++        project.backupBasePath = newVal || null;
++        await projectDbForBackup.updateProject(project);
++      } catch (e) {
++        console.error('持久化备份路径失败:', e);
++      }
++    }, 800);
++  }
++);
++
+ // 定义远程临时操作目录
+ const papersPublishDir = async () => {
+   const tempPapersPublishDir = await path.appDataDir();
+   return `${removeSlash(tempPapersPublishDir)}/tempPapersPublish`;
+ };
+ 
+ // 选择发布文件
+ const onSelectPublishFile = async () => {
+   if (publishItem.value.loading) {
+     ElMessage.info(`发布中，请稍后重试！`);
+@@ -265,20 +327,21 @@ const onSelectPublishFile = async () => {
+       break;
+     case 1: // 本机发布
+       localPublishConfig.value = readPublishConfig as LocalPublishType;
+       break;
+     default:
+       ElMessage.error("SMOM配置文件异常，未解析到发布方式，请检查！");
+       publishItem.value.loading = false;
+       return;
+   }
+   ElMessage.success("解析[SMOM发布文件]成功！");
++  await loadBackupBasePath();
+   publishItem.value.loading = false;
+ };
+ 
+ // 发布
+ const onPublish = async () => {
+   if (publishItem.value.loading) {
+     ElMessage.info(`发布中，请稍等！`);
+     return;
+   }
+   publishItem.value.loading = true;
+@@ -750,129 +813,139 @@ const localPublishBeforeBackup = async () => {
+   // 生成备份配置文件
+   let bLocalPublishConfig = _.cloneDeep(localPublishConfig.value);
+   delete bLocalPublishConfig.isBackup;
+   delete bLocalPublishConfig.generateDate;
+ 
+   // 备份[WebApiHost]
+   if (localPublishConfig.value.webApiHost) {
+     const backupResult = await localPublishServerBackup(
+       localPublishConfig.value.webApiHost,
+       currentDate,
+-      "WebApiHost"
++      "WebApiHost",
++      publishConfig.backupBasePath
+     );
+     if (backupResult.code !== 0) {
+       printInfoLog(backupResult.msg, "log-error");
+       return false;
+     }
+ 
+     // 备份路径
+     if (bLocalPublishConfig.webApiHost.serverConfigs) {
+       for (let j = 0; j < bLocalPublishConfig.webApiHost.serverConfigs.length; j++) {
+         const backupPath = getBackupPath(
+           bLocalPublishConfig.webApiHost.serverConfigs[j].publishPath,
+-          currentDate
++          currentDate,
++          publishConfig.backupBasePath
+         );
+         bLocalPublishConfig.webApiHost.serverConfigs[j].backupPath = backupPath;
+       }
+     }
+   }
+ 
+   // 备份[ScheduleServer]
+   if (localPublishConfig.value.scheduleServer) {
+     const backupResult = await localPublishServerBackup(
+       localPublishConfig.value.scheduleServer,
+       currentDate,
+-      "ScheduleServer"
++      "ScheduleServer",
++      publishConfig.backupBasePath
+     );
+     if (backupResult.code !== 0) {
+       printInfoLog(backupResult.msg, "log-error");
+       return false;
+     }
+ 
+     // 备份路径
+     if (bLocalPublishConfig.scheduleServer.serverConfigs) {
+       for (let j = 0; j < bLocalPublishConfig.scheduleServer.serverConfigs.length; j++) {
+         const backupPath = getBackupPath(
+           bLocalPublishConfig.scheduleServer.serverConfigs[j].publishPath,
+-          currentDate
++          currentDate,
++          publishConfig.backupBasePath
+         );
+         bLocalPublishConfig.scheduleServer.serverConfigs[j].backupPath = backupPath;
+       }
+     }
+   }
+ 
+   // 备份[WebClient]
+   if (localPublishConfig.value.webClient) {
+     const backupResult = await localPublishServerBackup(
+       localPublishConfig.value.webClient,
+       currentDate,
+-      "WebClient"
++      "WebClient",
++      publishConfig.backupBasePath
+     );
+     if (backupResult.code !== 0) {
+       printInfoLog(backupResult.msg, "log-error");
+       return false;
+     }
+ 
+     // 备份路径
+     if (bLocalPublishConfig.webClient.serverConfigs) {
+       for (let j = 0; j < bLocalPublishConfig.webClient.serverConfigs.length; j++) {
+         const backupPath = getBackupPath(
+           bLocalPublishConfig.webClient.serverConfigs[j].publishPath,
+-          currentDate
++          currentDate,
++          publishConfig.backupBasePath
+         );
+         bLocalPublishConfig.webClient.serverConfigs[j].backupPath = backupPath;
+       }
+     }
+   }
+ 
+   // 备份[SpcMonitor]
+   if (localPublishConfig.value.spcMonitor) {
+     const backupResult = await localPublishServerBackup(
+       localPublishConfig.value.spcMonitor,
+       currentDate,
+-      "SpcMonitor"
++      "SpcMonitor",
++      publishConfig.backupBasePath
+     );
+     if (backupResult.code !== 0) {
+       printInfoLog(backupResult.msg, "log-error");
+       return false;
+     }
+ 
+     // 备份路径
+     if (bLocalPublishConfig.spcMonitor.serverConfigs) {
+       for (let j = 0; j < bLocalPublishConfig.spcMonitor.serverConfigs.length; j++) {
+         const backupPath = getBackupPath(
+           bLocalPublishConfig.spcMonitor.serverConfigs[j].publishPath,
+-          currentDate
++          currentDate,
++          publishConfig.backupBasePath
+         );
+         bLocalPublishConfig.spcMonitor.serverConfigs[j].backupPath = backupPath;
+       }
+     }
+   }
+ 
+   // 备份[WpfClient]
+   if (localPublishConfig.value.wpfClient) {
+     const backupResult = await localPublishWpfBackup(
+       localPublishConfig.value.wpfClient,
+       currentDate,
+       "WpfClient",
+-      localPublishConfig.value.isNewVersion
++      localPublishConfig.value.isNewVersion,
++      publishConfig.backupBasePath
+     );
+     if (backupResult.code !== 0) {
+       printInfoLog(backupResult.msg, "log-error");
+       return false;
+     }
+ 
+     // 备份路径
+     if (bLocalPublishConfig.wpfClient.publishPath) {
+       const backupPath = getBackupPath(
+         bLocalPublishConfig.wpfClient.publishPath,
+-        currentDate
++        currentDate,
++        publishConfig.backupBasePath
+       );
+       bLocalPublishConfig.wpfClient.backupPath = backupPath;
+     }
+   }
+ 
+   // 保存备份记录数据
+   let backupLocalPublishConfig = bLocalPublishConfig as BackupLocalPublishType;
+   let backupData: RowBackupType = {
+     id: null,
+     projectId: null,
+@@ -888,38 +961,39 @@ const localPublishBeforeBackup = async () => {
+     printInfoLog(insertResult.msg, "log-error");
+     return false;
+   }
+   return true;
+ };
+ 
+ // [本机]服务备份
+ const localPublishServerBackup = async (
+   publishServer: PublishServerType,
+   currentDate: string,
+-  serverName: string
++  serverName: string,
++  backupBasePath?: string | null,
+ ) => {
+   let execResult: DataResultType<any> = {
+     code: 0,
+     msg: "",
+     data: null,
+   };
+   if (!publishServer.serverConfigs) return execResult;
+   printInfoLog(`正在备份 ${serverName} 服务.`);
+   printInfoLog(`${publishServer.serverName}`);
+ 
+   // 服务器信息
+   // const osName = displayOs(Number(publishServer.serverOs));
+ 
+   // 服务配置信息
+   for (let j = 0; j < publishServer.serverConfigs.length; j++) {
+     const serverConfig = publishServer.serverConfigs[j];
+-    const backupPath = getBackupPath(serverConfig.publishPath, currentDate);
++    const backupPath = getBackupPath(serverConfig.publishPath, currentDate, backupBasePath);
+ 
+     // 创建备份目录
+     const execCreateDirCmdResult = await cmdInvoke("create_dir", {
+       path: backupPath,
+     });
+     if (execCreateDirCmdResult.code !== 0) {
+       execResult.code = 1;
+       execResult.msg = `服务 ${serverName} 创建备份目录失败：${execCreateDirCmdResult.data}`;
+       return execResult;
+     }
+@@ -972,35 +1046,36 @@ const lPublishWpfBackupFilesCount = (publishServer: PublishWpfType) => {
+     uploadFileNumber.totalNumber += pFile.files.length;
+   }
+   return uploadFileNumber;
+ };
+ 
+ // [本机]Wpf服务备份
+ const localPublishWpfBackup = async (
+   publishServer: PublishWpfType,
+   currentDate: string,
+   serverName: string,
+-  isNewVersion: boolean | null = false
++  isNewVersion: boolean | null = false,
++  backupBasePath?: string | null,
+ ) => {
+   let execResult: DataResultType<any> = {
+     code: 0,
+     msg: "",
+     data: null,
+   };
+   if (!publishServer.publishPath) return execResult;
+   printInfoLog(`正在备份 ${serverName} 服务.`);
+   // 服务器信息
+   // const osName = displayOs(Number(publishServer.serverOs));
+   const currLogIndex = printInfoLog(`${publishServer.serverName}. `);
+   let uploadFileNumber = lPublishWpfBackupFilesCount(publishServer);
+ 
+-  const backupPath = getBackupPath(publishServer.publishPath, currentDate);
++  const backupPath = getBackupPath(publishServer.publishPath, currentDate, backupBasePath);
+   let cacheDir = `${removeSlash(publishServer.publishPath)}/cacheDir`;
+   for (let i = 0; i < publishServer.publishFiles.length; i++) {
+     const pFile = publishServer.publishFiles[i];
+ 
+     // 创建备份目录
+     const execCreateDirResult = await cmdInvoke("create_dir", {
+       path: `${backupPath}/${pFile.dirName}`,
+     });
+     if (execCreateDirResult.code !== 0) {
+       execResult.code = 1;
+@@ -1770,141 +1845,151 @@ const remotePublishBeforeBackup = async () => {
+   delete bRemotePublishConfig.generateDate;
+ 
+   // 备份[WebApiHost]
+   if (
+     remotePublishConfig.value.webApiHost &&
+     remotePublishConfig.value.webApiHost.length > 0
+   ) {
+     const backupResult = await remotePublishServerBackup(
+       remotePublishConfig.value.webApiHost,
+       currentDate,
+-      "WebApiHost"
++      "WebApiHost",
++      publishConfig.backupBasePath
+     );
+     if (backupResult.code !== 0) {
+       printInfoLog(backupResult.msg, "log-error");
+       return false;
+     }
+ 
+     // 备份路径
+     for (let i = 0; i < bRemotePublishConfig.webApiHost.length; i++) {
+       for (let j = 0; j < bRemotePublishConfig.webApiHost[i].serverConfigs.length; j++) {
+         const backupPath = getBackupPath(
+           bRemotePublishConfig.webApiHost[i].serverConfigs[j].publishPath,
+-          currentDate
++          currentDate,
++          publishConfig.backupBasePath
+         );
+         bRemotePublishConfig.webApiHost[i].serverConfigs[j].backupPath = backupPath;
+       }
+     }
+   }
+ 
+   // 备份[ScheduleServer]
+   if (
+     remotePublishConfig.value.scheduleServer &&
+     remotePublishConfig.value.scheduleServer.length > 0
+   ) {
+     const backupResult = await remotePublishServerBackup(
+       remotePublishConfig.value.scheduleServer,
+       currentDate,
+-      "ScheduleServer"
++      "ScheduleServer",
++      publishConfig.backupBasePath
+     );
+     if (backupResult.code !== 0) {
+       printInfoLog(backupResult.msg, "log-error");
+       return false;
+     }
+ 
+     // 备份路径
+     for (let i = 0; i < bRemotePublishConfig.scheduleServer.length; i++) {
+       for (
+         let j = 0;
+         j < bRemotePublishConfig.scheduleServer[i].serverConfigs.length;
+         j++
+       ) {
+         const backupPath = getBackupPath(
+           bRemotePublishConfig.scheduleServer[i].serverConfigs[j].publishPath,
+-          currentDate
++          currentDate,
++          publishConfig.backupBasePath
+         );
+         bRemotePublishConfig.scheduleServer[i].serverConfigs[j].backupPath = backupPath;
+       }
+     }
+   }
+ 
+   // 备份[WebClient]
+   if (
+     remotePublishConfig.value.webClient &&
+     remotePublishConfig.value.webClient.length > 0
+   ) {
+     const backupResult = await remotePublishServerBackup(
+       remotePublishConfig.value.webClient,
+       currentDate,
+-      "WebClient"
++      "WebClient",
++      publishConfig.backupBasePath
+     );
+     if (backupResult.code !== 0) {
+       printInfoLog(backupResult.msg, "log-error");
+       return false;
+     }
+ 
+     // 备份路径
+     for (let i = 0; i < bRemotePublishConfig.webClient.length; i++) {
+       for (let j = 0; j < bRemotePublishConfig.webClient[i].serverConfigs.length; j++) {
+         const backupPath = getBackupPath(
+           bRemotePublishConfig.webClient[i].serverConfigs[j].publishPath,
+-          currentDate
++          currentDate,
++          publishConfig.backupBasePath
+         );
+         bRemotePublishConfig.webClient[i].serverConfigs[j].backupPath = backupPath;
+       }
+     }
+   }
+ 
+   // 备份[SpcMonitor]
+   if (
+     remotePublishConfig.value.spcMonitor &&
+     remotePublishConfig.value.spcMonitor.length > 0
+   ) {
+     const backupResult = await remotePublishServerBackup(
+       remotePublishConfig.value.spcMonitor,
+       currentDate,
+-      "SpcMonitor"
++      "SpcMonitor",
++      publishConfig.backupBasePath
+     );
+     if (backupResult.code !== 0) {
+       printInfoLog(backupResult.msg, "log-error");
+       return false;
+     }
+ 
+     // 备份路径
+     for (let i = 0; i < bRemotePublishConfig.spcMonitor.length; i++) {
+       for (let j = 0; j < bRemotePublishConfig.spcMonitor[i].serverConfigs.length; j++) {
+         const backupPath = getBackupPath(
+           bRemotePublishConfig.spcMonitor[i].serverConfigs[j].publishPath,
+-          currentDate
++          currentDate,
++          publishConfig.backupBasePath
+         );
+         bRemotePublishConfig.spcMonitor[i].serverConfigs[j].backupPath = backupPath;
+       }
+     }
+   }
+ 
+   // 备份[WpfClient]
+   if (remotePublishConfig.value.wpfClient) {
+     const backupResult = await remotePublishWpfBackup(
+       remotePublishConfig.value.wpfClient,
+       currentDate,
+       "WpfClient",
+-      remotePublishConfig.value.isNewVersion
++      remotePublishConfig.value.isNewVersion,
++      publishConfig.backupBasePath
+     );
+     if (backupResult.code !== 0) {
+       printInfoLog(backupResult.msg, "log-error");
+       return false;
+     }
+ 
+     // 备份路径
+     const backupPath = getBackupPath(
+       bRemotePublishConfig.wpfClient.publishPath,
+-      currentDate
++      currentDate,
++      publishConfig.backupBasePath
+     );
+     bRemotePublishConfig.wpfClient.backupPath = backupPath;
+   }
+ 
+   // 保存备份记录数据
+   let backupRemotePublishConfig = bRemotePublishConfig as BackupRemotePublishType;
+   let backupData: RowBackupType = {
+     id: null,
+     projectId: null,
+     projectName: backupRemotePublishConfig.projectName,
+@@ -1934,38 +2019,39 @@ const rPublishWpfBackupFilesCount = (publishServer: PublishWpfType) => {
+     uploadFileNumber.totalNumber += pFile.files.length;
+   }
+   return uploadFileNumber;
+ };
+ 
+ // [远程]Wpf服务
+ const remotePublishWpfBackup = async (
+   publishServer: PublishWpfType,
+   currentDate: string,
+   serverName: string,
+-  isNewVersion: boolean | null = false
++  isNewVersion: boolean | null = false,
++  backupBasePath?: string | null,
+ ) => {
+   let execResult: DataResultType<any> = {
+     code: 0,
+     msg: "",
+     data: null,
+   };
+   printInfoLog(`正在备份 ${serverName} 服务.`);
+   // 服务器信息
+   const osName = displayOs(Number(publishServer.serverOs));
+   const username = publishServer.serverAccount;
+   const password = await aesDecrypt(String(publishServer.serverPwd));
+   const server = `${publishServer.serverIp}:${publishServer.serverPort}`;
+   const currLogIndex = printInfoLog(
+     `${publishServer.serverName}[${publishServer.serverIp}].`
+   );
+ 
+-  const backupPath = getBackupPath(publishServer.publishPath, currentDate);
++  const backupPath = getBackupPath(publishServer.publishPath, currentDate, backupBasePath);
+   let cacheDir = `${removeSlash(publishServer.publishPath)}/cacheDir`;
+   let uploadFileNumber = rPublishWpfBackupFilesCount(publishServer);
+   for (let i = 0; i < publishServer.publishFiles.length; i++) {
+     const pFile = publishServer.publishFiles[i];
+ 
+     // 创建备份目录
+     let createDirCmd;
+     if (osName == "Windows") {
+       createDirCmd = `if not exist "${backupPath}/${pFile.dirName}" mkdir "${backupPath}/${pFile.dirName}"`;
+       createDirCmd = createDirCmd.replace(/\//g, "\\");
+@@ -2082,42 +2168,43 @@ const remotePublishWpfBackup = async (
+   execResult.msg = `服务 ${serverName} 备份成功！`;
+   printInfoLog(execResult.msg, "log-success");
+   printInfoLog("");
+   return execResult;
+ };
+ 
+ // [远程]服务备份
+ const remotePublishServerBackup = async (
+   publishServers: PublishServerType[],
+   currentDate: string,
+-  serverName: string
++  serverName: string,
++  backupBasePath?: string | null,
+ ) => {
+   let execResult: DataResultType<any> = {
+     code: 0,
+     msg: "",
+     data: null,
+   };
+   printInfoLog(`正在备份 ${serverName} 服务.`);
+   for (let i = 0; i < publishServers.length; i++) {
+     const publishServer = publishServers[i];
+     printInfoLog(`${publishServer.serverName}[${publishServer.serverIp}].`);
+ 
+     // 服务器信息
+     const osName = displayOs(Number(publishServer.serverOs));
+     const username = publishServer.serverAccount;
+     const password = await aesDecrypt(String(publishServer.serverPwd));
+     const server = `${publishServer.serverIp}:${publishServer.serverPort}`;
+ 
+     // 服务配置信息
+     for (let j = 0; j < publishServer.serverConfigs.length; j++) {
+       const serverConfig = publishServer.serverConfigs[j];
+-      const backupPath = getBackupPath(serverConfig.publishPath, currentDate);
++      const backupPath = getBackupPath(serverConfig.publishPath, currentDate, backupBasePath);
+ 
+       // 创建备份目录
+       let createDirCmd;
+       if (osName == "Windows") {
+         createDirCmd = `if not exist "${backupPath}" mkdir "${backupPath}"`;
+         createDirCmd = createDirCmd.replace(/\//g, "\\");
+       } else {
+         createDirCmd = `mkdir -p "${backupPath}"`;
+       }
+       await cmdInvoke("execute_remote_command", {
+@@ -2226,26 +2313,34 @@ const isRemoteWinServiceStop = async (
+     server,
+     command: `sc query "${serviceName}"`,
+   });
+   if (invokeResult.data.includes("STOPPED")) {
+     return true;
+   }
+   return false;
+ };
+ 
+ // 获取备份路径
+-const getBackupPath = (path: string, currentDate: string) => {
++const getBackupPath = (path: string, currentDate: string, backupBasePath?: string | null) => {
+   const bkPath = removeSlash(path);
+   const bkLastIndex = bkPath.lastIndexOf("/");
+-  const backupPrefixPath = bkPath.substring(0, bkLastIndex);
+   const folderName = currentDate.replace(/-/g, "").replace(/:/g, "").replace(/\s+/g, "");
+-  return `${backupPrefixPath}/Backups/${folderName}/${bkPath.substring(bkLastIndex + 1)}`;
++  const fileName = bkPath.substring(bkLastIndex + 1);
++
++  // 有自定义基础路径 → 使用自定义路径作为前缀
++  if (backupBasePath) {
++    return `${removeSlash(backupBasePath)}/${folderName}/${fileName}`;
++  }
++
++  // 无自定义路径 → 保持现有逻辑
++  const backupPrefixPath = bkPath.substring(0, bkLastIndex);
++  return `${backupPrefixPath}/Backups/${folderName}/${fileName}`;
+ };
+ 
+ // 创建目录
+ const createDir = async (path: string) => {
+   const pathExists = await cmdInvoke("exists", { path });
+   if (pathExists.code === 0) {
+     await cmdInvoke("delete_paths", {
+       paths: [path],
+     });
+   }
+diff --git a/src/views/project/components/projectDialog.vue b/src/views/project/components/projectDialog.vue
+index d8f0227..0b44c9f 100644
+--- a/src/views/project/components/projectDialog.vue
++++ b/src/views/project/components/projectDialog.vue
+@@ -53,20 +53,30 @@
+           <el-col :span="18" class="mb20">
+             <el-form-item label-width="110" label="程序集输出路径" prop="assemblyOutPath">
+               <el-input
+                 v-model="state.ruleForm.assemblyOutPath"
+                 placeholder="请输入程序集输出路径"
+                 maxlength="450"
+                 clearable
+               ></el-input>
+             </el-form-item>
+           </el-col>
++          <el-col :span="24" class="mb20">
++            <el-form-item label="备份基础路径" prop="backupBasePath">
++              <el-input
++                v-model="state.ruleForm.backupBasePath"
++                placeholder="选填，如 /home/backups/smom"
++                maxlength="450"
++                clearable
++              ></el-input>
++            </el-form-item>
++          </el-col>
+           <el-col :span="24" class="mb20">
+             <el-form-item label="描述" prop="description">
+               <el-input
+                 type="textarea"
+                 v-model="state.ruleForm.description"
+                 rows="3"
+                 placeholder="请输入描述内容…"
+                 maxlength="150"
+                 show-word-limit
+                 clearable
+@@ -107,20 +117,21 @@ const projectDb = useProjectDb();
+ // 定义变量内容
+ const projectDialogFormRef = ref();
+ const state = reactive<FormDialogType<RowProjectType>>({
+   ruleForm: {
+     id: null,
+     code: null,
+     name: null,
+     description: null,
+     isDefault: 0,
+     assemblyOutPath: null,
++    backupBasePath: null,
+   },
+   dialog: {
+     show: false,
+     type: "add",
+     editId: null,
+     title: "提示",
+     submitTxt: "确定",
+   },
+ });
+ 

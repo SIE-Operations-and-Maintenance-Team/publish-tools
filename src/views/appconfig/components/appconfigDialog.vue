@@ -34,6 +34,16 @@
             </div>
           </el-col>
           <el-col :span="24" class="mb15">
+            <el-form-item label="备份基础路径" prop="configItems.backupBasePath">
+              <el-input
+                v-model="state.ruleForm.configItems.backupBasePath"
+                placeholder="选填，配置后备份到指定路径；不填则使用默认路径"
+                maxlength="450"
+                clearable
+              ></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="24" class="mb15">
             <el-form-item label="获取模式" prop="buildMode">
               <el-select v-model="state.ruleForm.buildMode" placeholder="请选择获取模式" @change="onBuildModeChange">
                 <el-option label="Debug" value="Debug" />

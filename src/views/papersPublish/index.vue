@@ -82,17 +82,6 @@
                         />
                       </td>
                     </tr>
-                    <tr>
-                      <th>备份路径</th>
-                      <td colspan="3">
-                        <el-input
-                          v-model="publishConfig.backupBasePath"
-                          placeholder="选填，配置后备份到指定路径；不填则使用默认路径"
-                          :disabled="publishItem.loading"
-                          clearable
-                        />
-                      </td>
-                    </tr>
                     <tr v-show="publishConfig.notes">
                       <th style="vertical-align: top">发布信息</th>
                       <td colspan="3">
@@ -177,7 +166,7 @@
 </template>
 
 <script setup lang="ts" name="smomPapersPublish">
-import { ref, reactive, onBeforeMount, onUnmounted, defineAsyncComponent, nextTick, watch } from "vue";
+import { ref, reactive, onBeforeMount, defineAsyncComponent, nextTick } from "vue";
 import { open } from "@tauri-apps/plugin-dialog";
 import { path } from "@tauri-apps/api";
 import { ElMessage } from "element-plus";
@@ -188,7 +177,6 @@ import { CircleClose } from "@element-plus/icons-vue";
 import { Promotion } from "@element-plus/icons-vue";
 import { cmdInvoke } from "@/utils/command";
 import { removeSlash, displayEnvironment, displayOs, aesDecrypt } from "@/utils/other";
-import { useProjectDb } from "@/database/project/index";
 
 const SvgIcon = defineAsyncComponent(() => import("@/components/svgIcon/index.vue"));
 const RemotePublishItem = defineAsyncComponent(
@@ -207,60 +195,6 @@ const logPrintInfo = ref<LogPrintType[]>([]);
 const publishItem = ref({
   loading: false,
   loadingText: "发布中",
-});
-
-// 备份路径持久化
-const projectDbForBackup = useProjectDb();
-const isLoadingBackupPath = ref(false);
-let saveBackupPathTimer: ReturnType<typeof setTimeout>;
-
-// 回填：解析 .smom 后，从数据库加载备份路径
-const loadBackupBasePath = async () => {
-  if (!publishConfig.projectName) return;
-  isLoadingBackupPath.value = true;
-  try {
-    const result = await projectDbForBackup.getProjectList({
-      code: null, name: publishConfig.projectName, sorting: null,
-      skipCount: 0, maxResultCount: 1000,
-    });
-    if (result.code === 0) {
-      // getProjectList 的 name 是 LIKE 模糊匹配，前端精确过滤
-      const project = result.data.data.find(p => p.name === publishConfig.projectName);
-      if (project) publishConfig.backupBasePath = project.backupBasePath ?? '';
-    }
-  } catch (e) {
-    console.error('加载备份路径失败:', e);
-  } finally {
-    isLoadingBackupPath.value = false;
-  }
-};
-
-// 用户修改时自动持久化（debounce 800ms）
-watch(
-  () => publishConfig.backupBasePath,
-  (newVal) => {
-    if (isLoadingBackupPath.value || !publishConfig.projectName) return;
-    clearTimeout(saveBackupPathTimer);
-    saveBackupPathTimer = setTimeout(async () => {
-      try {
-        const result = await projectDbForBackup.getProjectList({
-          code: null, name: publishConfig.projectName, sorting: null,
-          skipCount: 0, maxResultCount: 1000,
-        });
-        if (result.code !== 0) return;
-        const project = result.data.data.find(p => p.name === publishConfig.projectName);
-        if (!project) return;
-        project.backupBasePath = newVal || null;
-        await projectDbForBackup.updateProject(project);
-      } catch (e) {
-        console.error('持久化备份路径失败:', e);
-      }
-    }, 800);
-  }
-);
-
-onUnmounted(() => {
-  clearTimeout(saveBackupPathTimer);
 });
 
 // 定义远程临时操作目录
@@ -324,7 +258,6 @@ const onSelectPublishFile = async () => {
     return;
   }
   let readPublishConfig = JSON.parse(readResult.data);
-  isLoadingBackupPath.value = true;
   Object.assign(publishConfig, readPublishConfig);
   switch (readPublishConfig.publishMode) {
     case 0: // 远程发布
@@ -339,7 +272,6 @@ const onSelectPublishFile = async () => {
       return;
   }
   ElMessage.success("解析[SMOM发布文件]成功！");
-  await loadBackupBasePath();
   publishItem.value.loading = false;
 };
 
