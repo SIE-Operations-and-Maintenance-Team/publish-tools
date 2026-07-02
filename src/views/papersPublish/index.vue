@@ -177,7 +177,7 @@
 </template>
 
 <script setup lang="ts" name="smomPapersPublish">
-import { ref, reactive, onBeforeMount, defineAsyncComponent, nextTick, watch } from "vue";
+import { ref, reactive, onBeforeMount, onUnmounted, defineAsyncComponent, nextTick, watch } from "vue";
 import { open } from "@tauri-apps/plugin-dialog";
 import { path } from "@tauri-apps/api";
 import { ElMessage } from "element-plus";
@@ -259,6 +259,10 @@ watch(
   }
 );
 
+onUnmounted(() => {
+  clearTimeout(saveBackupPathTimer);
+});
+
 // 定义远程临时操作目录
 const papersPublishDir = async () => {
   const tempPapersPublishDir = await path.appDataDir();
@@ -320,6 +324,7 @@ const onSelectPublishFile = async () => {
     return;
   }
   let readPublishConfig = JSON.parse(readResult.data);
+  isLoadingBackupPath.value = true;
   Object.assign(publishConfig, readPublishConfig);
   switch (readPublishConfig.publishMode) {
     case 0: // 远程发布
