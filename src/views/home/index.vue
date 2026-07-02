@@ -178,8 +178,16 @@
                         </el-icon>
                       </el-tooltip>
                     </td>
-                    <th></th>
-                    <td></td>
+                    <th>备份路径</th>
+                    <td>
+                      <el-input
+                        v-model="state.publishData.appconfigData.configItems.backupBasePath"
+                        placeholder="选填，如 /home/backups/smom"
+                        :disabled="state.funModule[currModuleIndex].loading == true"
+                        size="default"
+                        clearable
+                      />
+                    </td>
                   </tr>
                 </table>
               </div>
