@@ -9,7 +9,7 @@ export function useProjectDb() {
          */
         getProjectList: async (params: GetProjectTableParams) => {
             let dataSql =
-                "select id,code,name,description,is_default isDefault, assembly_out_path assemblyOutPath from t_project";
+                "select id,code,name,description,is_default isDefault, assembly_out_path assemblyOutPath, backup_base_path backupBasePath from t_project";
             let totalSql = "select count(*) totalCount from t_project";
             let where = " where 1=1 ";
             let orderBy = "";
@@ -64,7 +64,7 @@ export function useProjectDb() {
          */
         getProjectDefault: async () => {
             let dataSql =
-                "select id,code,name,description,is_default isDefault, assembly_out_path assemblyOutPath from t_project where is_default = 1;";
+                "select id,code,name,description,is_default isDefault, assembly_out_path assemblyOutPath, backup_base_path backupBasePath from t_project where is_default = 1;";
 
             // 定义(默认)响应结果
             let dataResult: DataResultType<TableResultType<RowProjectType>> = {
@@ -83,7 +83,7 @@ export function useProjectDb() {
                 // 没有默认的项目，就取最近的一条数据
                 if (projectList.length < 1) {
                     let dataMaxIdSql =
-                        "select id,code,name,description,is_default isDefault, assembly_out_path assemblyOutPath from t_project order by id desc LIMIT 1;";
+                        "select id,code,name,description,is_default isDefault, assembly_out_path assemblyOutPath, backup_base_path backupBasePath from t_project order by id desc LIMIT 1;";
                     projectList = await (
                         await db()
                     ).select<RowProjectType[]>(dataMaxIdSql);
@@ -107,7 +107,7 @@ export function useProjectDb() {
          */
         getProjectById: async (projectId: number) => {
             let dataSql =
-                "select id,code,name,description,is_default isDefault, assembly_out_path assemblyOutPath from t_project where id = $1;";
+                "select id,code,name,description,is_default isDefault, assembly_out_path assemblyOutPath, backup_base_path backupBasePath from t_project where id = $1;";
 
             // 定义(默认)响应结果
             let dataResult: DataResultType<TableResultType<RowProjectType>> = {
@@ -142,7 +142,7 @@ export function useProjectDb() {
          */
         insertProject: async (project: RowProjectType) => {
             let insertSql =
-                "INSERT INTO t_project (code, name, description, is_default, assembly_out_path) VALUES($1, $2, $3, $4, $5) RETURNING id;";
+                "INSERT INTO t_project (code, name, description, is_default, assembly_out_path, backup_base_path) VALUES($1, $2, $3, $4, $5, $6) RETURNING id;";
 
             let updateDefaultSql = "";
             if (project.isDefault === 1) {
@@ -178,7 +178,8 @@ export function useProjectDb() {
                     project.name,
                     project.description,
                     project.isDefault,
-                    project.assemblyOutPath
+                    project.assemblyOutPath,
+                    project.backupBasePath
                 ]);
                 if (rowResult.lastInsertId && rowResult.lastInsertId > 0) {
                     dataResult.code = 0;
@@ -204,7 +205,7 @@ export function useProjectDb() {
          */
         updateProject: async (project: RowProjectType) => {
             let updateSql =
-                "UPDATE t_project SET code=$1, name=$2, description=$3, is_default=$4, assembly_out_path=$5 WHERE id=$6;";
+                "UPDATE t_project SET code=$1, name=$2, description=$3, is_default=$4, assembly_out_path=$5, backup_base_path=$6 WHERE id=$7;";
 
             let updateDefaultSql = "";
             if (project.isDefault === 1) {
@@ -239,6 +240,7 @@ export function useProjectDb() {
                     project.description,
                     project.isDefault,
                     project.assemblyOutPath,
+                    project.backupBasePath,
                     project.id
                 ]);
                 if (rowResult.rowsAffected > 0) {
