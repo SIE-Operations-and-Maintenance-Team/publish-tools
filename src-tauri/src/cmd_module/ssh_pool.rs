@@ -12,7 +12,7 @@
 //
 // 注意：libssh2 同一 Session 不支持并发使用，必须通过 Mutex 串行化。
 
-use ssh2::{MethodType, Session};
+use ssh2::Session;
 use std::collections::HashMap;
 use std::net::TcpStream;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -89,36 +89,9 @@ pub fn get_session(
     // 2. 创建新会话
     let tcp = TcpStream::connect(server).map_err(|e| format!("无法连接到服务器: {}", e))?;
     let mut sess = Session::new().map_err(|e| format!("无法创建 SSH 会话: {}", e))?;
-    sess.set_blocking(true);
     sess.set_tcp_stream(tcp);
-
-    // 诊断：收集 libssh2 客户端可供协商的算法
-    let client_kex = sess
-        .supported_algs(MethodType::Kex)
-        .map(|v| v.join(","))
-        .unwrap_or_else(|_| "获取失败".to_string());
-    let client_hk = sess
-        .supported_algs(MethodType::HostKey)
-        .map(|v| v.join(","))
-        .unwrap_or_else(|_| "获取失败".to_string());
-    let client_crypt = sess
-        .supported_algs(MethodType::CryptCs)
-        .map(|v| v.join(","))
-        .unwrap_or_else(|_| "获取失败".to_string());
-    let client_mac = sess
-        .supported_algs(MethodType::MacCs)
-        .map(|v| v.join(","))
-        .unwrap_or_else(|_| "获取失败".to_string());
-
-    sess.handshake().map_err(|e| {
-        format!(
-            "SSH 握手失败: {}\n\
-             ── [libssh2 客户端算法] ──\n\
-             Kex: {}\nHostKey: {}\nCipher: {}\nMAC: {}",
-            e, client_kex, client_hk, client_crypt, client_mac
-        )
-    })?;
-    sess.set_blocking(false);
+    sess.handshake()
+        .map_err(|e| format!("SSH 握手失败: {}", e))?;
     sess.userauth_password(username, password)
         .map_err(|e| format!("身份验证失败: {}", e))?;
     if !sess.authenticated() {

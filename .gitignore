@@ -33,3 +33,4 @@ src-tauri/tauri.key
 
 /doc
 .codegraph/daemon.pid
+docs/superpowers/plans/2026-07-02-fix-service-name-space.md
