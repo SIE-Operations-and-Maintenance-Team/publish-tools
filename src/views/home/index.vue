@@ -2000,7 +2000,7 @@ const switchWinService = async (
     username,
     password,
     server,
-    command: `net ${action} ${serviceName}`,
+    command: `net ${action} "${serviceName}"`,
   });
   if (switchServerResult.code !== 0) printInfoLog(switchServerResult.data, "log-error");
   return switchServerResult.code === 0;
@@ -2035,7 +2035,7 @@ const isWinServiceStop = async (
     username,
     password,
     server,
-    command: `sc query ${serviceName}`,
+    command: `sc query "${serviceName}"`,
   });
   if (invokeResult.data.includes("STOPPED")) {
     return true;

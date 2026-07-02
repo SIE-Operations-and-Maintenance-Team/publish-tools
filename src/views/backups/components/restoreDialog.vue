@@ -611,7 +611,7 @@ const switchWinService = async (
     username,
     password,
     server,
-    command: `sc ${action} ${serviceName}`,
+    command: `sc ${action} "${serviceName}"`,
   });
   if (switchServerResult.code !== 0) {
     printInfoLog(switchServerResult.data, "log-error");
@@ -664,7 +664,7 @@ const isWinServiceStop = async (
     username,
     password,
     server,
-    command: `sc query ${serviceName}`,
+    command: `sc query "${serviceName}"`,
   });
   if (invokeResult.data.includes("STOPPED")) {
     return true;
