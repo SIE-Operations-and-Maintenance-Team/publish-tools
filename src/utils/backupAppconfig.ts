@@ -180,7 +180,8 @@ export async function getReadAllDlls(clientPath: string) {
 const getServerBackupItems = async (
   appconfigData: any,
   currentDate: string,
-  itemName: string
+  itemName: string,
+  backupBasePath?: string | null
 ) => {
   const serverConfigItem = appconfigData.configItems[itemName] as
     | WebApiHostConfigType
@@ -257,12 +258,20 @@ const getServerBackupItems = async (
 
         // 发布路径
         const publishPath = removeSlash(String(pathValue.path));
+        let backupPath: string;
+        if (backupBasePath) {
+          backupPath = `${removeSlash(backupBasePath)}/${folderName}/${bkPath.substring(
+            bkLastIndex + 1
+          )}`;
+        } else {
+          backupPath = `${backupPrefixPath}/Backups/${folderName}/${bkPath.substring(
+            bkLastIndex + 1
+          )}`;
+        }
         backupPaths.push({
           identity: String(pathValue.identity),
           publishPath,
-          backupPath: `${backupPrefixPath}/Backups/${folderName}/${bkPath.substring(
-            bkLastIndex + 1
-          )}`,
+          backupPath,
           backFiles,
         });
       }
@@ -280,7 +289,8 @@ const getServerBackupItems = async (
 const getScheduleServerBackupItems = async (
   appconfigData: any,
   currentDate: string,
-  itemName: string
+  itemName: string,
+  backupBasePath?: string | null
 ) => {
   const serverConfigItem = appconfigData.configItems[
     itemName
@@ -358,12 +368,20 @@ const getScheduleServerBackupItems = async (
 
         // 发布路径
         const publishPath = removeSlash(String(pathValue.path));
+        let backupPath: string;
+        if (backupBasePath) {
+          backupPath = `${removeSlash(backupBasePath)}/${folderName}/${bkPath.substring(
+            bkLastIndex + 1
+          )}`;
+        } else {
+          backupPath = `${backupPrefixPath}/Backups/${folderName}/${bkPath.substring(
+            bkLastIndex + 1
+          )}`;
+        }
         backupPaths.push({
           identity: String(pathValue.identity),
           publishPath,
-          backupPath: `${backupPrefixPath}/Backups/${folderName}/${bkPath.substring(
-            bkLastIndex + 1
-          )}`,
+          backupPath,
           backFiles,
         });
       }
@@ -386,7 +404,8 @@ const getScheduleServerBackupItems = async (
 const getWpfClientConfigType = async (
   appconfigData: any,
   currentDate: string,
-  itemName: string
+  itemName: string,
+  backupBasePath?: string | null
 ) => {
   const serverConfigItem = appconfigData.configItems[
     itemName
@@ -485,6 +504,16 @@ const getWpfClientConfigType = async (
 
   // 发布路径
   const publishPath = removeSlash(String(serverConfigItem.serverPath));
+  let backupPathWpf: string;
+  if (backupBasePath) {
+    backupPathWpf = `${removeSlash(backupBasePath)}/${folderName}/${bkPath.substring(
+      bkLastIndex + 1
+    )}`;
+  } else {
+    backupPathWpf = `${backupPrefixPath}/Backups/${folderName}/${bkPath.substring(
+      bkLastIndex + 1
+    )}`;
+  }
   backupServer.push({
     serverId: Number(serverConfigItem.serverId),
     serverName: String(serverConfigItem.serverName),
@@ -492,9 +521,7 @@ const getWpfClientConfigType = async (
       {
         identity: "WpfClient",
         publishPath,
-        backupPath: `${backupPrefixPath}/Backups/${folderName}/${bkPath.substring(
-          bkLastIndex + 1
-        )}`,
+        backupPath: backupPathWpf,
         backFiles,
       },
     ],
@@ -577,6 +604,8 @@ export async function loadBackupItems(
     });
   }
 
+  const backupBasePath = appConfigItem.configItems?.backupBasePath || null;
+
   var backupData: RowBackupType = {
     id: 0,
     projectId: appConfigItem.projectId,
@@ -591,27 +620,32 @@ export async function loadBackupItems(
       webApiHost: await getServerBackupItems(
         appConfigItem,
         currentDate,
-        "webApiHost"
+        "webApiHost",
+        backupBasePath
       ),
       scheduleServer: await getScheduleServerBackupItems(
         appConfigItem,
         currentDate,
-        "scheduleServer"
+        "scheduleServer",
+        backupBasePath
       ),
       webClient: await getServerBackupItems(
         appConfigItem,
         currentDate,
-        "webClient"
+        "webClient",
+        backupBasePath
       ),
       wpfClient: await getWpfClientConfigType(
         appConfigItem,
         currentDate,
-        "wpfClient"
+        "wpfClient",
+        backupBasePath
       ),
       spcMonitor: await getServerBackupItems(
         appConfigItem,
         currentDate,
-        "spcMonitor"
+        "spcMonitor",
+        backupBasePath
       ),
       isNewVersion: appConfigItem.configItems.isNewVersion
     },
