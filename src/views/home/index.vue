@@ -1,22 +1,37 @@
 <template>
   <div class="publish-container layout-pd">
     <el-row :gutter="15" class="publish-card-box mb15">
-      <el-col v-for="(fun, index) in visibleFunModule" :key="fun.title" :class="{
-        'publish-media publish-media-lg': fun.origIndex > 1,
-        'publish-media-sm': fun.origIndex === 1,
-      }" class="publish-fun-col">
-        <div class="publish-card-item flex" v-loading="fun.loading" :element-loading-text="fun.loadingText"
+      <el-col :xs="24" :sm="12" :md="12" :lg="6" :xl="6" v-for="(fun, index) in state.funModule" :key="index" :class="{
+        'publish-media publish-media-lg': index > 1,
+        'publish-media-sm': index === 1,
+      }">
+        <div class="publish-card-item flex"
+          v-loading="fun.loading && !(fun.title === '一键发布' || fun.title === '手动发布')"
+          :element-loading-text="fun.loadingText"
           @click="onFunModuleHandle(index)">
-          <!-- <div class="flex-margin flex w100" :class="` publish-animation${index}`"> -->
-          <div class="flex-margin flex w100">
-            <div class="flex-auto">
-              <div class="card-item-title">{{ fun.title }}</div>
+          <template v-if="fun.loading && (fun.title === '一键发布' || fun.title === '手动发布')">
+            <div class="publish-controls" @click.stop>
+              <el-button type="warning" plain :icon="VideoPause"
+                v-if="!state.publishData.publishPaused"
+                @click="onPausePublish">暂停</el-button>
+              <el-button type="success" plain :icon="VideoPlay"
+                v-if="state.publishData.publishPaused"
+                @click="onResumePublish">继续</el-button>
+              <el-button type="danger" plain :icon="Close"
+                @click="onStopPublish">停止</el-button>
             </div>
-            <div class="publish-card-item-icon flex" :style="{ background: `var(${fun.iconBgColor})` }">
-              <svg-icon class="flex-margin" :size="22" :name="fun.iconFont" :class="fun.iconFont"
-                :color="`var(${fun.iconColor})`" />
+          </template>
+          <template v-else>
+            <div class="flex-margin flex w100">
+              <div class="flex-auto">
+                <div class="card-item-title">{{ fun.title }}</div>
+              </div>
+              <div class="publish-card-item-icon flex" :style="{ background: `var(${fun.iconBgColor})` }">
+                <svg-icon class="flex-margin" :size="32" :name="fun.iconFont" :class="fun.iconFont"
+                  :color="`var(${fun.iconColor})`" />
+              </div>
             </div>
-          </div>
+          </template>
         </div>
       </el-col>
     </el-row>
@@ -610,7 +625,7 @@ import {
 } from "vue";
 import { ElMessage } from "element-plus";
 import _ from "lodash";
-import { Refresh, CircleClose, EditPen, QuestionFilled } from "@element-plus/icons-vue";
+import { Refresh, CircleClose, EditPen, QuestionFilled, VideoPause, VideoPlay, Close } from "@element-plus/icons-vue";
 import { useProjectDb } from "@/database/project/index";
 import { useAppconfigDb } from "@/database/appconfig/index";
 import { useServerDb } from "@/database/servers/index";
@@ -756,6 +771,9 @@ const state = reactive({
     assemblyOutPath: "",
     environment: 1,
     appconfigData: {} as RowAppconfigType,
+    publishStopped: false,
+    publishPaused: false,
+    resumeResolve: null as (() => void) | null,
   },
 });
 
@@ -803,8 +821,12 @@ const onFunModuleHandle = async (index: number) => {
     return;
   }
   onRemoveLogs();
-  state.funModule[origIndex].loading = true;
-  currModuleIndex.value = origIndex;
+  // 重置停止/暂停信号
+  state.publishData.publishStopped = false;
+  state.publishData.publishPaused = false;
+  state.publishData.resumeResolve = null;
+  state.funModule[index].loading = true;
+  currModuleIndex.value = index;
   initLogs();
   if (title === "一键发布" || title === "获取程序集" || title === "手动发布") {
     const validateTfsLocalPathResult = await validateTfsLocalPath();
@@ -818,8 +840,14 @@ const onFunModuleHandle = async (index: number) => {
   projectAssemblyOutPath.value = await getProjectOutPath();
   switch (title) {
     case "一键发布":
-      const oneClickPublishResult = await oneClickPublishing();
-      if (oneClickPublishResult) printInfoLog("一键发布成功。");
+      try {
+        const oneClickPublishResult = await oneClickPublishing();
+        if (oneClickPublishResult) printInfoLog("一键发布成功。");
+      } catch (e: any) {
+        if (e?.message === "PUBLISH_STOPPED") {
+          printInfoLog("发布已停止.", "log-warning");
+        }
+      }
       break;
     case "编译项目":
       const buildProjectsResult = await buildProjects();
@@ -831,10 +859,16 @@ const onFunModuleHandle = async (index: number) => {
       if (getAppAssemblysResult) printInfoLog("获取程序集成功。");
       break;
     case "手动发布":
-      const publishResult = await projectPublish();
-      if (publishResult) {
-        printInfoLog("手动发布成功。");
-        await getProjectDefault();
+      try {
+        const publishResult = await projectPublish();
+        if (publishResult) {
+          printInfoLog("手动发布成功。");
+          await getProjectDefault();
+        }
+      } catch (e: any) {
+        if (e?.message === "PUBLISH_STOPPED") {
+          printInfoLog("发布已停止.", "log-warning");
+        }
       }
       break;
   }
@@ -890,6 +924,44 @@ const getConfigItemHosts = () => {
   return projectHosts.filter((item) => item.hostItem.clientPath);
 };
 
+// 一键/手动发布检查点
+const checkCanContinueHome = async () => {
+  if (state.publishData.publishStopped) {
+    throw new Error("PUBLISH_STOPPED");
+  }
+  // 定时发布无 UI，跳过暂停逻辑
+  if (isScheduledRunning.value) return;
+  if (state.publishData.publishPaused) {
+    printInfoLog("发布已暂停，等待恢复...", "log-warning");
+    state.funModule[currModuleIndex.value].loadingText = "已暂停";
+    await new Promise<void>((resolve) => {
+      state.publishData.resumeResolve = resolve;
+    });
+    state.publishData.resumeResolve = null;
+    state.funModule[currModuleIndex.value].loadingText = "发布中";
+    printInfoLog("发布已恢复.", "log-success");
+    if (state.publishData.publishStopped) {
+      throw new Error("PUBLISH_STOPPED");
+    }
+  }
+};
+
+const onPausePublish = () => {
+  state.publishData.publishPaused = true;
+};
+
+const onResumePublish = () => {
+  state.publishData.publishPaused = false;
+  state.publishData.resumeResolve?.();
+};
+
+const onStopPublish = () => {
+  state.publishData.publishStopped = true;
+  if (state.publishData.resumeResolve) {
+    state.publishData.resumeResolve();
+  }
+};
+
 // 一健发布
 const oneClickPublishing = async () => {
   // 编译项目
@@ -932,22 +1004,23 @@ const projectPublish = async () => {
     if (!backupResult) return false;
   }
 
+  await checkCanContinueHome();
   // 发布 WebApiHost
   const publishWebApiResult = await publishWebApiHost();
   if (!publishWebApiResult) {
     return false;
   }
-  // 移除 WebApiHost 服务
   state.publishData.appconfigData.configItems.webApiHost.clientPath = "";
 
+  await checkCanContinueHome();
   // 发布 ScheduleServer
   const publishScheduleResult = await publishScheduleServer();
   if (!publishScheduleResult) {
     return false;
   }
-  // 移除 ScheduleServer 服务
   state.publishData.appconfigData.configItems.scheduleServer.clientPath = "";
 
+  await checkCanContinueHome();
   // 发布 WpfClient
   let publishWpfClientResult = false;
   if (state.publishData.appconfigData.configItems.isNewVersion) {
@@ -958,23 +1031,22 @@ const projectPublish = async () => {
   if (!publishWpfClientResult) {
     return false;
   }
-  // 移除 WpfClient 服务
   state.publishData.appconfigData.configItems.wpfClient.clientPath = "";
 
+  await checkCanContinueHome();
   // 发布 SpcMonitor
   const publishSpcMonitorResult = await publishSpcMonitor();
   if (!publishSpcMonitorResult) {
     return false;
   }
-  // 移除 SpcMonitor 服务
   state.publishData.appconfigData.configItems.spcMonitor.clientPath = "";
 
+  await checkCanContinueHome();
   // 发布 WebClient
   const publishWebClientResult = await publishWebClient();
   if (!publishWebClientResult) {
     return false;
   }
-  // 移除 WebClient 服务
   state.publishData.appconfigData.configItems.webClient.clientPath = "";
   try {
     sendNotification({
@@ -1335,6 +1407,7 @@ const publishScheduleServer = async () => {
         // let localFiles = new Array();
         // let remoteFiles = new Array();
         for (let l = 0; l < projectFiles.length; l++) {
+          await checkCanContinueHome();
           const projectFile = projectFiles[l];
           // localFiles.push(`${localPath}/${projectFile}`);
           // remoteFiles.push(`${remotePath}/${projectFile}`);
@@ -1969,6 +2042,7 @@ const serverPublish = async (
         prefix: "已上传：",
       };
       for (let l = 0; l < projectFiles.length; l++) {
+        await checkCanContinueHome();
         const projectFile = projectFiles[l];
         const uploadServerFileResult = await uploadServerFilesWithRetry({
           localPaths: [`${localPath}/${projectFile}`],
@@ -3749,6 +3823,10 @@ const checkScheduledPublish = async () => {
 const executeScheduledPublish = async (schedule: RowPublishScheduleType) => {
   if (isScheduledRunning.value) return;
   isScheduledRunning.value = true;
+  // 重置信号量（定时发布不走 onFunModuleHandle，需独立重置）
+  state.publishData.publishStopped = false;
+  state.publishData.publishPaused = false;
+  state.publishData.resumeResolve = null;
   try {
     // 更新状态为执行中
     await publishScheduleDb.updateScheduleStatus(schedule.id, 'executing');
@@ -3887,6 +3965,7 @@ $homeNavLengh: 8;
       border-radius: 4px;
       transition: all ease 0.3s;
       overflow: hidden;
+      position: relative;
       background: var(--el-color-white);
       color: var(--el-text-color-primary);
       border: 1px solid var(--next-border-color-light);
@@ -4075,6 +4154,19 @@ $homeNavLengh: 8;
   .t-link-path:hover {
     text-decoration: underline;
     cursor: pointer;
+  }
+
+  .publish-controls {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    gap: 8px;
+    padding: 20px;
+    align-items: center;
+    .el-button {
+      flex: 1;
+      height: 100%;
+    }
   }
 }
 </style>

@@ -1,30 +1,13 @@
 <template>
   <div class="publish-container layout-pd">
     <el-row :gutter="15" class="publish-card-box mb15">
-      <el-col
-        :xs="24"
-        :sm="24"
-        :md="24"
-        :lg="24"
-        :xl="24"
-        class="publish-media publish-media-lg"
-      >
-        <div
-          class="publish-card-item publish-box"
-          v-loading="publishItem.loading"
-          :element-loading-text="publishItem.loadingText"
-          @click="onSelectPublishFile"
-        >
-          <div
-            class="publish-card-item-icon flex publish-bg-logo"
-            :style="{ background: `var(--next-color-primary-lighter)` }"
-          >
-            <svg-icon
-              class="flex-margin"
-              :size="32"
-              name="smom-icon smom-icon-xuanzefabu"
-              color="var(--el-color-primary)"
-            />
+      <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" class="publish-media publish-media-lg">
+        <div class="publish-card-item publish-box" v-loading="publishItem.loading"
+          :element-loading-text="publishItem.loadingText" @click="onSelectPublishFile">
+          <div class="publish-card-item-icon flex publish-bg-logo"
+            :style="{ background: `var(--next-color-primary-lighter)` }">
+            <svg-icon class="flex-margin" :size="32" name="smom-icon smom-icon-xuanzefabu"
+              color="var(--el-color-primary)" />
           </div>
           <div class="card-item-title">选择发布文件</div>
         </div>
@@ -40,10 +23,7 @@
               </el-row>
             </div>
             <div class="card-item-content">
-              <el-empty
-                :image-size="200"
-                v-if="!publishConfig || !publishConfig.projectName"
-              />
+              <el-empty :image-size="200" v-if="!publishConfig || !publishConfig.projectName" />
               <template v-else>
                 <div class="card-item-appconfig">
                   <table class="table-appconfig mb15" cellpadding="0" cellspacing="0">
@@ -70,16 +50,14 @@
                       </td>
                       <th>发布前备份</th>
                       <td>
-                        <el-switch
-                          v-model="publishConfig.isBackup"
-                          :disabled="publishItem.loading"
-                          :active-value="1"
-                          :inactive-value="0"
-                          inline-prompt
-                          active-text="开启"
-                          inactive-text="关闭"
-                          size="default"
-                        />
+                        <el-switch v-model="publishConfig.isBackup" :disabled="publishItem.loading" :active-value="1"
+                          :inactive-value="0" inline-prompt active-text="开启" inactive-text="关闭" size="default" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <th>备份路径</th>
+                      <td>
+                        {{ publishConfig.backupBasePath }}
                       </td>
                     </tr>
                     <tr v-show="publishConfig.notes">
@@ -89,30 +67,29 @@
                       </td>
                     </tr>
                   </table>
-                  <remote-publish-item
-                    v-if="publishConfig.publishMode === 0"
-                    ref="remotePublishItemRef"
-                    :data="remotePublishConfig"
-                    :loading="publishItem.loading"
-                  />
-                  <local-publish-item
-                    v-else-if="publishConfig.publishMode === 1"
-                    ref="localPublishItemRef"
-                    :data="localPublishConfig"
-                    :loading="publishItem.loading"
-                  />
+                  <remote-publish-item v-if="publishConfig.publishMode === 0" ref="remotePublishItemRef"
+                    :data="remotePublishConfig" :loading="publishItem.loading" />
+                  <local-publish-item v-else-if="publishConfig.publishMode === 1" ref="localPublishItemRef"
+                    :data="localPublishConfig" :loading="publishItem.loading" />
                   <div class="card-publish-btn">
-                    <el-affix position="bottom" :offset="20">
-                      <el-button
-                        type="primary"
-                        plain
-                        :icon="Promotion"
-                        :disabled="publishItem.loading"
-                        size="large"
-                        @click="onPublish"
-                        >发布</el-button
-                      >
-                    </el-affix>
+                    <template v-if="!publishItem.loading">
+                      <el-affix position="bottom" :offset="20">
+                        <el-button type="primary" plain :icon="Promotion" :disabled="!publishConfig.projectName"
+                          size="large" @click="onPublish">发布</el-button>
+                      </el-affix>
+                    </template>
+                    <template v-else>
+                      <div class="publish-controls">
+                        <el-button type="warning" plain :icon="VideoPause" size="large"
+                          v-if="!publishItem.paused"
+                          @click="onPause">暂停</el-button>
+                        <el-button type="success" plain :icon="VideoPlay" size="large"
+                          v-if="publishItem.paused"
+                          @click="onResume">继续</el-button>
+                        <el-button type="danger" plain :icon="Close" size="large"
+                          @click="onStop">停止</el-button>
+                      </div>
+                    </template>
                   </div>
                 </div>
               </template>
@@ -128,34 +105,24 @@
                 <el-col :span="12">日志信息</el-col>
                 <el-col :span="12">
                   <div class="item-btn-box">
-                    <el-button
-                      title="清空日志"
-                      size="small"
-                      text
-                      :icon="CircleClose"
-                      @click="onRemoveLogs"
-                    ></el-button></div
-                ></el-col>
+                    <el-button title="清空日志" size="small" text :icon="CircleClose" @click="onRemoveLogs"></el-button>
+                  </div>
+                </el-col>
               </el-row>
             </div>
             <div ref="mpLogContentRef" class="card-item-content mp-log-content">
               <p v-for="log in logPrintInfo" :class="log.type">
                 {{ log.content.value }}
-                <el-text
-                  :type="
-                    log.content.uploadFile.currNumber >=
-                    log.content.uploadFile.totalNumber
-                      ? 'primary'
-                      : 'warning'
-                  "
-                  size="small"
-                  v-if="log.content.uploadFile && log.content.uploadFile.totalNumber > 0"
-                  >{{ log.content.uploadFile.prefix
+                <el-text :type="log.content.uploadFile.currNumber >=
+                  log.content.uploadFile.totalNumber
+                  ? 'primary'
+                  : 'warning'
+                  " size="small" v-if="log.content.uploadFile && log.content.uploadFile.totalNumber > 0">{{
+                    log.content.uploadFile.prefix
                   }}{{ log.content.uploadFile.currNumber }}/{{
                     log.content.uploadFile.totalNumber
                   }}
-                  个文件。</el-text
-                >
+                  个文件。</el-text>
               </p>
             </div>
           </div>
@@ -174,7 +141,7 @@ import _ from "lodash";
 import { useBackupDb } from "@/database/backups/index";
 import { formatDate } from "@/utils/formatTime";
 import { CircleClose } from "@element-plus/icons-vue";
-import { Promotion } from "@element-plus/icons-vue";
+import { Promotion, VideoPause, VideoPlay, Close } from "@element-plus/icons-vue";
 import { cmdInvoke } from "@/utils/command";
 import { loadPublishSettings, getRetryArgs } from "@/utils/publishSettings";
 import { removeSlash, displayEnvironment, displayOs, aesDecrypt } from "@/utils/other";
@@ -196,7 +163,46 @@ const logPrintInfo = ref<LogPrintType[]>([]);
 const publishItem = ref({
   loading: false,
   loadingText: "发布中",
+  paused: false,
+  stopped: false,
+  resumeResolve: null as (() => void) | null,
 });
+
+// 发布流程检查点
+const checkCanContinue = async () => {
+  if (publishItem.value.stopped) {
+    throw new Error("PUBLISH_STOPPED");
+  }
+  if (publishItem.value.paused) {
+    printInfoLog("发布已暂停，等待恢复...", "log-warning");
+    publishItem.value.loadingText = "已暂停";
+    await new Promise<void>((resolve) => {
+      publishItem.value.resumeResolve = resolve;
+    });
+    publishItem.value.resumeResolve = null;
+    publishItem.value.loadingText = "发布中";
+    printInfoLog("发布已恢复.", "log-success");
+    if (publishItem.value.stopped) {
+      throw new Error("PUBLISH_STOPPED");
+    }
+  }
+};
+
+const onPause = () => {
+  publishItem.value.paused = true;
+};
+
+const onResume = () => {
+  publishItem.value.paused = false;
+  publishItem.value.resumeResolve?.();
+};
+
+const onStop = () => {
+  publishItem.value.stopped = true;
+  if (publishItem.value.resumeResolve) {
+    publishItem.value.resumeResolve();
+  }
+};
 
 // 定义远程临时操作目录
 const papersPublishDir = async () => {
@@ -282,6 +288,10 @@ const onPublish = async () => {
     ElMessage.info(`发布中，请稍等！`);
     return;
   }
+  // 重置信号量
+  publishItem.value.stopped = false;
+  publishItem.value.paused = false;
+  publishItem.value.resumeResolve = null;
   publishItem.value.loading = true;
   publishItem.value.loadingText = "发布中";
   // 加载发布设置缓存（供后续 copy_path / 服务停止启动 调用点 getRetryArgs 使用）
@@ -289,24 +299,30 @@ const onPublish = async () => {
   onRemoveLogs();
   initLogs();
   printInfoLog("");
-  switch (publishConfig.publishMode) {
-    case 0: // 远程发布
-      await remoteServerPublish();
-      break;
-    case 1: // 本机发布
-      await localServerPublish();
-      break;
-    default:
-      ElMessage.error("SMOM配置文件异常，请检查！");
-      break;
+  try {
+    switch (publishConfig.publishMode) {
+      case 0: // 远程发布
+        await remoteServerPublish();
+        break;
+      case 1: // 本机发布
+        await localServerPublish();
+        break;
+      default:
+        ElMessage.error("SMOM配置文件异常，请检查！");
+        break;
+    }
+  } catch (e: any) {
+    if (e?.message === "PUBLISH_STOPPED") {
+      printInfoLog("发布已停止.", "log-warning");
+    }
+  } finally {
+    publishItem.value.loading = false;
+    publishItem.value.loadingText = "发布中";
+    const delPapersPublishDirPath = await papersPublishDir();
+    await cmdInvoke("delete_paths", {
+      paths: [delPapersPublishDirPath],
+    });
   }
-  publishItem.value.loading = false;
-
-  // 发布完成后删除临时操作目录
-  const delPapersPublishDirPath = await papersPublishDir();
-  await cmdInvoke("delete_paths", {
-    paths: [delPapersPublishDirPath],
-  });
 };
 
 // [本机]服务发布
@@ -319,6 +335,7 @@ const localServerPublish = async () => {
     if (!backupResult) return false;
   }
 
+  await checkCanContinue();
   // 发布 [WebApiHost] 服务
   if (
     localPublishConfig.value.webApiHost &&
@@ -333,6 +350,7 @@ const localServerPublish = async () => {
     }
   }
 
+  await checkCanContinue();
   // 发布 [ScheduleServer] 服务
   if (
     localPublishConfig.value.scheduleServer &&
@@ -347,6 +365,7 @@ const localServerPublish = async () => {
     }
   }
 
+  await checkCanContinue();
   // 发布 [WpfClient] 服务
   if (
     localPublishConfig.value.wpfClient &&
@@ -362,6 +381,7 @@ const localServerPublish = async () => {
     }
   }
 
+  await checkCanContinue();
   // 发布 [SpcMonitor] 服务
   if (
     localPublishConfig.value.spcMonitor &&
@@ -376,6 +396,7 @@ const localServerPublish = async () => {
     }
   }
 
+  await checkCanContinue();
   // 发布 [WebClient] 服务
   if (
     localPublishConfig.value.webClient &&
@@ -657,6 +678,7 @@ const localPublishServer = async (
     };
     uploadFileNumber.totalNumber = serverConfig.publishFiles.length;
     for (let f = 0; f < serverConfig.publishFiles.length; f++) {
+      await checkCanContinue();
       const publishFile = serverConfig.publishFiles[f];
 
       const tempPublishFile = `${mPublishDir}/${serverName}/${publishFile}`;
@@ -1116,6 +1138,7 @@ const remoteServerPublish = async () => {
     if (!backupResult) return false;
   }
 
+  await checkCanContinue();
   // 发布 [WebApiHost] 服务
   if (
     remotePublishConfig.value.webApiHost &&
@@ -1130,6 +1153,7 @@ const remoteServerPublish = async () => {
     }
   }
 
+  await checkCanContinue();
   // 发布 [ScheduleServer] 服务
   if (
     remotePublishConfig.value.scheduleServer &&
@@ -1144,6 +1168,7 @@ const remoteServerPublish = async () => {
     }
   }
 
+  await checkCanContinue();
   // 发布 [SpcMonitor] 服务
   if (
     remotePublishConfig.value.spcMonitor &&
@@ -1158,6 +1183,7 @@ const remoteServerPublish = async () => {
     }
   }
 
+  await checkCanContinue();
   // 发布 [WpfClient] 服务
   if (remotePublishConfig.value.wpfClient) {
     let publishWpfResult;
@@ -1177,6 +1203,7 @@ const remoteServerPublish = async () => {
     }
   }
 
+  await checkCanContinue();
   // 发布 [WebClient] 服务
   if (
     remotePublishConfig.value.webClient &&
@@ -1725,6 +1752,7 @@ const remotePublishServer = async (
       uploadFileNumber.totalNumber = serverConfig.publishFiles.length;
 
       for (let f = 0; f < serverConfig.publishFiles.length; f++) {
+        await checkCanContinue();
         const publishFile = serverConfig.publishFiles[f];
         const uploadServerFileResult = await cmdInvoke("upload_server_files", {
           localPaths: [`${mPublishDir}/${serverName}/${publishFile}`],
@@ -2354,15 +2382,18 @@ onBeforeMount(async () => {
 <style scoped lang="scss">
 .publish-container {
   overflow: hidden;
+
   .publish-card-box,
   .publish-card-config {
     .publish-box {
       width: 100%;
       text-align: center;
+
       .publish-bg-logo {
         margin: 0px auto;
       }
     }
+
     .publish-card-item {
       width: 100%;
       height: 130px;
@@ -2372,38 +2403,46 @@ onBeforeMount(async () => {
       background: var(--el-color-white);
       color: var(--el-text-color-primary);
       border: 1px solid var(--next-border-color-light);
+
       .card-item-title {
         font-size: 16px;
         color: #506c88;
         text-align: center;
         line-height: 30px;
       }
+
       .card-title {
         padding: 12px 10px 10px 10px;
         height: 45px;
         font-size: 15px;
         border-bottom: 1px #dfdfdf dashed;
         align-content: flex-end;
+
         .item-btn-box {
           width: 100%;
           text-align: right;
         }
       }
+
       .card-item-content {
         height: calc(100vh - 308px);
         overflow-y: auto;
         padding: 10px;
+
         .card-item-env {
           width: 100%;
           text-align: center;
           background-color: #fbfbfb;
           padding: 10px 0px;
         }
+
         .card-item-appconfig {
           width: 100%;
+
           .table-appconfig {
             width: 100%;
             border-collapse: collapse;
+
             tr {
               th {
                 background-color: #fbfbfb;
@@ -2414,6 +2453,7 @@ onBeforeMount(async () => {
                 padding: 10px 5px;
                 border: 1px solid #eeeeee;
               }
+
               td {
                 font-size: 14px;
                 text-align: left;
@@ -2436,22 +2476,39 @@ onBeforeMount(async () => {
             width: 100%;
             text-align: center;
             padding-top: 10px;
+
+            > * + * {
+              margin-left: 12px;
+            }
+
+            .publish-controls {
+              display: flex;
+              width: 100%;
+              gap: 12px;
+              .el-button {
+                flex: 1;
+              }
+            }
           }
         }
       }
+
       &:hover {
         box-shadow: 0 2px 12px var(--next-color-dark-hover);
         transition: all ease 0.3s;
       }
+
       &-icon {
         width: 70px;
         height: 70px;
         border-radius: 100%;
         flex-shrink: 1;
+
         i {
           color: var(--el-text-color-placeholder);
         }
       }
+
       .mp-log-content {
         background-color: #545c64;
         counter-reset: line-number;
@@ -2460,28 +2517,34 @@ onBeforeMount(async () => {
       }
     }
   }
+
   .publish-card-box {
     .publish-card-item {
       padding: 20px;
       cursor: pointer;
     }
   }
+
   .publish-card-config {
     .publish-card-item {
       height: calc(100vh - 260px);
       width: 100%;
+
       // overflow-y: auto;
       .card-item-box {
         height: 100%;
       }
     }
   }
+
   .t-align-c {
     text-align: center !important;
   }
+
   .mb0 {
     margin-bottom: 0px !important;
   }
+
   .t-border-none {
     border: 0px solid white !important;
   }
