@@ -2,8 +2,8 @@
   <div class="publish-container layout-pd">
     <el-row :gutter="15" class="publish-card-box mb15">
       <el-col :xs="24" :sm="12" :md="12" :lg="6" :xl="6" v-for="(fun, index) in visibleFunModule" :key="fun.title" :class="{
-        'publish-media publish-media-lg': index > 1,
-        'publish-media-sm': index === 1,
+        'publish-media publish-media-lg': fun.origIndex > 1,
+        'publish-media-sm': fun.origIndex === 1,
       }">
         <div class="publish-card-item flex" v-loading="fun.loading" :element-loading-text="fun.loadingText"
           @click="onFunModuleHandle(index)">
@@ -632,6 +632,9 @@ import {
   type DllResolveOptions,
 } from "@/utils/outPublishInfo";
 import { sendNotification } from '@tauri-apps/plugin-notification';
+import mittBus from "@/utils/mitt";
+import { useSettingsDb } from "@/database/settings/index";
+import { loadPublishSettings } from "@/utils/publishSettings";
 
 const SvgIcon = defineAsyncComponent(() => import("@/components/svgIcon/index.vue"));
 
@@ -643,6 +646,15 @@ const tfsDb = useTfsDb();
 const gitDb = useGitDb();
 const backupDb = useBackupDb();
 const publishScheduleDb = usePublishScheduleDb();
+const settingsDb = useSettingsDb();
+const oneClickEnabled = ref(0); // 0 关 / 1 开
+
+const reloadSettings = async () => {
+  const r = await settingsDb.getSettings();
+  if (r.code === 0 && r.data) oneClickEnabled.value = r.data.oneClickPublishEnabled;
+  // 同步刷新 publishSettings 缓存（供调用点 getRetryArgs 使用）
+  await loadPublishSettings();
+};
 
 // 引入组件
 const appconfigDialogRef = ref();
@@ -740,8 +752,13 @@ const state = reactive({
   },
 });
 
-// 可见功能模块（Task 9 接管一键发布开关过滤；本任务先返回完整数组）
-const visibleFunModule = computed(() => state.funModule);
+// 可见功能模块（Task 9：一键发布开关关时过滤掉"一键发布"，origIndex 标记原始下标防止 class 漂移）
+const visibleFunModule = computed(() => {
+  const withOrig = state.funModule.map((item, origIndex) => ({ ...item, origIndex }));
+  return oneClickEnabled.value === 1
+    ? withOrig
+    : withOrig.filter((f) => f.title !== "一键发布");
+});
 
 // 功能模块触发
 const currModuleIndex = ref(0);
@@ -764,6 +781,7 @@ const onFunModuleHandle = async (index: number) => {
       projectName: state.publishData.projectName,
       environment: state.publishData.environment,
       appconfigId: state.publishData.appconfigData.id,
+      oneClickEnabled: oneClickEnabled.value,
     });
     return;
   }
@@ -3808,11 +3826,14 @@ onBeforeMount(async () => {
 // 挂载后启动定时发布检测器
 onMounted(() => {
   startScheduledPublishChecker();
+  reloadSettings();
+  mittBus.on("settingsChanged", reloadSettings);
 });
 
 // 卸载时停止定时检测
 onUnmounted(() => {
   stopScheduledPublishChecker();
+  mittBus.off("settingsChanged", reloadSettings);
 });
 
 onActivated(async () => {
@@ -3827,6 +3848,7 @@ onActivated(async () => {
 
   // 每次激活时重启检测（确保定时器运行）
   startScheduledPublishChecker();
+  reloadSettings();
 });
 </script>
 

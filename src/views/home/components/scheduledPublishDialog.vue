@@ -7,6 +7,7 @@
 					<el-col :span="24" style="margin-bottom: 15px">
 						<el-form-item label="发布类型" prop="publishType">
 							<el-radio-group v-model="state.ruleForm.publishType" size="default">
+								<el-radio value="一键发布" border v-if="currentProjectData?.oneClickEnabled === 1">一键发布</el-radio>
 								<el-radio value="手动发布" border>手动发布</el-radio>
 							</el-radio-group>
 						</el-form-item>
@@ -331,6 +332,7 @@ const currentProjectData = ref<{
 	projectName: string;
 	environment: number;
 	appconfigId: number;
+	oneClickEnabled: number;
 } | null>(null);
 
 // 打开弹窗
@@ -339,6 +341,7 @@ const openDialog = (projectData?: {
 	projectName: string;
 	environment: number;
 	appconfigId: number;
+	oneClickEnabled: number;
 }) => {
 	currentProjectData.value = projectData || null;
 	state.ruleForm.publishType = "手动发布";
