@@ -83,16 +83,25 @@ pub async fn execute_remote_command(
     password: &str,
     server: &str,
     command: &str,
+    retry_count: Option<u32>,
+    retry_interval_secs: Option<u64>,
 ) -> Result<String, String> {
+    let max_attempts = retry_count.unwrap_or(MAX_RETRIES).max(1);
+    let delay = retry_interval_secs
+        .filter(|s| *s > 0)
+        .map(Duration::from_secs)
+        .unwrap_or(RETRY_DELAY);
     let mut attempts = 0;
 
-    while attempts < MAX_RETRIES {
+    while attempts < max_attempts {
         match remote_command(username, password, server, command).await {
             Ok(output) => return Ok(output),
             Err(e) => {
                 eprintln!("尝试 {} 失败: {}，正在重试...", attempts + 1, e);
                 attempts += 1;
-                thread::sleep(RETRY_DELAY);
+                if attempts < max_attempts {
+                    thread::sleep(delay);
+                }
             }
         }
     }
@@ -1189,16 +1198,28 @@ fn upload_server_file(local_path: &Path, remote_path: &Path, sftp: &ssh2::Sftp) 
 /// * `Ok(String)` 成功
 /// * `Err(String)` 失败
 #[tauri::command]
-pub async fn execute_local_command(command: &str, args: Vec<String>) -> Result<String, String> {
+pub async fn execute_local_command(
+    command: &str,
+    args: Vec<String>,
+    retry_count: Option<u32>,
+    retry_interval_secs: Option<u64>,
+) -> Result<String, String> {
+    let max_attempts = retry_count.unwrap_or(MAX_RETRIES).max(1);
+    let delay = retry_interval_secs
+        .filter(|s| *s > 0)
+        .map(Duration::from_secs)
+        .unwrap_or(RETRY_DELAY);
     let mut attempts = 0;
     let mut err_msg = String::new();
-    while attempts < MAX_RETRIES {
+    while attempts < max_attempts {
         match exec_local_command(command, args.clone()).await {
             Ok(output) => return Ok(output),
             Err(e) => {
                 eprintln!("尝试 {} 失败: {}，正在重试...", attempts + 1, e);
                 attempts += 1;
-                thread::sleep(RETRY_DELAY);
+                if attempts < max_attempts {
+                    thread::sleep(delay);
+                }
                 err_msg = e.to_string();
             }
         }
