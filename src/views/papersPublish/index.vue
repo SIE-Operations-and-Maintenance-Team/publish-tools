@@ -2011,10 +2011,12 @@ const remotePublishWpfBackup = async (
     }
 
     if (osName === "Windows") {
-      unZipCmd = `tar -xf "${removeSlash(
+      // tar (bsdtar) 在部分 Windows 旧版本不支持 zip，改用 PowerShell 原生解压
+      const winZipPath = `${removeSlash(
         publishServer.publishPath
-      )}/${zipFileName}" -C "${createDirPath}${zipDir}"`;
-      unZipCmd = unZipCmd.replace(/\//g, "\\");
+      )}/${zipFileName}`.replace(/\//g, "\\");
+      const winDstDir = `${createDirPath}${zipDir}`.replace(/\//g, "\\");
+      unZipCmd = `powershell -NoProfile -Command "Expand-Archive -Path '${winZipPath}' -DestinationPath '${winDstDir}' -Force"`;
     } else {
       unZipCmd = `unzip -o ${removeSlash(
         publishServer.publishPath

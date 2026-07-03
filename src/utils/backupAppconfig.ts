@@ -719,8 +719,10 @@ export async function backupRemoteServer(
           const pPath = `${publishPath}/${backFile}`;
           const bPath = `${backupPath}/${backFile}`;
           if (osName === "Windows") {
-            command = `if exist "${pPath}" xcopy /Y /K "${pPath}" "${backupPath}/"`;
-            command = command.replace(/\//g, "\\");
+            // 仅转换路径中的斜杠，保留 xcopy 的 /Y /K 参数不被误伤
+            const winPPath = pPath.replace(/\//g, "\\");
+            const winBackupPath = backupPath.replace(/\//g, "\\");
+            command = `if exist "${winPPath}" xcopy /Y /K "${winPPath}" "${winBackupPath}\\"`;
           } else {
             command = `[ -e "${pPath}" ] && cp -p "${pPath}" "${bPath}"`;
           }
@@ -793,8 +795,13 @@ export async function backupRemoteServer(
               cacheDir.substring(cacheDir.lastIndexOf("/") + 1) + ".zip";
             let unZipCmd;
             if (osName === "Windows") {
-              unZipCmd = `tar -xf "${publishPath}/${zipFileName}" -C "${cacheDir}"`;
-              unZipCmd = unZipCmd.replace(/\//g, "\\");
+              // tar (bsdtar) 在部分 Windows 旧版本不支持 zip，改用 PowerShell 原生解压
+              const winZipPath = `${publishPath}/${zipFileName}`.replace(
+                /\//g,
+                "\\"
+              );
+              const winCacheDir = cacheDir.replace(/\//g, "\\");
+              unZipCmd = `powershell -NoProfile -Command "Expand-Archive -Path '${winZipPath}' -DestinationPath '${winCacheDir}' -Force"`;
             } else {
               unZipCmd = `unzip -o ${publishPath}/${zipFileName} -d ${cacheDir}`;
             }
@@ -819,8 +826,13 @@ export async function backupRemoteServer(
               const bPath = `${backupPath}/${bfDir}/${bfFiles[bf]}`;
               let command;
               if (osName === "Windows") {
-                command = `xcopy /Y /K "${pPath}" "${backupPath}/${bfDir}/"`;
-                command = command.replace(/\//g, "\\");
+                // 仅转换路径中的斜杠，保留 xcopy 的 /Y /K 参数不被误伤
+                const winPPath = pPath.replace(/\//g, "\\");
+                const winBackupDir = `${backupPath}/${bfDir}/`.replace(
+                  /\//g,
+                  "\\"
+                );
+                command = `xcopy /Y /K "${winPPath}" "${winBackupDir}"`;
               } else {
                 command = `cp -p ${pPath} ${bPath}`;
               }
