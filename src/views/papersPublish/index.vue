@@ -14,7 +14,7 @@
       </el-col>
     </el-row>
     <el-row :gutter="15" class="publish-card-config">
-      <el-col :xs="24" :sm="10" :md="10" :lg="12" :xl="8" class="publish-media">
+      <el-col :xs="24" :sm="12" :md="12" :lg="12" :xl="12" class="publish-media">
         <div class="publish-card-item">
           <div class="card-item-box">
             <div class="card-title">
@@ -97,7 +97,7 @@
           </div>
         </div>
       </el-col>
-      <el-col :xs="24" :sm="10" :md="10" :lg="12" :xl="8">
+      <el-col :xs="24" :sm="12" :md="12" :lg="12" :xl="12">
         <div class="publish-card-item">
           <div class="card-item-box">
             <div class="card-title">

@@ -38,3 +38,4 @@ package-lock.json
 src-tauri/tauri.key
 
 src-tauri/Cargo.lock
+src-tauri/Cargo.toml
