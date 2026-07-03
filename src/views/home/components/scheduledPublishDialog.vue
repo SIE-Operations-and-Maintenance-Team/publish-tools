@@ -7,7 +7,6 @@
 					<el-col :span="24" style="margin-bottom: 15px">
 						<el-form-item label="发布类型" prop="publishType">
 							<el-radio-group v-model="state.ruleForm.publishType" size="default">
-								<el-radio value="一键发布" border>一键发布</el-radio>
 								<el-radio value="手动发布" border>手动发布</el-radio>
 							</el-radio-group>
 						</el-form-item>
@@ -129,7 +128,7 @@ const state = reactive({
 		submitTxt: "保 存",
 	},
 	ruleForm: {
-		publishType: "一键发布" as PublishScheduleType,
+		publishType: "手动发布" as PublishScheduleType,
 		scheduledTime: "" as string | null,
 	},
 });
@@ -227,7 +226,7 @@ const onSaveSchedule = async () => {
 				await loadScheduleList();
 				emit("refresh");
 				// 重置表单
-				state.ruleForm.publishType = "一键发布";
+				state.ruleForm.publishType = "手动发布";
 				state.ruleForm.scheduledTime = null;
 			} else {
 				ElMessage.error(insertResult.msg);
@@ -342,7 +341,7 @@ const openDialog = (projectData?: {
 	appconfigId: number;
 }) => {
 	currentProjectData.value = projectData || null;
-	state.ruleForm.publishType = "一键发布";
+	state.ruleForm.publishType = "手动发布";
 	state.ruleForm.scheduledTime = null;
 	state.dialog.submitTxt = "保 存";
 	state.dialog.show = true;
