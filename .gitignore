@@ -36,3 +36,5 @@ package-lock.json
 
 # Tauri signing keys
 src-tauri/tauri.key
+
+src-tauri/Cargo.lock

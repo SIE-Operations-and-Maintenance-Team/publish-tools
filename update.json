@@ -1,11 +1,11 @@
 {
-    "version": "0.0.22",
-    "notes": "修复已知问题<b>注：版本 ≤ 0.0.14 <a style='color:green' target='_blank' href='https://gitee.com/qiuqingsheng/publish-tools/releases/download/v0.0.22/SmomPublish_0.0.22_x64-setup.exe'>点击此处</a> 下载。</b>",
+    "version": "0.0.24",
+    "notes": "修复已知问题<b>注：版本 ≤ 0.0.14 <a style='color:green' target='_blank' href='https://gitee.com/qiuqingsheng/publish-tools/releases/download/v0.0.24/SmomPublish_0.0.24_x64-setup.exe'>点击此处</a> 下载。</b>",
     "pub_date": "2025-01-06T14:00:00Z",
     "platforms": {
       "windows-x86_64": {
         "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHJzaWduIGVuY3J5cHRlZCBzZWNyZXQga2V5ClJXUlRZMEl5bDcwT3ppeW5EajU0aVpDYlVZbjB1RHJFTE9EblBTRGg1ZEw2K1IxYWkvY0FBQkFBQUFBQUFBQUFBQUlBQUFBQTFEdVlxcGhoMGhPR2hIU0JuYlBibHNKMnR5NWF5TlJIS0JhWWNUTWFBeU1vTUpqc0NpVmk3aXFyR1piWWZQWk5NZUlFL3c5WUc3YXdCRE1Da3lNWXdXZU5NWEJBYTdDYkpvNnVvT3pJeDIxWkNRaW4zOStuTy93MGpYam5uMFBMclNhSGVsZnhWdEk9Cg==",
-        "url": "https://gitee.com/qiuqingsheng/publish-tools/releases/download/v0.0.22/SmomPublish_0.0.22_x64-setup.exe"
+        "url": "https://gitee.com/qiuqingsheng/publish-tools/releases/download/v0.0.24/SmomPublish_0.0.24_x64-setup.exe"
       }
     }
   }

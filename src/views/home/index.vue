@@ -3955,6 +3955,9 @@ onActivated(async () => {
 $homeNavLengh: 8;
 
 .publish-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 
   .publish-card-box,
@@ -4123,13 +4126,22 @@ $homeNavLengh: 8;
   }
 
   .publish-card-config {
+    flex: 1;
+    min-height: 0;
+
     .publish-card-item {
-      height: calc(100vh - 260px);
+      height: 100%;
       width: 100%;
 
-      // overflow-y: auto;
       .card-item-box {
         height: 100%;
+        display: flex;
+        flex-direction: column;
+
+        .card-item-content {
+          flex: 1;
+          min-height: 0;
+        }
       }
     }
   }
