@@ -186,6 +186,22 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 				children: []
 			},
 			{
+				path: '/settings',
+				name: 'settings',
+				component: () => import('@/views/settings/index.vue'),
+				meta: {
+					title: 'message.router.settings',
+					isLink: '',
+					isHide: false,
+					isKeepAlive: true,
+					isAffix: false,
+					isIframe: false,
+					icon: 'ele-Setting'
+				},
+				redirect: "",
+				children: []
+			},
+			{
 				path: '/sshInstall',
 				name: 'sshInstall',
 				component: () => import('@/views/sshInstall/index.vue'),
