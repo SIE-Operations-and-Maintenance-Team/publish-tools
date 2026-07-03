@@ -183,9 +183,8 @@
                       <el-input
                         v-model="state.publishData.appconfigData.configItems.backupBasePath"
                         placeholder="选填，如 /home/backups/smom"
-                        :disabled="state.funModule[currModuleIndex].loading == true"
+                        :disabled="true"
                         size="default"
-                        clearable
                       />
                     </td>
                   </tr>
