@@ -93,6 +93,17 @@ pub fn db_migration() -> Vec<Migration> {
         result_log TEXT
     );";
 
+    // 表：全局设置（单行，id 恒 = 1）
+    let t_settings = "CREATE TABLE IF NOT EXISTS t_settings (
+        id INTEGER NOT NULL PRIMARY KEY,
+        one_click_publish_enabled INTEGER DEFAULT 0,
+        win_service_stop_retry_count INTEGER DEFAULT 3,
+        win_service_stop_retry_interval INTEGER DEFAULT 2,
+        win_copy_retry_count INTEGER DEFAULT 3,
+        win_copy_retry_interval INTEGER DEFAULT 2,
+        update_time TEXT
+    );";
+
     let migrations = vec![
         // 数据迁移
         Migration {
@@ -141,6 +152,12 @@ pub fn db_migration() -> Vec<Migration> {
             version: 8,
             description: "初始化创建定时发布[t_publish_schedule]表.",
             sql: t_publish_schedule,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 9,
+            description: "初始化创建设置[t_settings]表.",
+            sql: t_settings,
             kind: MigrationKind::Up,
         },
     ];
