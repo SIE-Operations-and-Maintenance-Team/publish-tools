@@ -189,16 +189,14 @@ const onTestConnect = async (row: RowServerType) => {
     return false;
   }
 
-  // 验证服务器是否安装zip/tar命令
+  // Windows 改用 PowerShell 原生 Expand-Archive / Compress-Archive，无需 tar；
+  // Docker 仍检测 zip 命令
   const serverOs = displayOs(row.os);
-  let validationResult = false;
-  if (serverOs === "Windows") {
-    validationResult = await validateWinTar(row);
-  } else if (serverOs === "Docker") {
-    validationResult = await validateLinuxZip(row);
-  }
-  if (!validationResult) {
-    return false;
+  if (serverOs === "Docker") {
+    const validationResult = await validateLinuxZip(row);
+    if (!validationResult) {
+      return false;
+    }
   }
 
   ElMessage.success(`【${row.ip}】连接成功！`);
@@ -216,28 +214,6 @@ const validateLinuxZip = async (server: RowServerType) => {
   if (execTarResult.code !== 0) {
     ElMessageBox.alert(
       "该服务器未检查到zip命令，建议安装(否则会影响备份/还原功能的正常使用)：<a href='https://www.rpmfind.net/linux/rpm2html/search.php?query=zip&submit=Search+...&system=&arch=' target='_blank'>Zip</a> 。",
-      "异常",
-      {
-        confirmButtonText: "知道了",
-        dangerouslyUseHTMLString: true,
-      }
-    );
-    return false;
-  }
-  return true;
-};
-
-// 验证Windows服务器是否安装tar命令
-const validateWinTar = async (server: RowServerType) => {
-  const execTarResult = await cmdInvoke("execute_remote_command", {
-    username: server.account,
-    password: server.pwd,
-    server: `${server.ip}:${server.port}`,
-    command: `tar --version`,
-  });
-  if (execTarResult.code !== 0) {
-    ElMessageBox.alert(
-      "该服务器未检查到tar命令，建议安装(否则会影响备份/还原功能的正常使用)：<a href='https://cygwin.com/install.html' target='_blank'>Cygwin</a> 。",
       "异常",
       {
         confirmButtonText: "知道了",

@@ -107,14 +107,6 @@
       </span>
       <template #dropdown>
         <el-dropdown-menu>
-          <el-dropdown-item command="wareHouse">
-            <a
-              class="code-link"
-              href="javascript:void(0);"
-              @click="openUrl('https://gitee.com/qiuqingsheng/publish-tools')"
-              >{{ $t("message.user.dropdown6") }}</a
-            >
-          </el-dropdown-item>
           <el-dropdown-item divided command="logOut">{{
             $t("message.user.dropdown5")
           }}</el-dropdown-item>
@@ -130,7 +122,6 @@ import { defineAsyncComponent, ref, computed, reactive, onMounted } from "vue";
 import { useRouter } from "vue-router";
 // import { exit } from "@tauri-apps/api/process";
 import { ElMessageBox, ElMessage } from "element-plus";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import screenfull from "screenfull";
 import { useI18n } from "vue-i18n";
 import { storeToRefs } from "pinia";
@@ -224,8 +215,6 @@ const onHandleCommandClick = (path: string) => {
         });
       })
       .catch(() => {});
-  } else if (path === "wareHouse") {
-    // window.open("https://gitee.com/qiuqingsheng/publish-tools");
   } else {
     router.push(path);
   }

@@ -696,14 +696,6 @@ const isScheduledRunning = ref(false);
 const state = reactive({
   funModule: [
     {
-      title: "一键发布",
-      iconBgColor: "--next-color-primary-lighter",
-      iconFont: "smom-icon smom-icon-yijianfabu",
-      iconColor: "--el-color-primary",
-      loading: false,
-      loadingText: "发布中",
-    },
-    {
       title: "编译项目",
       iconBgColor: "--next-color-warning-lighter",
       iconFont: "smom-icon smom-icon-bianyigongcheng",
@@ -1309,7 +1301,7 @@ const publishScheduleServer = async () => {
           const projectFile = projectFiles[l];
           // localFiles.push(`${localPath}/${projectFile}`);
           // remoteFiles.push(`${remotePath}/${projectFile}`);
-          const uploadServerFileResult = await cmdInvoke("upload_server_files", {
+          const uploadServerFileResult = await uploadServerFilesWithRetry({
             localPaths: [`${localPath}/${projectFile}`],
             remotePaths: [`${remotePath}/${projectFile}`],
             username: uName,
@@ -1937,7 +1929,7 @@ const serverPublish = async (
       };
       for (let l = 0; l < projectFiles.length; l++) {
         const projectFile = projectFiles[l];
-        const uploadServerFileResult = await cmdInvoke("upload_server_files", {
+        const uploadServerFileResult = await uploadServerFilesWithRetry({
           localPaths: [`${localPath}/${projectFile}`],
           remotePaths: [`${remotePath}/${projectFile}`],
           username: uName,
@@ -2003,14 +1995,62 @@ const switchWinService = async (
   const isStop = await isWinServiceStop(username, password, server, serviceName);
   if (action == "stop" && isStop) return true;
   if (action == "start" && !isStop) return true;
+
+  // 使用 sc stop/start 代替 net stop/start，避免 SSH 会话中执行不彻底的问题
   const switchServerResult = await cmdInvoke("execute_remote_command", {
     username,
     password,
     server,
-    command: `net ${action} "${serviceName}"`,
+    command: `sc ${action} "${serviceName}"`,
   });
-  if (switchServerResult.code !== 0) printInfoLog(switchServerResult.data, "log-error");
-  return switchServerResult.code === 0;
+  if (switchServerResult.code !== 0) {
+    printInfoLog(switchServerResult.data, "log-error");
+    return false;
+  }
+
+  // 轮询等待服务达到目标状态（sc 命令为非阻塞，需轮询确认），
+  // 避免服务句柄未释放就复制文件导致文件锁定失败
+  // 最多等待 5 分钟：150 次 × 2s = 300s
+  const maxRetries = 150;
+  const retryInterval = 2000;
+  for (let i = 0; i < maxRetries; i++) {
+    await new Promise((resolve) => setTimeout(resolve, retryInterval));
+    const stopped = await isWinServiceStop(username, password, server, serviceName);
+    if (action === "stop" && stopped) return true;
+    if (action === "start" && !stopped) return true;
+  }
+
+  printInfoLog(
+    `服务 ${serviceName} ${action === "stop" ? "关闭" : "启动"}超时，请手动检查.`,
+    "log-warning"
+  );
+  return false;
+};
+
+// 上传文件到服务器（带重试）：服务停止后进程可能仍短暂持有文件句柄，
+// 导致 SCP 覆盖 dll/exe 失败；失败后等待并重试，给进程退出留出时间
+const uploadServerFilesWithRetry = async (
+  args: {
+    localPaths: string[];
+    remotePaths: string[];
+    username: string;
+    password: string;
+    server: string;
+  },
+  maxRetries = 100,
+  intervalMs = 3000
+) => {
+  let result = await cmdInvoke("upload_server_files", args);
+  for (let attempt = 1; attempt < maxRetries; attempt++) {
+    if (result.code === 0) return result;
+    printInfoLog(
+      `文件上传失败，${intervalMs / 1000}s 后重试 (${attempt}/${maxRetries})：${result.data}`,
+      "log-warning"
+    );
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    result = await cmdInvoke("upload_server_files", args);
+  }
+  return result;
 };
 
 // 切换Docker服务

@@ -344,8 +344,10 @@ const restoreRemoteWpfServer = async (
       if (osName == "Windows") {
         createBkDirCmd = `if not exist "${tempRestoreDirPath}" mkdir "${tempRestoreDirPath}"`;
         createBkDirCmd = createBkDirCmd.replace(/\//g, "\\");
-        zipCmd = `cd ${tempRestoreDirPath} && tar -acf "${pPath}/${zipFileName}" Domain UI`;
-        zipCmd = zipCmd.replace(/\//g, "\\").replace("cd", "cd /d");
+        // tar 在部分 Windows 旧版本不支持 zip，改用 PowerShell 原生压缩
+        const winZipOut1 = `${pPath}/${zipFileName}`.replace(/\//g, "\\");
+        const winPluginsDir = tempRestoreDirPath.replace(/\//g, "\\");
+        zipCmd = `powershell -NoProfile -Command "Compress-Archive -Path '${winPluginsDir}\\Domain','${winPluginsDir}\\UI' -DestinationPath '${winZipOut1}' -Force"`;
       } else {
         createBkDirCmd = `mkdir -p ${tempRestoreDirPath}`;
         zipCmd = `cd ${tempRestoreDirPath} && zip -r ${pPath}/${zipFileName} Domain UI`;
@@ -360,16 +362,16 @@ const restoreRemoteWpfServer = async (
       if (osName == "Windows") {
         createBkDirCmd = `if not exist "${tempRestoreDirPath}" mkdir "${tempRestoreDirPath}"`;
         createBkDirCmd = createBkDirCmd.replace(/\//g, "\\");
-        zipCmd = `cd ${tempRestoreDirPath} && tar -acf "${pPath}/${zipFileName}" ${publishFile.dirName}`;
-
+        // tar 在部分 Windows 旧版本不支持 zip，改用 PowerShell 原生压缩
+        const winZipOut2 = `${pPath}/${zipFileName}`.replace(/\//g, "\\");
+        let winItemParent = tempRestoreDirPath.replace(/\//g, "\\");
         if (
           isNewVersion &&
           (publishFile.dirName == "Plugins" || publishFile.dirName == "Lib")
         ) {
-          zipCmd = `cd ${tempRestoreDir} && tar -acf "${pPath}/${zipFileName}" ${publishFile.dirName}`;
+          winItemParent = tempRestoreDir.replace(/\//g, "\\");
         }
-
-        zipCmd = zipCmd.replace(/\//g, "\\").replace("cd", "cd /d");
+        zipCmd = `powershell -NoProfile -Command "Compress-Archive -Path '${winItemParent}\\${publishFile.dirName}' -DestinationPath '${winZipOut2}' -Force"`;
       } else {
         createBkDirCmd = `mkdir -p "${tempRestoreDirPath}"`;
 
@@ -398,17 +400,19 @@ const restoreRemoteWpfServer = async (
     let unZipCmd;
     let copyCmds = new Array<string>();
     if (osName === "Windows") {
-      unZipCmd = `tar -xf "${pPath}/${zipFileName}" -C "${tempRestoreDirPath}"`;
+      // tar (bsdtar) 在部分 Windows 旧版本不支持 zip，改用 PowerShell 原生解压
+      let winZipPath = `${pPath}/${zipFileName}`.replace(/\//g, "\\");
+      let winDstDir = tempRestoreDirPath.replace(/\//g, "\\");
       if (
         isNewVersion &&
         (publishFile.dirName == "Plugins" || publishFile.dirName == "Lib")
       ) {
-        unZipCmd = `tar -xf "${pPath}/${zipFileName}" -C "${removeSlash(
-          tempRestoreDir
-        )}/${publishFile.dirName}"`;
+        winDstDir = `${removeSlash(tempRestoreDir)}/${publishFile.dirName}`.replace(
+          /\//g,
+          "\\"
+        );
       }
-
-      unZipCmd = unZipCmd.replace(/\//g, "\\");
+      unZipCmd = `powershell -NoProfile -Command "Expand-Archive -Path '${winZipPath}' -DestinationPath '${winDstDir}' -Force"`;
       for (let m = 0; m < publishFile.files.length; m++) {
         const copyFile = `${rPath}/${publishFile.dirName}/${publishFile.files[m]}`;
 
