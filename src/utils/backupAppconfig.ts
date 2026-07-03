@@ -4,6 +4,7 @@ import { formatDate } from "@/utils/formatTime";
 import { useServerDb } from "@/database/servers/index";
 import { cmdInvoke } from "@/utils/command";
 import { displayOs, removeSlash } from "@/utils/other";
+import { loadPublishSettings } from "@/utils/publishSettings";
 import { useTfsDb } from "@/database/teamFoundationServer/index";
 import { useGitDb } from "@/database/git/index";
 import { getDllFilesByChangedItems, getTfsChangedPath } from "@/utils/outPublishInfo";
@@ -679,6 +680,8 @@ export async function backupRemoteServer(
     execResult.msg = "没有可备份的服务！";
     return execResult;
   }
+  // 加载发布设置缓存（供后续备份流程内调用点 getRetryArgs 使用）
+  await loadPublishSettings();
   let uploadFileNumber = getUploadFileNumber(backupServers);
   uploadFileNumber.prefix = "已备份：";
   for (let i = 0; i < backupServers.length; i++) {

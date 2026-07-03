@@ -90,6 +90,7 @@ import {
 import { useRestoreDb } from "@/database/restore/index";
 import { formatDate } from "@/utils/formatTime";
 import { ElMessage } from "element-plus";
+import { loadPublishSettings, getRetryArgs } from "@/utils/publishSettings";
 
 // 定义子组件向父组件传值/事件
 const emit = defineEmits(["refresh"]);
@@ -125,6 +126,8 @@ const state = reactive<FormDialogType<BackupLocalPublishType>>({
 const onRestore = async () => {
   if (!state.ruleForm.projectName) return;
   state.dialog.submitTxt = "还原中";
+  // 加载发布设置缓存（供后续 copy_path / 服务停止启动 调用点 getRetryArgs 使用）
+  await loadPublishSettings();
   onRemoveLogs();
   printInfoLog("项目名称：" + state.ruleForm.projectName);
   printInfoLog("项目环境：" + displayEnvironment(Number(state.ruleForm.environment)));
@@ -213,6 +216,7 @@ const restoreLocalServer = async (
       const copyResult = await cmdInvoke("copy_path", {
         source,
         destination,
+        ...getRetryArgs("copy"),
       });
       if (copyResult.code !== 0) {
         printInfoLog(`服务 ${serviceName} 复制失败：${copyResult.data}`, "log-error");
@@ -315,6 +319,7 @@ const restoreLocalWpfServer = async (
       const execCopyResult = await cmdInvoke("copy_path", {
         source,
         destination,
+        ...getRetryArgs("copy"),
       });
       if (execCopyResult.code !== 0) {
         printInfoLog(`服务[${serviceName}]还原失败：${execCopyResult.data}`);
@@ -381,6 +386,7 @@ const switchWinService = async (serviceName: string, action: "stop" | "start") =
   const switchServerResult = await cmdInvoke("execute_local_command", {
     command: "sc",
     args: [action, serviceName],
+    ...getRetryArgs("serviceStop"),
   });
   if (switchServerResult.code !== 0) {
     printInfoLog(switchServerResult.data, "log-error");

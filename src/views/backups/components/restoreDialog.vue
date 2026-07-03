@@ -89,6 +89,7 @@ import {
 import { useRestoreDb } from "@/database/restore/index";
 import { formatDate } from "@/utils/formatTime";
 import { ElMessage } from "element-plus";
+import { loadPublishSettings, getRetryArgs } from "@/utils/publishSettings";
 
 // 定义子组件向父组件传值/事件
 const emit = defineEmits(["refresh"]);
@@ -123,6 +124,8 @@ const state = reactive<FormDialogType<RowRestoreType>>({
 const onRestore = async () => {
   if (!backupItem.value) return;
   state.dialog.submitTxt = "还原中";
+  // 加载发布设置缓存（供后续服务停止启动 调用点 getRetryArgs 使用）
+  await loadPublishSettings();
   onRemoveLogs();
   printInfoLog("项目名称：" + backupItem.value.projectName);
   printInfoLog("项目环境：" + displayEnvironment(Number(backupItem.value.environment)));
@@ -613,6 +616,7 @@ const switchWinService = async (
     password,
     server,
     command: `sc ${action} "${serviceName}"`,
+    ...getRetryArgs("serviceStop"),
   });
   if (switchServerResult.code !== 0) {
     printInfoLog(switchServerResult.data, "log-error");

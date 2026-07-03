@@ -634,7 +634,7 @@ import {
 import { sendNotification } from '@tauri-apps/plugin-notification';
 import mittBus from "@/utils/mitt";
 import { useSettingsDb } from "@/database/settings/index";
-import { loadPublishSettings } from "@/utils/publishSettings";
+import { loadPublishSettings, getRetryArgs } from "@/utils/publishSettings";
 
 const SvgIcon = defineAsyncComponent(() => import("@/components/svgIcon/index.vue"));
 
@@ -806,6 +806,8 @@ const onFunModuleHandle = async (index: number) => {
       return;
     }
   }
+  // 加载发布设置缓存（供后续 copy_path / 服务停止启动 调用点 getRetryArgs 使用）
+  await loadPublishSettings();
   projectAssemblyOutPath.value = await getProjectOutPath();
   switch (title) {
     case "一键发布":
@@ -1515,6 +1517,7 @@ const newPublishWpfClient = async () => {
     const copyResult = await cmdInvoke("copy_path", {
       source: sourcePath,
       destination: destinationPath,
+      ...getRetryArgs("copy"),
     });
     if (copyResult.code !== 0) {
       printInfoLog(`复制文件目录 ${sourcePath} 失败.`, "log-error");
@@ -1739,6 +1742,7 @@ const publishWpfClient = async () => {
       const copyDomainResult = await cmdInvoke("copy_path", {
         source: sourceDomainPath,
         destination: destinationDomainPath,
+        ...getRetryArgs("copy"),
       });
       if (copyDomainResult.code !== 0) {
         printInfoLog(`复制文件目录 ${sourceDomainPath} 失败.`, "log-error");
@@ -1751,6 +1755,7 @@ const publishWpfClient = async () => {
       const copyUiResult = await cmdInvoke("copy_path", {
         source: sourceUiPath,
         destination: destinationUiPath,
+        ...getRetryArgs("copy"),
       });
       if (copyUiResult.code !== 0) {
         printInfoLog(`复制文件目录 ${sourceUiPath} 失败.`, "log-error");
@@ -1795,6 +1800,7 @@ const publishWpfClient = async () => {
       const copyResult = await cmdInvoke("copy_path", {
         source: sourcePath,
         destination: destinationPath,
+        ...getRetryArgs("copy"),
       });
       if (copyResult.code !== 0) {
         printInfoLog(`复制文件目录 ${sourcePath} 失败.`, "log-error");
@@ -2030,6 +2036,7 @@ const switchWinService = async (
     password,
     server,
     command: `sc ${action} "${serviceName}"`,
+    ...getRetryArgs("serviceStop"),
   });
   if (switchServerResult.code !== 0) {
     printInfoLog(switchServerResult.data, "log-error");
@@ -2429,6 +2436,7 @@ const newCopyWpfAssemblyFile = async (
           copyResult = await cmdInvoke("copy_path", {
             source: `${clientPath}/${tfsDllFile}`,
             destination: `${toGenerateDir}/${tfsDllFile}`,
+            ...getRetryArgs("copy"),
           });
           if (copyResult.code !== 0) break;
         }
@@ -2448,6 +2456,7 @@ const newCopyWpfAssemblyFile = async (
           copyResult = await cmdInvoke("copy_path", {
             source: dirPath,
             destination: `${outPath}/${generateDir}`,
+            ...getRetryArgs("copy"),
           });
         } else {
           copyResult = await cmdInvoke("copy_path_by_time", {
@@ -2521,6 +2530,7 @@ const newCopyWpfAssemblyFile = async (
         await cmdInvoke("copy_path", {
           source: addRuntimesPath,
           destination: tempRuntimesPath,
+          ...getRetryArgs("copy"),
         });
 
         const zipRuntimesResult = await cmdInvoke("zip_dir", {
@@ -2782,6 +2792,7 @@ const copyWpfAssemblyFile = async (
           copyResult = await cmdInvoke("copy_path", {
             source: `${clientPath}/${tfsDllFile}`,
             destination: `${toGenerateDir}/${tfsDllFile}`,
+            ...getRetryArgs("copy"),
           });
           if (copyResult.code !== 0) break;
         }
@@ -2801,6 +2812,7 @@ const copyWpfAssemblyFile = async (
           copyResult = await cmdInvoke("copy_path", {
             source: dirPath,
             destination: `${outPath}/${generateDir}`,
+            ...getRetryArgs("copy"),
           });
         } else {
           copyResult = await cmdInvoke("copy_path_by_time", {
@@ -3059,6 +3071,7 @@ const copyAssemblyFile = async (
         copyResult = await cmdInvoke("copy_path", {
           source: `${clientPath}/${tfsDllFile}`,
           destination: `${removeSlash(outPath)}/${tfsDllFile}`,
+          ...getRetryArgs("copy"),
         });
         if (copyResult.code !== 0) break;
       }
@@ -3079,6 +3092,7 @@ const copyAssemblyFile = async (
         copyResult = await cmdInvoke("copy_path", {
           source: `${clientPath}/${gitDllFile}`,
           destination: `${removeSlash(outPath)}/${gitDllFile}`,
+          ...getRetryArgs("copy"),
         });
         if (copyResult.code !== 0) break;
       }

@@ -176,6 +176,7 @@ import { formatDate } from "@/utils/formatTime";
 import { CircleClose } from "@element-plus/icons-vue";
 import { Promotion } from "@element-plus/icons-vue";
 import { cmdInvoke } from "@/utils/command";
+import { loadPublishSettings, getRetryArgs } from "@/utils/publishSettings";
 import { removeSlash, displayEnvironment, displayOs, aesDecrypt } from "@/utils/other";
 
 const SvgIcon = defineAsyncComponent(() => import("@/components/svgIcon/index.vue"));
@@ -283,6 +284,8 @@ const onPublish = async () => {
   }
   publishItem.value.loading = true;
   publishItem.value.loadingText = "发布中";
+  // 加载发布设置缓存（供后续 copy_path / 服务停止启动 调用点 getRetryArgs 使用）
+  await loadPublishSettings();
   onRemoveLogs();
   initLogs();
   printInfoLog("");
@@ -431,6 +434,7 @@ const localPublishWpfServer = async (
     const copyServerFileResult = await cmdInvoke("copy_path", {
       source: remoteFile,
       destination: localFile,
+      ...getRetryArgs("copy"),
     });
 
     if (copyServerFileResult.code !== 0) {
@@ -479,6 +483,7 @@ const localPublishWpfServer = async (
       const copyPluginsResult = await cmdInvoke("copy_path", {
         source: sourcePluginsPath,
         destination: destinationPluginsPath,
+        ...getRetryArgs("copy"),
       });
       if (copyPluginsResult.code !== 0) {
         printInfoLog(`复制文件目录 ${sourcePluginsPath} 失败.`, "log-error");
@@ -505,6 +510,7 @@ const localPublishWpfServer = async (
       const copyPluginsFileResult = await cmdInvoke("copy_path", {
         source: `${removeSlash(wpfPublishDir)}/Plugins.zip`,
         destination: `${removeSlash(publishServer.publishPath)}/Plugins.zip`,
+        ...getRetryArgs("copy"),
       });
       if (copyPluginsFileResult.code !== 0) {
         printInfoLog(`文件 Plugins.zip 复制失败.`, "log-error");
@@ -520,6 +526,7 @@ const localPublishWpfServer = async (
       const copyResult = await cmdInvoke("copy_path", {
         source: sourcePath,
         destination: destinationPath,
+        ...getRetryArgs("copy"),
       });
       if (copyResult.code !== 0) {
         printInfoLog(`复制文件目录 ${sourcePath} 失败.`, "log-error");
@@ -543,6 +550,7 @@ const localPublishWpfServer = async (
       const copyFileResult = await cmdInvoke("copy_path", {
         source: `${removeSlash(wpfPublishDir)}/${dirName}.zip`,
         destination: `${removeSlash(publishServer.publishPath)}/${dirName}.zip`,
+        ...getRetryArgs("copy"),
       });
       if (copyFileResult.code !== 0) {
         printInfoLog(`文件 ${dirName}.zip 上传失败.`, "log-error");
@@ -579,6 +587,7 @@ const localPublishWpfServer = async (
     const copyManifestFileResult = await cmdInvoke("copy_path", {
       source: localManifestFile,
       destination: remoteManifestPath,
+      ...getRetryArgs("copy"),
     });
     if (copyManifestFileResult.code !== 0) {
       printInfoLog(
@@ -655,6 +664,7 @@ const localPublishServer = async (
       const uploadServerFileResult = await cmdInvoke("copy_path", {
         source: tempPublishFile,
         destination: toPublishFile,
+        ...getRetryArgs("copy"),
       });
       if (uploadServerFileResult.code !== 0) {
         printInfoLog(
@@ -720,6 +730,7 @@ const switchLocalWinService = async (serviceName: string, action: "stop" | "star
   const switchServerResult = await cmdInvoke("execute_local_command", {
     command: "net",
     args: [action, serviceName],
+    ...getRetryArgs("serviceStop"),
   });
   if (switchServerResult.code !== 0) printInfoLog(switchServerResult.data, "log-error");
   return switchServerResult.code === 0;
@@ -939,6 +950,7 @@ const localPublishServerBackup = async (
       const execCopyResult = await cmdInvoke("copy_path", {
         source: pPath,
         destination: bPath,
+        ...getRetryArgs("copy"),
       });
       if (execCopyResult.code !== 0) {
         execResult.code = 1;
@@ -1055,6 +1067,7 @@ const localPublishWpfBackup = async (
       const execCopyResult = await cmdInvoke("copy_path", {
         source: pPath,
         destination: bPath,
+        ...getRetryArgs("copy"),
       });
       if (execCopyResult.code !== 0) {
         execResult.code = 1;
@@ -1267,6 +1280,7 @@ const newRemotePublishWpfServer = async (
       const copyPluginsResult = await cmdInvoke("copy_path", {
         source: sourcePluginsPath,
         destination: destinationPluginsPath,
+        ...getRetryArgs("copy"),
       });
       if (copyPluginsResult.code !== 0) {
         printInfoLog(`复制文件目录 ${sourcePluginsPath} 失败.`, "log-error");
@@ -1311,6 +1325,7 @@ const newRemotePublishWpfServer = async (
       const copyResult = await cmdInvoke("copy_path", {
         source: sourcePath,
         destination: destinationPath,
+        ...getRetryArgs("copy"),
       });
       if (copyResult.code !== 0) {
         printInfoLog(`复制文件目录 ${sourcePath} 失败.`, "log-error");
@@ -1495,6 +1510,7 @@ const remotePublishWpfServer = async (
       const copyDomainResult = await cmdInvoke("copy_path", {
         source: sourceDomainPath,
         destination: destinationDomainPath,
+        ...getRetryArgs("copy"),
       });
       if (copyDomainResult.code !== 0) {
         printInfoLog(`复制文件目录 ${sourceDomainPath} 失败.`, "log-error");
@@ -1507,6 +1523,7 @@ const remotePublishWpfServer = async (
       const copyUiResult = await cmdInvoke("copy_path", {
         source: sourceUiPath,
         destination: destinationUiPath,
+        ...getRetryArgs("copy"),
       });
       if (copyUiResult.code !== 0) {
         printInfoLog(`复制文件目录 ${sourceUiPath} 失败.`, "log-error");
@@ -1551,6 +1568,7 @@ const remotePublishWpfServer = async (
       const copyResult = await cmdInvoke("copy_path", {
         source: sourcePath,
         destination: destinationPath,
+        ...getRetryArgs("copy"),
       });
       if (copyResult.code !== 0) {
         printInfoLog(`复制文件目录 ${sourcePath} 失败.`, "log-error");
@@ -2192,6 +2210,7 @@ const switchRemoteWinService = async (
     password,
     server,
     command: `net ${action} "${serviceName}"`,
+    ...getRetryArgs("serviceStop"),
   });
   if (switchServerResult.code !== 0) printInfoLog(switchServerResult.data, "log-error");
   return switchServerResult.code === 0;

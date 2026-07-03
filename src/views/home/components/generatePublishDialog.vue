@@ -211,6 +211,7 @@ import { path } from "@tauri-apps/api";
 import { open } from "@tauri-apps/plugin-dialog";
 import _ from "lodash";
 import { cmdInvoke } from "@/utils/command";
+import { loadPublishSettings, getRetryArgs } from "@/utils/publishSettings";
 import { aesEncrypt } from "@/utils/other";
 import { useServerDb } from "@/database/servers/index";
 import { useProjectDb } from "@/database/project/index";
@@ -568,6 +569,8 @@ watch(
 // 提交
 const onSubmit = async () => {
   state.dialog.submitTxt = "生成中";
+  // 加载发布设置缓存（供后续 copy_path 调用点 getRetryArgs 使用）
+  await loadPublishSettings();
   let generateResult = false;
   switch (publishMode.value) {
     case 0:
@@ -1330,6 +1333,7 @@ const copyWpfAssemblyFile = async (
           copyResult = await cmdInvoke("copy_path", {
             source: `${clientPath}/${tfsDllFile}`,
             destination: `${toGenerateDir}/${tfsDllFile}`,
+            ...getRetryArgs("copy"),
           });
           if (copyResult.code !== 0) break;
         }
@@ -1348,6 +1352,7 @@ const copyWpfAssemblyFile = async (
           copyResult = await cmdInvoke("copy_path", {
             source: `${clientPath}/${gitDllFile}`,
             destination: `${toGenerateDir}/${gitDllFile}`,
+            ...getRetryArgs("copy"),
           });
           if (copyResult.code !== 0) break;
         }
@@ -1367,6 +1372,7 @@ const copyWpfAssemblyFile = async (
           copyResult = await cmdInvoke("copy_path", {
             source: dirPath,
             destination: `${outPath}/${generateDir}`,
+            ...getRetryArgs("copy"),
           });
         } else {
           copyResult = await cmdInvoke("copy_path_by_time", {
@@ -1416,6 +1422,7 @@ const copyAssemblyFile = async (
         copyResult = await cmdInvoke("copy_path", {
           source: `${clientPath}/${tfsDllFile}`,
           destination: `${removeSlash(outPath)}/${tfsDllFile}`,
+          ...getRetryArgs("copy"),
         });
         if (copyResult.code !== 0) break;
       }
@@ -1434,6 +1441,7 @@ const copyAssemblyFile = async (
         copyResult = await cmdInvoke("copy_path", {
           source: `${clientPath}/${tfsDllFile}`,
           destination: `${removeSlash(outPath)}/${tfsDllFile}`,
+          ...getRetryArgs("copy"),
         });
         if (copyResult.code !== 0) break;
       }
