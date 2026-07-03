@@ -35,6 +35,7 @@ export default {
 		dropdown3: '404',
 		dropdown4: '401',
 		dropdown5: '退出平臺',
+		dropdownRepo: '項目地址',
 		searchPlaceholder: '選單蒐索：支援中文、路由路徑',
 		newTitle: '通知',
 		newBtn: '全部已讀',

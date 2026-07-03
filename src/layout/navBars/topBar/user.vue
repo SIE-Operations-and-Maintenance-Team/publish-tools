@@ -107,7 +107,10 @@
       </span>
       <template #dropdown>
         <el-dropdown-menu>
-          <el-dropdown-item divided command="logOut">{{
+          <el-dropdown-item divided command="repo">{{
+            $t("message.user.dropdownRepo")
+          }}</el-dropdown-item>
+          <el-dropdown-item command="logOut">{{
             $t("message.user.dropdown5")
           }}</el-dropdown-item>
         </el-dropdown-menu>
@@ -131,6 +134,7 @@ import mittBus from "@/utils/mitt";
 import { Local } from "@/utils/storage";
 import { cmdInvoke } from "@/utils/command";
 import { path } from "@tauri-apps/api";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 // 引入组件
 const Search = defineAsyncComponent(() => import("@/layout/navBars/topBar/search.vue"));
@@ -182,6 +186,13 @@ const onLayoutSetingClick = () => {
 };
 // 下拉菜单点击时
 const onHandleCommandClick = (path: string) => {
+  if (path === "repo") {
+    // 打开项目地址（默认浏览器）
+    openUrl("https://gitee.com/qiuqingsheng/publish-tools/").catch((e) => {
+      ElMessage.error("打开项目地址失败：" + e);
+    });
+    return;
+  }
   if (path === "logOut") {
     ElMessageBox({
       closeOnClickModal: false,

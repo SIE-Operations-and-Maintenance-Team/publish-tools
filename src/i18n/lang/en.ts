@@ -35,6 +35,7 @@ export default {
 		dropdown3: '404',
 		dropdown4: '401',
 		dropdown5: 'Exit',
+		dropdownRepo: 'Project repository',
 		searchPlaceholder: 'Menu search: support Chinese, routing path',
 		newTitle: 'notice',
 		newBtn: 'All read',

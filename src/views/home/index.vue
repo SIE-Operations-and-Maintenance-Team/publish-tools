@@ -1,10 +1,10 @@
 <template>
   <div class="publish-container layout-pd">
     <el-row :gutter="15" class="publish-card-box mb15">
-      <el-col :xs="24" :sm="12" :md="12" :lg="6" :xl="6" v-for="(fun, index) in state.funModule" :key="index" :class="{
-        'publish-media publish-media-lg': index > 1,
-        'publish-media-sm': index === 1,
-      }">
+      <el-col v-for="(fun, index) in visibleFunModule" :key="fun.title" :class="{
+        'publish-media publish-media-lg': fun.origIndex > 1,
+        'publish-media-sm': fun.origIndex === 1,
+      }" class="publish-fun-col">
         <div class="publish-card-item flex"
           v-loading="fun.loading && !(fun.title === '一键发布' || fun.title === '手动发布')"
           :element-loading-text="fun.loadingText"
@@ -36,7 +36,7 @@
       </el-col>
     </el-row>
     <el-row :gutter="15" class="publish-card-config">
-      <el-col :xs="24" :sm="10" :md="10" :lg="12" :xl="12" class="publish-media">
+      <el-col :xs="24" :sm="12" :md="12" :lg="12" :xl="12" class="publish-media">
         <div class="publish-card-item">
           <div class="card-item-box">
             <div class="card-title">
@@ -572,7 +572,7 @@
           </div>
         </div>
       </el-col>
-      <el-col :xs="24" :sm="10" :md="10" :lg="12" :xl="12">
+      <el-col :xs="24" :sm="12" :md="12" :lg="12" :xl="12">
         <div class="publish-card-item">
           <div class="card-item-box">
             <div class="card-title">
@@ -825,8 +825,8 @@ const onFunModuleHandle = async (index: number) => {
   state.publishData.publishStopped = false;
   state.publishData.publishPaused = false;
   state.publishData.resumeResolve = null;
-  state.funModule[index].loading = true;
-  currModuleIndex.value = index;
+  state.funModule[origIndex].loading = true;
+  currModuleIndex.value = origIndex;
   initLogs();
   if (title === "一键发布" || title === "获取程序集" || title === "手动发布") {
     const validateTfsLocalPathResult = await validateTfsLocalPath();
