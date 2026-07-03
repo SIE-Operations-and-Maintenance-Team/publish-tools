@@ -1,7 +1,7 @@
 <template>
   <div class="publish-container layout-pd">
     <el-row :gutter="15" class="publish-card-box mb15">
-      <el-col :xs="24" :sm="12" :md="12" :lg="6" :xl="6" v-for="(fun, index) in state.funModule" :key="index" :class="{
+      <el-col :xs="24" :sm="12" :md="12" :lg="6" :xl="6" v-for="(fun, index) in visibleFunModule" :key="fun.title" :class="{
         'publish-media publish-media-lg': index > 1,
         'publish-media-sm': index === 1,
       }">
@@ -593,6 +593,7 @@
 import {
   reactive,
   ref,
+  computed,
   onBeforeMount,
   onMounted,
   onUnmounted,
@@ -689,6 +690,14 @@ const isScheduledRunning = ref(false);
 const state = reactive({
   funModule: [
     {
+      title: "一键发布",
+      iconBgColor: "--el-color-primary-light-9",
+      iconFont: "smom-icon smom-icon-fabu",
+      iconColor: "--el-color-primary",
+      loading: false,
+      loadingText: "一键发布中",
+    },
+    {
       title: "编译项目",
       iconBgColor: "--next-color-warning-lighter",
       iconFont: "smom-icon smom-icon-bianyigongcheng",
@@ -731,10 +740,18 @@ const state = reactive({
   },
 });
 
+// 可见功能模块（Task 9 接管一键发布开关过滤；本任务先返回完整数组）
+const visibleFunModule = computed(() => state.funModule);
+
 // 功能模块触发
 const currModuleIndex = ref(0);
 const onFunModuleHandle = async (index: number) => {
-  let title = state.funModule[index].title;
+  // index 是 visibleFunModule 的渲染下标，反查原始下标，避免过滤后漂移
+  const origIndex = state.funModule.findIndex(
+    (f) => f.title === visibleFunModule.value[index].title
+  );
+  if (origIndex < 0) return;
+  let title = state.funModule[origIndex].title;
 
   // 定时发布直接打开对话框，不需要其他逻辑
   if (title === "定时发布") {
@@ -761,13 +778,13 @@ const onFunModuleHandle = async (index: number) => {
     return;
   }
   onRemoveLogs();
-  state.funModule[index].loading = true;
-  currModuleIndex.value = index;
+  state.funModule[origIndex].loading = true;
+  currModuleIndex.value = origIndex;
   initLogs();
   if (title === "一键发布" || title === "获取程序集" || title === "手动发布") {
     const validateTfsLocalPathResult = await validateTfsLocalPath();
     if (!validateTfsLocalPathResult) {
-      state.funModule[index].loading = false;
+      state.funModule[origIndex].loading = false;
       return;
     }
   }
@@ -796,7 +813,7 @@ const onFunModuleHandle = async (index: number) => {
   }
   printInfoLog("");
   printInfoLog(generatePublishLog.value.logs, "log-info");
-  state.funModule[index].loading = false;
+  state.funModule[origIndex].loading = false;
   generatePublishLog.value.data = "";
   generatePublishLog.value.logs = "";
 };
