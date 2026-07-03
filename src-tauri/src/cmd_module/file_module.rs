@@ -435,7 +435,12 @@ pub async fn open_dir(path: &str) -> Result<bool, String> {
 /// * `Ok(true)` 成功
 /// * `Err(String)` 失败
 #[tauri::command]
-pub async fn copy_path(source: &str, destination: &str) -> Result<bool, String> {
+pub async fn copy_path(
+    source: &str,
+    destination: &str,
+    retry_count: Option<u32>,
+    retry_interval_secs: Option<u64>,
+) -> Result<bool, String> {
     let source = Path::new(source);
     let destination = Path::new(destination);
 
@@ -463,20 +468,42 @@ pub async fn copy_path(source: &str, destination: &str) -> Result<bool, String> 
             let entry_path = entry.path();
             let entry_name = entry.file_name();
 
-            // 递归复制子文件或子目录
+            // 递归复制子文件或子目录（透传重试参数）
             let source_path = entry_path.to_str().ok_or("源路径无效")?;
-            let destination_path_tmp = destination.join(entry_name); // 创建一个临时变量
-            let destination_path = destination_path_tmp.to_str().ok_or("目标路径无效")?; // 借用这个临时变量
-            Box::pin(copy_path(source_path, destination_path)).await?;
+            let destination_path_tmp = destination.join(entry_name);
+            let destination_path = destination_path_tmp.to_str().ok_or("目标路径无效")?;
+            Box::pin(copy_path(source_path, destination_path, retry_count, retry_interval_secs)).await?;
         }
         return Ok(true);
     }
 
-    // 复制文件
-    match fs::copy(source, destination) {
-        Ok(_) => Ok(true),
-        Err(e) => Err(e.to_string()),
+    // 复制文件（带重试）
+    // retry_count = None 或 0 → 单次尝试（旧行为）；否则按 retry_count 次尝试，间隔 retry_interval_secs 秒
+    let max_attempts = retry_count.unwrap_or(0).max(1);
+    let delay = retry_interval_secs
+        .filter(|s| *s > 0)
+        .map(Duration::from_secs)
+        .unwrap_or(RETRY_DELAY);
+    let mut last_err = String::new();
+    for attempt in 1..=max_attempts {
+        match fs::copy(source, destination) {
+            Ok(_) => return Ok(true),
+            Err(e) => {
+                last_err = e.to_string();
+                eprintln!(
+                    "复制失败 [{}/{}]: {} -> {}",
+                    attempt,
+                    max_attempts,
+                    source.display(),
+                    last_err
+                );
+                if attempt < max_attempts {
+                    thread::sleep(delay);
+                }
+            }
+        }
     }
+    Err(format!("复制失败（尝试 {} 次）：{}", max_attempts, last_err))
 }
 
 /// 复制路径(时间段内)文件
