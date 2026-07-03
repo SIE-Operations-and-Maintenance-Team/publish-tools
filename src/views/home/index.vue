@@ -1,10 +1,10 @@
 <template>
   <div class="publish-container layout-pd">
     <el-row :gutter="15" class="publish-card-box mb15">
-      <el-col :xs="24" :sm="12" :md="12" :lg="6" :xl="6" v-for="(fun, index) in visibleFunModule" :key="fun.title" :class="{
+      <el-col v-for="(fun, index) in visibleFunModule" :key="fun.title" :class="{
         'publish-media publish-media-lg': fun.origIndex > 1,
         'publish-media-sm': fun.origIndex === 1,
-      }">
+      }" class="publish-fun-col">
         <div class="publish-card-item flex" v-loading="fun.loading" :element-loading-text="fun.loadingText"
           @click="onFunModuleHandle(index)">
           <!-- <div class="flex-margin flex w100" :class="` publish-animation${index}`"> -->
@@ -13,7 +13,7 @@
               <div class="card-item-title">{{ fun.title }}</div>
             </div>
             <div class="publish-card-item-icon flex" :style="{ background: `var(${fun.iconBgColor})` }">
-              <svg-icon class="flex-margin" :size="32" :name="fun.iconFont" :class="fun.iconFont"
+              <svg-icon class="flex-margin" :size="22" :name="fun.iconFont" :class="fun.iconFont"
                 :color="`var(${fun.iconColor})`" />
             </div>
           </div>
@@ -21,7 +21,7 @@
       </el-col>
     </el-row>
     <el-row :gutter="15" class="publish-card-config">
-      <el-col :xs="24" :sm="10" :md="10" :lg="12" :xl="8" class="publish-media">
+      <el-col :xs="24" :sm="10" :md="10" :lg="12" :xl="12" class="publish-media">
         <div class="publish-card-item">
           <div class="card-item-box">
             <div class="card-title">
@@ -550,7 +550,7 @@
           </div>
         </div>
       </el-col>
-      <el-col :xs="24" :sm="10" :md="10" :lg="12" :xl="8">
+      <el-col :xs="24" :sm="10" :md="10" :lg="12" :xl="12">
         <div class="publish-card-item">
           <div class="card-item-box">
             <div class="card-title">
@@ -4004,8 +4004,25 @@ $homeNavLengh: 8;
 
   .publish-card-box {
     .publish-card-item {
-      padding: 20px;
+      padding: 10px 12px;
       cursor: pointer;
+      height: 80px;
+
+      .card-item-title {
+        font-size: 15px;
+        height: 36px;
+        line-height: 36px;
+      }
+
+      .publish-card-item-icon {
+        width: 46px;
+        height: 46px;
+      }
+    }
+
+    .publish-fun-col {
+      flex: 1 1 0%;
+      max-width: none;
     }
 
     @for $i from 0 through 3 {

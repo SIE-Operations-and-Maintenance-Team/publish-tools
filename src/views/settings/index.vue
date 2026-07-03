@@ -12,7 +12,7 @@
         <!-- 服务关闭重试 -->
         <el-divider content-position="left">{{ $t('message.settings.winServiceStopRetry') }}</el-divider>
         <el-form-item :label="$t('message.settings.retryCount')">
-          <el-input-number v-model="form.winServiceStopRetryCount" :min="1" :max="10" :step="1" />
+          <el-input-number v-model="form.winServiceStopRetryCount" :min="1" :max="99" :step="1" />
         </el-form-item>
         <el-form-item :label="$t('message.settings.retryInterval')">
           <el-input-number v-model="form.winServiceStopRetryInterval" :min="1" :max="60" :step="1" />
@@ -21,7 +21,7 @@
         <!-- 复制重试 -->
         <el-divider content-position="left">{{ $t('message.settings.winCopyRetry') }}</el-divider>
         <el-form-item :label="$t('message.settings.retryCount')">
-          <el-input-number v-model="form.winCopyRetryCount" :min="1" :max="10" :step="1" />
+          <el-input-number v-model="form.winCopyRetryCount" :min="1" :max="99" :step="1" />
         </el-form-item>
         <el-form-item :label="$t('message.settings.retryInterval')">
           <el-input-number v-model="form.winCopyRetryInterval" :min="1" :max="60" :step="1" />
@@ -50,19 +50,19 @@ const saving = ref(false);
 const form = reactive<RowSettingsType>(defaultSettings());
 
 const validate = (): boolean => {
-  if (form.winServiceStopRetryCount < 1 || form.winServiceStopRetryCount > 10) {
-    ElMessage.warning('重试次数需在 1-10 之间，间隔需在 1-60 之间');
+  if (form.winServiceStopRetryCount < 1 || form.winServiceStopRetryCount > 99) {
+    ElMessage.warning('重试次数需在 1-99 之间，间隔需在 1-60 之间');
     return false;
   }
   if (form.winServiceStopRetryInterval < 1 || form.winServiceStopRetryInterval > 60) return false;
-  if (form.winCopyRetryCount < 1 || form.winCopyRetryCount > 10) return false;
+  if (form.winCopyRetryCount < 1 || form.winCopyRetryCount > 99) return false;
   if (form.winCopyRetryInterval < 1 || form.winCopyRetryInterval > 60) return false;
   return true;
 };
 
 const onSave = async () => {
   if (!validate()) {
-    ElMessage.warning('重试次数需在 1-10 之间，间隔需在 1-60 之间');
+    ElMessage.warning('重试次数需在 1-99 之间，间隔需在 1-60 之间');
     return;
   }
   saving.value = true;

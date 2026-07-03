@@ -98,6 +98,16 @@ async function ensureSchema(database: Database) {
         result_log TEXT
     )`);
 
+    await database.execute(`CREATE TABLE IF NOT EXISTS t_settings (
+        id INTEGER NOT NULL PRIMARY KEY,
+        one_click_publish_enabled INTEGER DEFAULT 0,
+        win_service_stop_retry_count INTEGER DEFAULT 3,
+        win_service_stop_retry_interval INTEGER DEFAULT 2,
+        win_copy_retry_count INTEGER DEFAULT 3,
+        win_copy_retry_interval INTEGER DEFAULT 2,
+        update_time TEXT
+    )`);
+
     // ========== 改表（已有表加字段，先检查是否存在） ==========
     const columns = await database.select<{ name: string }[]>("PRAGMA table_info(t_app_config)");
     const hasBuildMode = columns.some((column) => column.name === "build_mode");
