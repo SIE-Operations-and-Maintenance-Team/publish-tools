@@ -70,8 +70,8 @@
           </el-col>
           <el-col :span="15" class="mb15" v-show="state.ruleForm.dllMode === 'DLL名称'">
             <el-form-item label-width="0" prop="dllModeValue">
-              <el-input v-model="state.ruleForm.dllModeValue" type="textarea" :rows="3" placeholder="请输入DLL名称，每行一个，支持*和?通配符，顿号分隔"
-                maxlength="2000" clearable />
+              <el-input v-model="state.ruleForm.dllModeValue" type="textarea" :rows="3"
+                placeholder="请输入DLL名称，每行一个，支持*和?通配符，顿号分隔" maxlength="2000" clearable />
             </el-form-item>
           </el-col>
           <el-col :span="15" class="mb15" v-show="state.ruleForm.dllMode === 'Git'">
@@ -481,6 +481,12 @@
                 inline-prompt active-text="开启" inactive-text="关闭" size="default" />
             </el-form-item>
           </el-col>
+          <el-col :span="24" class="mb15">
+            <el-form-item label="备份路径" prop="configItems.backupBasePath">
+              <el-input v-model="state.ruleForm.configItems.backupBasePath" placeholder="选填，配置后备份到指定路径；不填则使用默认路径"
+                maxlength="450" clearable></el-input>
+            </el-form-item>
+          </el-col>
         </el-row>
       </el-form>
       <template #footer>
@@ -761,10 +767,10 @@ const onEnvironmentChange = async (val: number) => {
 // 获取模式切换
 const onBuildModeChange = async (val: string) => {
   if (!val || (val !== "Debug" && val !== "Release")) return;
-  
+
   // 替换所有客户端生成路径中的 Debug/Release
   const oldMode = val === "Debug" ? "Release" : "Debug";
-  
+
   // WebApiHost
   if (state.ruleForm.configItems.webApiHost.clientPath) {
     state.ruleForm.configItems.webApiHost.clientPath = state.ruleForm.configItems.webApiHost.clientPath.replace(
@@ -772,7 +778,7 @@ const onBuildModeChange = async (val: string) => {
       `/bin/${val}$1`
     );
   }
-  
+
   // ScheduleServer
   if (state.ruleForm.configItems.scheduleServer.clientPath) {
     state.ruleForm.configItems.scheduleServer.clientPath = state.ruleForm.configItems.scheduleServer.clientPath.replace(
@@ -780,7 +786,7 @@ const onBuildModeChange = async (val: string) => {
       `/bin/${val}$1`
     );
   }
-  
+
   // WebClient
   if (state.ruleForm.configItems.webClient.clientPath) {
     state.ruleForm.configItems.webClient.clientPath = state.ruleForm.configItems.webClient.clientPath.replace(
@@ -788,7 +794,7 @@ const onBuildModeChange = async (val: string) => {
       `/bin/${val}$1`
     );
   }
-  
+
   // WpfClient
   if (state.ruleForm.configItems.wpfClient.clientPath) {
     state.ruleForm.configItems.wpfClient.clientPath = state.ruleForm.configItems.wpfClient.clientPath.replace(
@@ -796,7 +802,7 @@ const onBuildModeChange = async (val: string) => {
       `/bin/${val}$1`
     );
   }
-  
+
   // SpcMonitor
   if (state.ruleForm.configItems.spcMonitor.clientPath) {
     state.ruleForm.configItems.spcMonitor.clientPath = state.ruleForm.configItems.spcMonitor.clientPath.replace(
@@ -1235,7 +1241,7 @@ const openDialog = async (type: string, row: RowAppconfigType | undefined) => {
       if (state.ruleForm.dllModeValue && state.ruleForm.dllMode == "TFS") {
         selectTfsItem.value = JSON.parse(state.ruleForm.dllModeValue);
       }
-      
+
       if (state.ruleForm.dllModeValue && state.ruleForm.dllMode == "Git") {
         selectGitItem.value = JSON.parse(state.ruleForm.dllModeValue);
       }

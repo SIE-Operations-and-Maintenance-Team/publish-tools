@@ -7,6 +7,7 @@ declare type CommonPapersPublishType = {
 	generateDate: string;
 	notes?: string;
 	isNewVersion: boolean | null;
+	backupBasePath?: string;  // 服务端备份基础路径，从数据库按项目回填
 }
 
 declare type PublishServerConfigType = {

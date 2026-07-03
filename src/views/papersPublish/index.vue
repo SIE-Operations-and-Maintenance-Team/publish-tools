@@ -768,7 +768,8 @@ const localPublishBeforeBackup = async () => {
     const backupResult = await localPublishServerBackup(
       localPublishConfig.value.webApiHost,
       currentDate,
-      "WebApiHost"
+      "WebApiHost",
+      publishConfig.backupBasePath
     );
     if (backupResult.code !== 0) {
       printInfoLog(backupResult.msg, "log-error");
@@ -780,7 +781,8 @@ const localPublishBeforeBackup = async () => {
       for (let j = 0; j < bLocalPublishConfig.webApiHost.serverConfigs.length; j++) {
         const backupPath = getBackupPath(
           bLocalPublishConfig.webApiHost.serverConfigs[j].publishPath,
-          currentDate
+          currentDate,
+          publishConfig.backupBasePath
         );
         bLocalPublishConfig.webApiHost.serverConfigs[j].backupPath = backupPath;
       }
@@ -792,7 +794,8 @@ const localPublishBeforeBackup = async () => {
     const backupResult = await localPublishServerBackup(
       localPublishConfig.value.scheduleServer,
       currentDate,
-      "ScheduleServer"
+      "ScheduleServer",
+      publishConfig.backupBasePath
     );
     if (backupResult.code !== 0) {
       printInfoLog(backupResult.msg, "log-error");
@@ -804,7 +807,8 @@ const localPublishBeforeBackup = async () => {
       for (let j = 0; j < bLocalPublishConfig.scheduleServer.serverConfigs.length; j++) {
         const backupPath = getBackupPath(
           bLocalPublishConfig.scheduleServer.serverConfigs[j].publishPath,
-          currentDate
+          currentDate,
+          publishConfig.backupBasePath
         );
         bLocalPublishConfig.scheduleServer.serverConfigs[j].backupPath = backupPath;
       }
@@ -816,7 +820,8 @@ const localPublishBeforeBackup = async () => {
     const backupResult = await localPublishServerBackup(
       localPublishConfig.value.webClient,
       currentDate,
-      "WebClient"
+      "WebClient",
+      publishConfig.backupBasePath
     );
     if (backupResult.code !== 0) {
       printInfoLog(backupResult.msg, "log-error");
@@ -828,7 +833,8 @@ const localPublishBeforeBackup = async () => {
       for (let j = 0; j < bLocalPublishConfig.webClient.serverConfigs.length; j++) {
         const backupPath = getBackupPath(
           bLocalPublishConfig.webClient.serverConfigs[j].publishPath,
-          currentDate
+          currentDate,
+          publishConfig.backupBasePath
         );
         bLocalPublishConfig.webClient.serverConfigs[j].backupPath = backupPath;
       }
@@ -840,7 +846,8 @@ const localPublishBeforeBackup = async () => {
     const backupResult = await localPublishServerBackup(
       localPublishConfig.value.spcMonitor,
       currentDate,
-      "SpcMonitor"
+      "SpcMonitor",
+      publishConfig.backupBasePath
     );
     if (backupResult.code !== 0) {
       printInfoLog(backupResult.msg, "log-error");
@@ -852,7 +859,8 @@ const localPublishBeforeBackup = async () => {
       for (let j = 0; j < bLocalPublishConfig.spcMonitor.serverConfigs.length; j++) {
         const backupPath = getBackupPath(
           bLocalPublishConfig.spcMonitor.serverConfigs[j].publishPath,
-          currentDate
+          currentDate,
+          publishConfig.backupBasePath
         );
         bLocalPublishConfig.spcMonitor.serverConfigs[j].backupPath = backupPath;
       }
@@ -865,7 +873,8 @@ const localPublishBeforeBackup = async () => {
       localPublishConfig.value.wpfClient,
       currentDate,
       "WpfClient",
-      localPublishConfig.value.isNewVersion
+      localPublishConfig.value.isNewVersion,
+      publishConfig.backupBasePath
     );
     if (backupResult.code !== 0) {
       printInfoLog(backupResult.msg, "log-error");
@@ -876,7 +885,8 @@ const localPublishBeforeBackup = async () => {
     if (bLocalPublishConfig.wpfClient.publishPath) {
       const backupPath = getBackupPath(
         bLocalPublishConfig.wpfClient.publishPath,
-        currentDate
+        currentDate,
+        publishConfig.backupBasePath
       );
       bLocalPublishConfig.wpfClient.backupPath = backupPath;
     }
@@ -906,7 +916,8 @@ const localPublishBeforeBackup = async () => {
 const localPublishServerBackup = async (
   publishServer: PublishServerType,
   currentDate: string,
-  serverName: string
+  serverName: string,
+  backupBasePath?: string | null,
 ) => {
   let execResult: DataResultType<any> = {
     code: 0,
@@ -923,7 +934,7 @@ const localPublishServerBackup = async (
   // 服务配置信息
   for (let j = 0; j < publishServer.serverConfigs.length; j++) {
     const serverConfig = publishServer.serverConfigs[j];
-    const backupPath = getBackupPath(serverConfig.publishPath, currentDate);
+    const backupPath = getBackupPath(serverConfig.publishPath, currentDate, backupBasePath);
 
     // 创建备份目录
     const execCreateDirCmdResult = await cmdInvoke("create_dir", {
@@ -991,7 +1002,8 @@ const localPublishWpfBackup = async (
   publishServer: PublishWpfType,
   currentDate: string,
   serverName: string,
-  isNewVersion: boolean | null = false
+  isNewVersion: boolean | null = false,
+  backupBasePath?: string | null,
 ) => {
   let execResult: DataResultType<any> = {
     code: 0,
@@ -1005,7 +1017,7 @@ const localPublishWpfBackup = async (
   const currLogIndex = printInfoLog(`${publishServer.serverName}. `);
   let uploadFileNumber = lPublishWpfBackupFilesCount(publishServer);
 
-  const backupPath = getBackupPath(publishServer.publishPath, currentDate);
+  const backupPath = getBackupPath(publishServer.publishPath, currentDate, backupBasePath);
   let cacheDir = `${removeSlash(publishServer.publishPath)}/cacheDir`;
   for (let i = 0; i < publishServer.publishFiles.length; i++) {
     const pFile = publishServer.publishFiles[i];
@@ -1795,7 +1807,8 @@ const remotePublishBeforeBackup = async () => {
     const backupResult = await remotePublishServerBackup(
       remotePublishConfig.value.webApiHost,
       currentDate,
-      "WebApiHost"
+      "WebApiHost",
+      publishConfig.backupBasePath
     );
     if (backupResult.code !== 0) {
       printInfoLog(backupResult.msg, "log-error");
@@ -1807,7 +1820,8 @@ const remotePublishBeforeBackup = async () => {
       for (let j = 0; j < bRemotePublishConfig.webApiHost[i].serverConfigs.length; j++) {
         const backupPath = getBackupPath(
           bRemotePublishConfig.webApiHost[i].serverConfigs[j].publishPath,
-          currentDate
+          currentDate,
+          publishConfig.backupBasePath
         );
         bRemotePublishConfig.webApiHost[i].serverConfigs[j].backupPath = backupPath;
       }
@@ -1822,7 +1836,8 @@ const remotePublishBeforeBackup = async () => {
     const backupResult = await remotePublishServerBackup(
       remotePublishConfig.value.scheduleServer,
       currentDate,
-      "ScheduleServer"
+      "ScheduleServer",
+      publishConfig.backupBasePath
     );
     if (backupResult.code !== 0) {
       printInfoLog(backupResult.msg, "log-error");
@@ -1838,7 +1853,8 @@ const remotePublishBeforeBackup = async () => {
       ) {
         const backupPath = getBackupPath(
           bRemotePublishConfig.scheduleServer[i].serverConfigs[j].publishPath,
-          currentDate
+          currentDate,
+          publishConfig.backupBasePath
         );
         bRemotePublishConfig.scheduleServer[i].serverConfigs[j].backupPath = backupPath;
       }
@@ -1853,7 +1869,8 @@ const remotePublishBeforeBackup = async () => {
     const backupResult = await remotePublishServerBackup(
       remotePublishConfig.value.webClient,
       currentDate,
-      "WebClient"
+      "WebClient",
+      publishConfig.backupBasePath
     );
     if (backupResult.code !== 0) {
       printInfoLog(backupResult.msg, "log-error");
@@ -1865,7 +1882,8 @@ const remotePublishBeforeBackup = async () => {
       for (let j = 0; j < bRemotePublishConfig.webClient[i].serverConfigs.length; j++) {
         const backupPath = getBackupPath(
           bRemotePublishConfig.webClient[i].serverConfigs[j].publishPath,
-          currentDate
+          currentDate,
+          publishConfig.backupBasePath
         );
         bRemotePublishConfig.webClient[i].serverConfigs[j].backupPath = backupPath;
       }
@@ -1880,7 +1898,8 @@ const remotePublishBeforeBackup = async () => {
     const backupResult = await remotePublishServerBackup(
       remotePublishConfig.value.spcMonitor,
       currentDate,
-      "SpcMonitor"
+      "SpcMonitor",
+      publishConfig.backupBasePath
     );
     if (backupResult.code !== 0) {
       printInfoLog(backupResult.msg, "log-error");
@@ -1892,7 +1911,8 @@ const remotePublishBeforeBackup = async () => {
       for (let j = 0; j < bRemotePublishConfig.spcMonitor[i].serverConfigs.length; j++) {
         const backupPath = getBackupPath(
           bRemotePublishConfig.spcMonitor[i].serverConfigs[j].publishPath,
-          currentDate
+          currentDate,
+          publishConfig.backupBasePath
         );
         bRemotePublishConfig.spcMonitor[i].serverConfigs[j].backupPath = backupPath;
       }
@@ -1905,7 +1925,8 @@ const remotePublishBeforeBackup = async () => {
       remotePublishConfig.value.wpfClient,
       currentDate,
       "WpfClient",
-      remotePublishConfig.value.isNewVersion
+      remotePublishConfig.value.isNewVersion,
+      publishConfig.backupBasePath
     );
     if (backupResult.code !== 0) {
       printInfoLog(backupResult.msg, "log-error");
@@ -1915,7 +1936,8 @@ const remotePublishBeforeBackup = async () => {
     // 备份路径
     const backupPath = getBackupPath(
       bRemotePublishConfig.wpfClient.publishPath,
-      currentDate
+      currentDate,
+      publishConfig.backupBasePath
     );
     bRemotePublishConfig.wpfClient.backupPath = backupPath;
   }
@@ -1959,7 +1981,8 @@ const remotePublishWpfBackup = async (
   publishServer: PublishWpfType,
   currentDate: string,
   serverName: string,
-  isNewVersion: boolean | null = false
+  isNewVersion: boolean | null = false,
+  backupBasePath?: string | null,
 ) => {
   let execResult: DataResultType<any> = {
     code: 0,
@@ -1976,7 +1999,7 @@ const remotePublishWpfBackup = async (
     `${publishServer.serverName}[${publishServer.serverIp}].`
   );
 
-  const backupPath = getBackupPath(publishServer.publishPath, currentDate);
+  const backupPath = getBackupPath(publishServer.publishPath, currentDate, backupBasePath);
   let cacheDir = `${removeSlash(publishServer.publishPath)}/cacheDir`;
   let uploadFileNumber = rPublishWpfBackupFilesCount(publishServer);
   for (let i = 0; i < publishServer.publishFiles.length; i++) {
@@ -2109,7 +2132,8 @@ const remotePublishWpfBackup = async (
 const remotePublishServerBackup = async (
   publishServers: PublishServerType[],
   currentDate: string,
-  serverName: string
+  serverName: string,
+  backupBasePath?: string | null,
 ) => {
   let execResult: DataResultType<any> = {
     code: 0,
@@ -2130,7 +2154,7 @@ const remotePublishServerBackup = async (
     // 服务配置信息
     for (let j = 0; j < publishServer.serverConfigs.length; j++) {
       const serverConfig = publishServer.serverConfigs[j];
-      const backupPath = getBackupPath(serverConfig.publishPath, currentDate);
+      const backupPath = getBackupPath(serverConfig.publishPath, currentDate, backupBasePath);
 
       // 创建备份目录
       let createDirCmd;
@@ -2254,12 +2278,20 @@ const isRemoteWinServiceStop = async (
 };
 
 // 获取备份路径
-const getBackupPath = (path: string, currentDate: string) => {
+const getBackupPath = (path: string, currentDate: string, backupBasePath?: string | null) => {
   const bkPath = removeSlash(path);
   const bkLastIndex = bkPath.lastIndexOf("/");
-  const backupPrefixPath = bkPath.substring(0, bkLastIndex);
   const folderName = currentDate.replace(/-/g, "").replace(/:/g, "").replace(/\s+/g, "");
-  return `${backupPrefixPath}/Backups/${folderName}/${bkPath.substring(bkLastIndex + 1)}`;
+  const fileName = bkPath.substring(bkLastIndex + 1);
+
+  // 有自定义基础路径 → 使用自定义路径作为前缀
+  if (backupBasePath) {
+    return `${removeSlash(backupBasePath)}/${folderName}/${fileName}`;
+  }
+
+  // 无自定义路径 → 保持现有逻辑
+  const backupPrefixPath = bkPath.substring(0, bkLastIndex);
+  return `${backupPrefixPath}/Backups/${folderName}/${fileName}`;
 };
 
 // 创建目录
