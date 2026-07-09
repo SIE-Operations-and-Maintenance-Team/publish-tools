@@ -4107,6 +4107,23 @@ $homeNavLengh: 8;
         width: 46px;
         height: 46px;
       }
+
+      // loading 动画适配缩小后的按钮（高度 80px）：缩小 spinner 与文字，整体居中，避免被 overflow:hidden 裁剪
+      :deep(.el-loading-spinner) {
+        top: 50%;
+        margin-top: 0;
+        transform: translateY(-50%);
+
+        svg {
+          width: 24px;
+          height: 24px;
+        }
+
+        .el-loading-text {
+          font-size: 12px;
+          margin: 4px 0 0 0;
+        }
+      }
     }
 
     .publish-fun-col {
