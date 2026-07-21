@@ -233,7 +233,10 @@
     </fieldset>
 
     <!-- WpfClient -->
-    <fieldset class="form-server-fieldset pr10" v-if="props.data.wpfClient">
+    <fieldset
+      class="form-server-fieldset pr10"
+      v-if="props.data.wpfClient && props.data.wpfClient.serverName"
+    >
       <legend class="form-server-legend">{{ wpfClientName }}</legend>
       <div class="card-item-appconfig">
         <table class="table-appconfig" cellpadding="0" cellspacing="0">

@@ -890,7 +890,10 @@ const localPublishBeforeBackup = async () => {
   }
 
   // 备份[WpfClient]
-  if (localPublishConfig.value.wpfClient) {
+  if (
+    localPublishConfig.value.wpfClient &&
+    !_.isEmpty(localPublishConfig.value.wpfClient)
+  ) {
     const backupResult = await localPublishWpfBackup(
       localPublishConfig.value.wpfClient,
       currentDate,
@@ -1185,7 +1188,10 @@ const remoteServerPublish = async () => {
 
   await checkCanContinue();
   // 发布 [WpfClient] 服务
-  if (remotePublishConfig.value.wpfClient) {
+  if (
+    remotePublishConfig.value.wpfClient &&
+    !_.isEmpty(remotePublishConfig.value.wpfClient)
+  ) {
     let publishWpfResult;
     if (remotePublishConfig.value.isNewVersion) {
       publishWpfResult = await newRemotePublishWpfServer(
@@ -1948,7 +1954,10 @@ const remotePublishBeforeBackup = async () => {
   }
 
   // 备份[WpfClient]
-  if (remotePublishConfig.value.wpfClient) {
+  if (
+    remotePublishConfig.value.wpfClient &&
+    !_.isEmpty(remotePublishConfig.value.wpfClient)
+  ) {
     const backupResult = await remotePublishWpfBackup(
       remotePublishConfig.value.wpfClient,
       currentDate,
