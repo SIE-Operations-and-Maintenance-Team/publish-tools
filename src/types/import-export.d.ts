@@ -1,0 +1,64 @@
+// src/types/import-export.d.ts
+
+/** 导出文件顶层结构 */
+declare type ExportFile = {
+  version: 1;
+  exportedAt: string;        // ISO 8601
+  items: ExportItem[];
+};
+
+/** 单个导出项 */
+declare type ExportItem = {
+  project: ExportProject;
+  appconfig: ExportAppconfig;
+  servers: ExportServer[];
+};
+
+/** 导出项目字段（不含 id） */
+declare type ExportProject = {
+  code: string;
+  name: string;
+  description: string | null;
+  isDefault: number | null;
+  assemblyOutPath: string | null;
+};
+
+/** 导出应用配置字段（不含 id, projectId） */
+declare type ExportAppconfig = {
+  environment: number;
+  msBuildPath: string | null;
+  dllMode: string | null;
+  dllModeValue: string | null;
+  buildMode: string | null;
+  configItemsJson: string;
+};
+
+/** 导出服务器字段（不含 id, projectId） */
+declare type ExportServer = {
+  name: string;
+  os: number;
+  ip: string;
+  port: number;
+  account: string;
+  pwd: string;
+  description: string | null;
+};
+
+/** 导入预览行 */
+declare type ImportPreviewItem = {
+  index: number;
+  projectCode: string;
+  projectName: string;
+  environment: number;
+  serverCount: number;
+  conflict: boolean;          // 当前库中 project.code 是否冲突
+};
+
+/** 单条导入结果 */
+declare type ImportResult = {
+  index: number;
+  success: boolean;
+  projectCode: string;
+  environment: number;
+  message: string;
+};
