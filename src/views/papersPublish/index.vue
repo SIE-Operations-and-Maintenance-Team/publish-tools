@@ -144,7 +144,7 @@ import { CircleClose } from "@element-plus/icons-vue";
 import { Promotion, VideoPause, VideoPlay, Close } from "@element-plus/icons-vue";
 import { cmdInvoke } from "@/utils/command";
 import { loadPublishSettings, getRetryArgs } from "@/utils/publishSettings";
-import { removeSlash, displayEnvironment, displayOs, aesDecrypt } from "@/utils/other";
+import { removeSlash, displayEnvironment, displayOs, aesDecrypt, formatServiceLog } from "@/utils/other";
 
 const SvgIcon = defineAsyncComponent(() => import("@/components/svgIcon/index.vue"));
 const RemotePublishItem = defineAsyncComponent(
@@ -423,6 +423,7 @@ const localPublishWpfServer = async (
 ) => {
   printInfoLog(`正在发布 ${serverName} 服务.`);
   const mPublishDir = await papersPublishDir();
+  const logPrefix = formatServiceLog(publishServer.serverName, publishServer.serverIp, serverName, "");
 
   // 创建一个Wpf临时操作目录
   const wpfPublishDir = `${removeSlash(mPublishDir)}/${serverName}/tempPublish`;
@@ -526,7 +527,7 @@ const localPublishWpfServer = async (
 
       // 压缩成功后重新复制到服务器
       printInfoLog(
-        `正在将 Plugins.zip 文件复制到 ${serverName.replace("服务器", "")} 服务器.`
+        `${logPrefix} 正在将 Plugins.zip 文件复制到服务器.`
       );
       const copyPluginsFileResult = await cmdInvoke("copy_path", {
         source: `${removeSlash(wpfPublishDir)}/Plugins.zip`,
@@ -538,7 +539,7 @@ const localPublishWpfServer = async (
         return false;
       }
       printInfoLog(
-        `已将 Plugins.zip 文件复制到 ${serverName?.replace("服务器", "")}服务器.`,
+        `${logPrefix} 已将 Plugins.zip 文件复制到服务器.`,
         "log-success"
       );
     } else {
@@ -556,7 +557,7 @@ const localPublishWpfServer = async (
 
       // 重新打包压缩
       printInfoLog(
-        `正在将 ${dirName}.zip 文件复制到 ${serverName?.replace("服务器", "")}服务器.`
+        `${logPrefix} 正在将 ${dirName}.zip 文件复制到服务器.`
       );
       const compresseResult = await cmdInvoke("compress_zip", {
         filePaths: [destinationPath],
@@ -578,7 +579,7 @@ const localPublishWpfServer = async (
         return false;
       }
       printInfoLog(
-        `已将 ${dirName}.zip 文件复制到 ${serverName?.replace("服务器", "")} 服务器.`,
+        `${logPrefix} 已将 ${dirName}.zip 文件复制到服务器.`,
         "log-success"
       );
     }
@@ -646,8 +647,9 @@ const localPublishServer = async (
   // 服务发布配置信息
   for (let j = 0; j < publishServer.serverConfigs.length; j++) {
     const serverConfig = publishServer.serverConfigs[j];
+    const logPrefix = formatServiceLog(publishServer.serverName || serverName, publishServer.serverIp, serverName, serverConfig.serverIdentity);
     /* 1.关闭服务 */
-    printInfoLog(`正在关闭 ${serverName} 服务.`);
+    printInfoLog(`${logPrefix} 正在关闭...`);
     let closeServiceResult;
     if (osName == "Windows") {
       closeServiceResult = await switchLocalWinService(
@@ -664,13 +666,13 @@ const localPublishServer = async (
       return false;
     }
     if (!closeServiceResult) {
-      printInfoLog(`服务 ${serverName} 关闭失败.`, "log-error");
+      printInfoLog(`${logPrefix} 关闭失败.`, "log-error");
       return false;
     }
-    printInfoLog(`服务 ${serverName} 已关闭.`, "log-success");
+    printInfoLog(`${logPrefix} 已关闭.`, "log-success");
 
     /* 上传文件到服务器 */
-    const currLogIndex = printInfoLog(`服务 ${serverName} 正在发布.`);
+    const currLogIndex = printInfoLog(`${logPrefix} 正在部署文件...`);
     let uploadFileNumber: UploadFileNumberType = {
       currNumber: 0,
       totalNumber: 0,
@@ -690,7 +692,7 @@ const localPublishServer = async (
       });
       if (uploadServerFileResult.code !== 0) {
         printInfoLog(
-          `服务 ${serverName} 发布失败：${uploadServerFileResult.data}.`,
+          `${logPrefix} 发布失败：${uploadServerFileResult.data}.`,
           "log-error"
         );
         return false;
@@ -704,10 +706,10 @@ const localPublishServer = async (
         uploadFileNumber.totalNumber;
     }
     printInfoLog(
-      `已将 ${serverConfig.publishFiles.length} 个文件部署到 ${serverName} 服务器.`,
+      `${logPrefix} 已将 ${serverConfig.publishFiles.length} 个文件部署到服务器.`,
       "log-success"
     );
-    printInfoLog(`服务 ${serverName} 正在启动.`);
+    printInfoLog(`${logPrefix} 正在启动.`);
     let startServiceResult;
     if (osName === "Windows") {
       startServiceResult = await switchLocalWinService(
@@ -722,10 +724,10 @@ const localPublishServer = async (
     }
 
     if (!startServiceResult) {
-      printInfoLog(`服务 ${serverName} 启动失败.`, "log-error");
+      printInfoLog(`${logPrefix} 启动失败.`, "log-error");
       return false;
     }
-    printInfoLog(`服务 ${serverName} 发布成功.`, "log-success");
+    printInfoLog(`${logPrefix} 发布成功.`, "log-success");
   }
   printInfoLog("");
   return true;
@@ -1235,6 +1237,7 @@ const newRemotePublishWpfServer = async (
 ) => {
   printInfoLog(`正在发布 ${serverName} 服务.`);
   const mPublishDir = await papersPublishDir();
+  const logPrefix = formatServiceLog(publishServer.serverName, publishServer.serverIp, serverName, "");
 
   // 服务器信息
   const username = publishServer.serverAccount;
@@ -1347,7 +1350,7 @@ const newRemotePublishWpfServer = async (
 
       // 压缩成功后重新上传到服务器
       printInfoLog(
-        `正在将 ${dirName}.zip 文件上传到 ${serverName.replace("服务器", "")} 服务器.`
+        `${logPrefix} 正在将 ${dirName}.zip 文件上传到服务器.`
       );
       const uploadPluginsFileResult = await cmdInvoke("upload_server_files", {
         localPaths: [`${removeSlash(wpfPublishDir)}/Plugins.zip`],
@@ -1361,7 +1364,7 @@ const newRemotePublishWpfServer = async (
         return false;
       }
       printInfoLog(
-        `已将 ${dirName}.zip 文件上传到 ${serverName?.replace("服务器", "")}服务器.`,
+        `${logPrefix} 已将 ${dirName}.zip 文件上传到服务器.`,
         "log-success"
       );
     } else {
@@ -1379,7 +1382,7 @@ const newRemotePublishWpfServer = async (
 
       // 重新打包压缩
       printInfoLog(
-        `正在将 ${dirName}.zip 文件上传到 ${serverName?.replace("服务器", "")}服务器.`
+        `${logPrefix} 正在将 ${dirName}.zip 文件上传到服务器.`
       );
       const compresseResult = await cmdInvoke("compress_zip", {
         filePaths: [destinationPath],
@@ -1403,7 +1406,7 @@ const newRemotePublishWpfServer = async (
         return false;
       }
       printInfoLog(
-        `已将 ${dirName}.zip 文件上传到 ${serverName?.replace("服务器", "")} 服务器.`,
+        `${logPrefix} 已将 ${dirName}.zip 文件上传到服务器.`,
         "log-success"
       );
     }
@@ -1464,6 +1467,7 @@ const remotePublishWpfServer = async (
 ) => {
   printInfoLog(`正在发布 ${serverName} 服务.`);
   const mPublishDir = await papersPublishDir();
+  const logPrefix = formatServiceLog(publishServer.serverName, publishServer.serverIp, serverName, "");
 
   // 服务器信息
   const username = publishServer.serverAccount;
@@ -1590,7 +1594,7 @@ const remotePublishWpfServer = async (
 
       // 压缩成功后重新上传到服务器
       printInfoLog(
-        `正在将 Plugins.zip 文件上传到 ${serverName.replace("服务器", "")} 服务器.`
+        `${logPrefix} 正在将 Plugins.zip 文件上传到服务器.`
       );
       const uploadPluginsFileResult = await cmdInvoke("upload_server_files", {
         localPaths: [`${removeSlash(wpfPublishDir)}/Plugins.zip`],
@@ -1604,7 +1608,7 @@ const remotePublishWpfServer = async (
         return false;
       }
       printInfoLog(
-        `已将 Plugins.zip 文件上传到 ${serverName?.replace("服务器", "")}服务器.`,
+        `${logPrefix} 已将 Plugins.zip 文件上传到服务器.`,
         "log-success"
       );
     } else {
@@ -1622,7 +1626,7 @@ const remotePublishWpfServer = async (
 
       // 重新打包压缩
       printInfoLog(
-        `正在将 ${dirName}.zip 文件上传到 ${serverName?.replace("服务器", "")}服务器.`
+        `${logPrefix} 正在将 ${dirName}.zip 文件上传到服务器.`
       );
       const compresseResult = await cmdInvoke("compress_zip", {
         filePaths: [destinationPath],
@@ -1646,7 +1650,7 @@ const remotePublishWpfServer = async (
         return false;
       }
       printInfoLog(
-        `已将 ${dirName}.zip 文件上传到 ${serverName?.replace("服务器", "")} 服务器.`,
+        `${logPrefix} 已将 ${dirName}.zip 文件上传到服务器.`,
         "log-success"
       );
     }
@@ -1719,8 +1723,9 @@ const remotePublishServer = async (
     // 服务发布配置信息
     for (let j = 0; j < publishServer.serverConfigs.length; j++) {
       const serverConfig = publishServer.serverConfigs[j];
+      const logPrefix = formatServiceLog(publishServer.serverName || serverName, publishServer.serverIp, serverName, serverConfig.serverIdentity);
       /* 1.关闭服务 */
-      printInfoLog(`正在关闭 ${serverName} 服务.`);
+      printInfoLog(`${logPrefix} 正在关闭...`);
       let closeServiceResult;
       if (osName == "Windows") {
         closeServiceResult = await switchRemoteWinService(
@@ -1743,13 +1748,13 @@ const remotePublishServer = async (
         return false;
       }
       if (!closeServiceResult) {
-        printInfoLog(`服务 ${serverName} 关闭失败.`, "log-error");
+        printInfoLog(`${logPrefix} 关闭失败.`, "log-error");
         return false;
       }
-      printInfoLog(`服务 ${serverName} 已关闭.`, "log-success");
+      printInfoLog(`${logPrefix} 已关闭.`, "log-success");
 
       /* 上传文件到服务器 */
-      const currLogIndex = printInfoLog(`服务 ${serverName} 正在发布.`);
+      const currLogIndex = printInfoLog(`${logPrefix} 正在部署文件...`);
       let uploadFileNumber: UploadFileNumberType = {
         currNumber: 0,
         totalNumber: 0,
@@ -1769,7 +1774,7 @@ const remotePublishServer = async (
         });
         if (uploadServerFileResult.code !== 0) {
           printInfoLog(
-            `服务 ${serverName} 发布失败：${uploadServerFileResult.data}.`,
+            `${logPrefix} 发布失败：${uploadServerFileResult.data}.`,
             "log-error"
           );
           return false;
@@ -1784,10 +1789,10 @@ const remotePublishServer = async (
       }
 
       printInfoLog(
-        `已将 ${serverConfig.publishFiles.length} 个文件上传到 ${serverName} 服务器.`,
+        `${logPrefix} 已将 ${serverConfig.publishFiles.length} 个文件上传到服务器.`,
         "log-success"
       );
-      printInfoLog(`服务 ${serverName} 正在启动.`);
+      printInfoLog(`${logPrefix} 正在启动.`);
       let startServiceResult;
 
       if (osName === "Windows") {
@@ -1808,10 +1813,10 @@ const remotePublishServer = async (
         );
       }
       if (!startServiceResult) {
-        printInfoLog(`服务 ${serverName} 启动失败.`, "log-error");
+        printInfoLog(`${logPrefix} 启动失败.`, "log-error");
         return false;
       }
-      printInfoLog(`服务 ${serverName} 发布成功.`, "log-success");
+      printInfoLog(`${logPrefix} 发布成功.`, "log-success");
     }
   }
   printInfoLog("");
