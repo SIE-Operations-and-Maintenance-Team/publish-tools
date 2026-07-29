@@ -507,9 +507,9 @@ const onImportConfirm = async (previewItems: ImportPreviewItem[]) => {
     // 逐条导入
     const results: ImportResult[] = [];
     for (let i = 0; i < total; i++) {
-      dialog.setProgress(Math.round(((i + 1) / total) * 100));
       const batchResult = await importExportDb.executeImport([items[i]]);
       results.push(...batchResult);
+      dialog.setProgress(Math.round(((i + 1) / total) * 100));
     }
 
     // 汇总
