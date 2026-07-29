@@ -86,6 +86,7 @@ import {
   displayOs,
   removeSlash,
   displayEnvironment,
+  formatServiceLog,
 } from "@/utils/other";
 import { useRestoreDb } from "@/database/restore/index";
 import { formatDate } from "@/utils/formatTime";
@@ -194,8 +195,9 @@ const restoreLocalServer = async (
     const serviceIdentity = serverConfig.serverIdentity;
     const pPath = removeSlash(serverConfig.publishPath);
     const rPath = removeSlash(serverConfig.backupPath);
+    const logPrefix = formatServiceLog(restoreServer.serverName, restoreServer.serverIp, serviceName, serviceIdentity);
     let closeServiceResult = true;
-    printInfoLog(`关闭 ${serviceName} 服务中...`);
+    printInfoLog(`${logPrefix} 正在关闭...`);
 
     if (osName === "Windows") {
       closeServiceResult = await switchWinService(serviceIdentity, "stop");
@@ -203,12 +205,12 @@ const restoreLocalServer = async (
       closeServiceResult = await switchDockerService(serviceIdentity, "stop");
     }
     if (!closeServiceResult) {
-      printInfoLog(`服务 ${serviceName} 关闭失败.`, "log-error");
+      printInfoLog(`${logPrefix} 关闭失败.`, "log-error");
       state.dialog.submitTxt = "还 原";
       return false;
     }
-    printInfoLog(`服务 ${serviceName} 已关闭.`, "log-success");
-    printInfoLog(`服务 ${serviceName} 还原中.`);
+    printInfoLog(`${logPrefix} 已关闭.`, "log-success");
+    printInfoLog(`${logPrefix} 正在还原...`);
     for (let cp = 0; cp < serverConfig.publishFiles.length; cp++) {
       const dllFile = serverConfig.publishFiles[cp];
       const source = `${rPath}/${dllFile}`;
@@ -219,17 +221,17 @@ const restoreLocalServer = async (
         ...getRetryArgs("copy"),
       });
       if (copyResult.code !== 0) {
-        printInfoLog(`服务 ${serviceName} 复制失败：${copyResult.data}`, "log-error");
+        printInfoLog(`${logPrefix} 复制失败：${copyResult.data}`, "log-error");
         console.error(copyResult.data);
         state.dialog.submitTxt = "还 原";
         return false;
       }
     }
     printInfoLog(
-      `已成功将  ${serviceName} 服务的${serverConfig.publishFiles.length}个备份文件还原到部署路径.`,
+      `${logPrefix} 已成功将 ${serverConfig.publishFiles.length}个备份文件还原到部署路径.`,
       "log-success"
     );
-    printInfoLog(`服务 ${serviceName} 正在启动.`);
+    printInfoLog(`${logPrefix} 正在启动.`);
     let startServiceResult = true;
     if (osName === "Windows") {
       startServiceResult = await switchWinService(serviceIdentity, "start");
@@ -237,10 +239,10 @@ const restoreLocalServer = async (
       startServiceResult = await switchDockerService(serviceIdentity, "start");
     }
     if (!startServiceResult) {
-      printInfoLog(`服务 ${serviceName} 启动失败.`, "log-error");
+      printInfoLog(`${logPrefix} 启动失败.`, "log-error");
       return false;
     }
-    printInfoLog(`服务 ${serviceName} 还原成功.`, "log-success");
+    printInfoLog(`${logPrefix} 还原成功.`, "log-success");
     printInfoLog("");
   }
   return true;
@@ -257,6 +259,7 @@ const restoreLocalWpfServer = async (
   printInfoLog(`正在还原 ${serviceName} 服务.`);
   const pPath = removeSlash(restoreServer.publishPath);
   const rPath = removeSlash(restoreServer.backupPath);
+  const logPrefix = formatServiceLog(restoreServer.serverName, restoreServer.serverIp, serviceName, "");
 
   // 创建一个临时还原目录
   const tempRestoreDir = `${pPath}/tempRestore`;
@@ -301,7 +304,7 @@ const restoreLocalWpfServer = async (
         destination: tempRestoreDirPath,
       });
       if (unzipResult.code !== 0) {
-        printInfoLog(`服务[${serviceName}]解压[${zipFileName}]失败：${unzipResult.data}`);
+        printInfoLog(`${logPrefix} 解压[${zipFileName}]失败：${unzipResult.data}`);
         return false;
       }
     }
@@ -322,7 +325,7 @@ const restoreLocalWpfServer = async (
         ...getRetryArgs("copy"),
       });
       if (execCopyResult.code !== 0) {
-        printInfoLog(`服务[${serviceName}]还原失败：${execCopyResult.data}`);
+        printInfoLog(`${logPrefix} 还原失败：${execCopyResult.data}`);
         return false;
       }
     }
@@ -370,7 +373,7 @@ const restoreLocalWpfServer = async (
     "log-success"
   );
 
-  printInfoLog(`服务 ${serviceName} 还原成功.`);
+  printInfoLog(`${logPrefix} 还原成功.`);
   printInfoLog("");
 
   return true;

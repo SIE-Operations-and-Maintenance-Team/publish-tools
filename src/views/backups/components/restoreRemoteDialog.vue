@@ -88,6 +88,7 @@ import {
   removeSlash,
   displayEnvironment,
   aesDecrypt,
+  formatServiceLog,
 } from "@/utils/other";
 import { useRestoreDb } from "@/database/restore/index";
 import { formatDate } from "@/utils/formatTime";
@@ -198,9 +199,10 @@ const restoreRemoteServer = async (
       const serviceIdentity = serverConfig.serverIdentity;
       const pPath = removeSlash(serverConfig.publishPath);
       const rPath = removeSlash(serverConfig.backupPath);
+      const logPrefix = formatServiceLog(restoreServer.serverName, restoreServer.serverIp, serviceName, serviceIdentity);
       let copyBackFileCommands = new Array<string>();
       let closeServiceResult = true;
-      printInfoLog(`关闭 ${serviceName} 服务中...`);
+      printInfoLog(`${logPrefix} 正在关闭...`);
       if (osName === "Windows") {
         closeServiceResult = await switchWinService(
           username,
@@ -236,12 +238,12 @@ const restoreRemoteServer = async (
         }
       }
       if (!closeServiceResult) {
-        printInfoLog(`服务 ${serviceName} 关闭失败.`, "log-error");
+        printInfoLog(`${logPrefix} 关闭失败.`, "log-error");
         state.dialog.submitTxt = "还 原";
         return false;
       }
-      printInfoLog(`服务 ${serviceName} 已关闭.`, "log-success");
-      printInfoLog(`服务 ${serviceName} 还原中.`);
+      printInfoLog(`${logPrefix} 已关闭.`, "log-success");
+      printInfoLog(`${logPrefix} 正在还原...`);
       for (let cp = 0; cp < copyBackFileCommands.length; cp++) {
         const copyCommand = copyBackFileCommands[cp];
         const execRemoteCmdResult = await cmdInvoke("execute_remote_command", {
@@ -252,7 +254,7 @@ const restoreRemoteServer = async (
         });
         if (execRemoteCmdResult.code !== 0) {
           printInfoLog(
-            `服务 ${serviceName} 还原失败：${execRemoteCmdResult.data}`,
+            `${logPrefix} 还原失败：${execRemoteCmdResult.data}`,
             "log-error"
           );
           console.error(execRemoteCmdResult.data);
@@ -261,10 +263,10 @@ const restoreRemoteServer = async (
         }
       }
       printInfoLog(
-        `已成功将  ${serviceName} 服务的${copyBackFileCommands.length}个备份文件还原到部署路径.`,
+        `${logPrefix} 已成功将 ${copyBackFileCommands.length}个备份文件还原到部署路径.`,
         "log-success"
       );
-      printInfoLog(`服务 ${serviceName} 正在启动.`);
+      printInfoLog(`${logPrefix} 正在启动.`);
       let startServiceResult = true;
       if (osName === "Windows") {
         startServiceResult = await switchWinService(
@@ -284,10 +286,10 @@ const restoreRemoteServer = async (
         );
       }
       if (!startServiceResult) {
-        printInfoLog(`服务 ${serviceName} 启动失败.`, "log-error");
+        printInfoLog(`${logPrefix} 启动失败.`, "log-error");
         return false;
       }
-      printInfoLog(`服务 ${serviceName} 还原成功.`, "log-success");
+      printInfoLog(`${logPrefix} 还原成功.`, "log-success");
       printInfoLog("");
     }
   }
@@ -307,6 +309,7 @@ const restoreRemoteWpfServer = async (
   const username = restoreServer.serverAccount;
   const password = await aesDecrypt(String(restoreServer.serverPwd));
   const server = `${restoreServer.serverIp}:${restoreServer.serverPort}`;
+  const logPrefix = formatServiceLog(restoreServer.serverName, restoreServer.serverIp, serviceName, "");
 
   const pPath = removeSlash(restoreServer.publishPath);
   const rPath = removeSlash(restoreServer.backupPath);
@@ -464,7 +467,7 @@ const restoreRemoteWpfServer = async (
       });
       if (unZipCmdResult.code !== 0) {
         printInfoLog(
-          `服务[${serviceName}]解压[${zipFileName}]失败：${unZipCmdResult.data}`,
+          `${logPrefix} 解压[${zipFileName}]失败：${unZipCmdResult.data}`,
           "log-error"
         );
         return false;
@@ -481,7 +484,7 @@ const restoreRemoteWpfServer = async (
       });
       if (execRemoteCmdResult.code !== 0) {
         printInfoLog(
-          `服务[${serviceName}]还原失败：${execRemoteCmdResult.data}`,
+          `${logPrefix} 还原失败：${execRemoteCmdResult.data}`,
           "log-error"
         );
         return false;
@@ -501,7 +504,7 @@ const restoreRemoteWpfServer = async (
     });
     if (execRemoteCmdResult.code !== 0) {
       printInfoLog(
-        `服务[${serviceName}]压缩失败：${execRemoteCmdResult.data}`,
+        `${logPrefix} 压缩失败：${execRemoteCmdResult.data}`,
         "log-error"
       );
       return false;
@@ -524,7 +527,7 @@ const restoreRemoteWpfServer = async (
   });
   if (delTempRestoreDirResult.code !== 0) {
     printInfoLog(
-      `服务[${serviceName}]删除临时还原目录失败：${delTempRestoreDirResult.data}`,
+      `${logPrefix} 删除临时还原目录失败：${delTempRestoreDirResult.data}`,
       "log-warning"
     );
   }
@@ -611,7 +614,7 @@ const restoreRemoteWpfServer = async (
   await cmdInvoke("delete_paths", {
     paths: [localManifestFile],
   });
-  printInfoLog(`服务 ${serviceName} 还原成功.`);
+  printInfoLog(`${logPrefix} 还原成功.`);
   printInfoLog("");
 
   return true;
