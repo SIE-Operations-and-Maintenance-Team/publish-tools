@@ -638,6 +638,7 @@ import {
   removeSlash,
   getDefaultSubObject,
   displayOs,
+  formatServiceLog,
 } from "@/utils/other";
 import { formatDate } from "@/utils/formatTime";
 import { cmdInvoke } from "@/utils/command";
@@ -1352,9 +1353,10 @@ const publishScheduleServer = async () => {
         const uName = serverInfo.account;
         const uPwd = serverInfo.pwd;
         const serverAddress = `${serverInfo.ip}:${serverInfo.port}`;
+        const logPrefix = formatServiceLog(serverInfo.name, serverInfo.ip, scheduleServerName.value, serverPathVal.identity);
 
         /* 1.关闭服务 */
-        printInfoLog(`正在关闭 ${scheduleServerName.value} 服务.`);
+        printInfoLog(`${logPrefix} 正在关闭...`);
         let closeServiceResult;
         if (serverInfo.os === 1) {
           closeServiceResult = await switchWinService(
@@ -1380,13 +1382,13 @@ const publishScheduleServer = async () => {
           return false;
         }
         if (!closeServiceResult) {
-          printInfoLog(`服务 ${scheduleServerName.value} 关闭失败.`, "log-error");
+          printInfoLog(`${logPrefix} 关闭失败.`, "log-error");
           return false;
         }
-        printInfoLog(`服务 ${scheduleServerName.value} 已关闭.`, "log-success");
+        printInfoLog(`${logPrefix} 已关闭.`, "log-success");
 
         /* 上传文件到服务器 */
-        const currLogIndex = printInfoLog(`服务 ${scheduleServerName.value} 正在发布.`);
+        const currLogIndex = printInfoLog(`${logPrefix} 正在上传文件...`);
 
         // 获取项目输出路径
         let localPath = projectAssemblyOutPath.value + "/" + scheduleServerName.value;
@@ -1420,7 +1422,7 @@ const publishScheduleServer = async () => {
           });
           if (uploadServerFileResult.code !== 0) {
             printInfoLog(
-              `服务 ${scheduleServerName.value} 发布失败：${uploadServerFileResult.data}.`,
+              `${logPrefix} 发布失败：${uploadServerFileResult.data}.`,
               "log-error"
             );
             return false;
@@ -1434,10 +1436,10 @@ const publishScheduleServer = async () => {
         }
 
         printInfoLog(
-          `已将 ${projectFiles.length} 个文件上传到 ${scheduleServerName.value} 服务器.`,
+          `${logPrefix} 已将 ${projectFiles.length} 个文件上传到服务器.`,
           "log-success"
         );
-        printInfoLog(`服务 ${scheduleServerName.value} 正在启动.`);
+        printInfoLog(`${logPrefix} 正在启动.`);
         let startServiceResult;
         if (serverInfo.os === 1) {
           startServiceResult = await switchWinService(
@@ -1457,10 +1459,10 @@ const publishScheduleServer = async () => {
           );
         }
         if (!startServiceResult) {
-          printInfoLog(`服务 ${scheduleServerName.value} 启动失败.`, "log-error");
+          printInfoLog(`${logPrefix} 启动失败.`, "log-error");
           return false;
         }
-        printInfoLog(`服务 ${scheduleServerName.value} 发布成功.`, "log-success");
+        printInfoLog(`${logPrefix} 发布成功.`, "log-success");
       }
     }
   }
@@ -1525,6 +1527,7 @@ const newPublishWpfClient = async () => {
   const uName = serverInfo.account;
   const uPwd = serverInfo.pwd;
   const serverAddress = `${serverInfo.ip}:${serverInfo.port}`;
+  const logPrefix = formatServiceLog(serverInfo.name, serverInfo.ip, wpfClientName.value, serverName || "");
 
   // 从远程服务器下载文件到[临时缓存目录]
   let remoteFiles = [`${removeSlash(serverPath)}/Manifest.xml`];
@@ -1606,7 +1609,7 @@ const newPublishWpfClient = async () => {
 
     // 重新打包压缩
     printInfoLog(
-      `正在将 ${dirName}.zip 文件上传到 ${serverName?.replace("服务器", "")}服务器.`
+      `${logPrefix} 正在上传 ${dirName}.zip ...`
     );
 
     let compresseResult;
@@ -1640,7 +1643,7 @@ const newPublishWpfClient = async () => {
       return false;
     }
     printInfoLog(
-      `已将 ${dirName}.zip 文件上传到 ${serverName?.replace("服务器", "")} 服务器.`,
+      `${logPrefix} ${dirName}.zip 上传完成.`,
       "log-success"
     );
 
@@ -1748,6 +1751,7 @@ const publishWpfClient = async () => {
   const uName = serverInfo.account;
   const uPwd = serverInfo.pwd;
   const serverAddress = `${serverInfo.ip}:${serverInfo.port}`;
+  const logPrefix = formatServiceLog(serverInfo.name, serverInfo.ip, wpfClientName.value, serverName || "");
 
   // 从远程服务器下载文件到[临时缓存目录]
   let remoteFiles = [`${removeSlash(serverPath)}/Manifest.xml`];
@@ -1857,7 +1861,7 @@ const publishWpfClient = async () => {
 
       // 压缩成功后重新上传到服务器
       printInfoLog(
-        `正在将 Plugins.zip 文件上传到 ${serverName?.replace("服务器", "")}服务器.`
+        `${logPrefix} 正在上传 Plugins.zip ...`
       );
       const uploadPluginsFileResult = await cmdInvoke("upload_server_files", {
         localPaths: [`${removeSlash(tempPublishDir)}/Plugins.zip`],
@@ -1871,7 +1875,7 @@ const publishWpfClient = async () => {
         return false;
       }
       printInfoLog(
-        `已将 Plugins.zip 文件上传到 ${serverName?.replace("服务器", "")}服务器.`,
+        `${logPrefix} Plugins.zip 上传完成.`,
         "log-success"
       );
     } else {
@@ -1889,7 +1893,7 @@ const publishWpfClient = async () => {
 
       // 重新打包压缩
       printInfoLog(
-        `正在将 ${dirName}.zip 文件上传到 ${serverName?.replace("服务器", "")}服务器.`
+        `${logPrefix} 正在上传 ${dirName}.zip ...`
       );
       const compresseResult = await cmdInvoke("compress_zip", {
         filePaths: [destinationPath],
@@ -1913,7 +1917,7 @@ const publishWpfClient = async () => {
         return false;
       }
       printInfoLog(
-        `已将 ${dirName}.zip 文件上传到 ${serverName?.replace("服务器", "")} 服务器.`,
+        `${logPrefix} ${dirName}.zip 上传完成.`,
         "log-success"
       );
     }
@@ -1989,9 +1993,10 @@ const serverPublish = async (
       const uName = server.account;
       const uPwd = server.pwd;
       const serverAddress = `${server.ip}:${server.port}`;
+      const logPrefix = formatServiceLog(server.name, server.ip, serverName, serverPathVal.identity);
 
       /* 1.关闭服务 */
-      printInfoLog(`正在关闭 ${serverName} 服务.`);
+      printInfoLog(`${logPrefix} 正在关闭...`);
       let closeServiceResult;
       if (server.os === 1) {
         closeServiceResult = await switchWinService(
@@ -2017,13 +2022,13 @@ const serverPublish = async (
         return false;
       }
       if (!closeServiceResult) {
-        printInfoLog(`服务 ${serverName} 关闭失败.`, "log-error");
+        printInfoLog(`${logPrefix} 关闭失败.`, "log-error");
         return false;
       }
-      printInfoLog(`服务 ${serverName} 已关闭.`, "log-success");
+      printInfoLog(`${logPrefix} 已关闭.`, "log-success");
 
       /* 上传文件到服务器 */
-      const currLogIndex = printInfoLog(`服务 ${serverName} 正在发布.`);
+      const currLogIndex = printInfoLog(`${logPrefix} 正在上传文件...`);
 
       // 获取项目输出路径
       let localPath = projectAssemblyOutPath.value + "/" + serverName;
@@ -2053,7 +2058,7 @@ const serverPublish = async (
         });
         if (uploadServerFileResult.code !== 0) {
           printInfoLog(
-            `服务 ${serverName} 发布失败：${uploadServerFileResult.data}.`,
+            `${logPrefix} 发布失败：${uploadServerFileResult.data}.`,
             "log-error"
           );
           return false;
@@ -2067,10 +2072,10 @@ const serverPublish = async (
           uploadFileNumber.totalNumber;
       }
       printInfoLog(
-        `已将 ${projectFiles.length} 个文件上传到 ${serverName}服务器.`,
+        `${logPrefix} 已将 ${projectFiles.length} 个文件上传到服务器.`,
         "log-success"
       );
-      printInfoLog(`服务 ${serverName} 正在启动.`);
+      printInfoLog(`${logPrefix} 正在启动.`);
       let startServiceResult;
       if (server.os === 1) {
         startServiceResult = await switchWinService(
@@ -2090,10 +2095,10 @@ const serverPublish = async (
         );
       }
       if (!startServiceResult) {
-        printInfoLog(`服务 ${serverName} 启动失败.`, "log-error");
+        printInfoLog(`${logPrefix} 启动失败.`, "log-error");
         return false;
       }
-      printInfoLog(`服务 ${serverName} 发布成功.`, "log-success");
+      printInfoLog(`${logPrefix} 发布成功.`, "log-success");
     }
   }
   return true;
