@@ -66,6 +66,24 @@
           </el-icon>
           批量删除
         </el-button>
+        <el-button
+          size="default"
+          type="primary"
+          :disabled="selectedRows.length === 0"
+          :loading="exportLoading"
+          @click="onExportSelected"
+        >
+          <el-icon><ele-Download /></el-icon>
+          导出选中
+        </el-button>
+        <el-button
+          size="default"
+          type="primary"
+          @click="onImportConfig"
+        >
+          <el-icon><ele-Upload /></el-icon>
+          导入配置
+        </el-button>
       </template>
       <el-table
         :data="state.tableData.data"
@@ -147,6 +165,7 @@
     </el-card>
     <appconfig-dialog ref="appconfigDialogRef" @refresh="getTableData()" />
     <backup-dialog ref="backupDialogRef" />
+    <import-preview-dialog ref="importPreviewDialogRef" @confirm="onImportConfirm" />
   </div>
 </template>
 
@@ -156,8 +175,11 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import _ from "lodash";
 import { useProjectDb } from "@/database/project/index";
 import { useAppconfigDb } from "@/database/appconfig/index";
-import { displayEnvironment } from "@/utils/other";
+import { displayEnvironment, aesEncrypt, aesDecrypt } from "@/utils/other";
 // import { loadBackupItems } from "@/utils/backupAppconfig";
+import { save, open } from "@tauri-apps/plugin-dialog";
+import { cmdInvoke } from "@/utils/command";
+import { useImportExportDb } from "@/database/import-export/index";
 
 // 引入应用配置数据库
 const appconfigDb = useAppconfigDb();
@@ -172,6 +194,12 @@ const backupDialogRef = ref();
 const BackupDialog = defineAsyncComponent(
   () => import("@/views/backups/components/backupDialog.vue")
 );
+const importPreviewDialogRef = ref();
+const ImportPreviewDialog = defineAsyncComponent(
+  () => import("@/views/appconfig/components/importPreviewDialog.vue")
+);
+const importExportDb = useImportExportDb();
+const exportLoading = ref(false);
 
 // 项目信息
 const projectList = ref<RowProjectType[]>();
@@ -331,6 +359,183 @@ const onBatchDel = () => {
     await getTableData();
     ElMessage.success("批量删除成功");
   });
+};
+
+// 导出选中
+const onExportSelected = async () => {
+  if (selectedRows.value.length === 0) return;
+
+  exportLoading.value = true;
+  try {
+    // 1. 收集数据
+    const ids = selectedRows.value.map((r) => Number(r.id));
+    const items = await importExportDb.collectExportData(ids);
+
+    if (items.length === 0) {
+      ElMessage.warning("没有可导出的数据");
+      return;
+    }
+
+    // 2. 组装 ExportFile
+    const exportFile: ExportFile = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      items,
+    };
+
+    // 3. 加密
+    const jsonStr = JSON.stringify(exportFile);
+    const encrypted = await aesEncrypt(jsonStr);
+    if (!encrypted) {
+      ElMessage.error("加密数据失败");
+      return;
+    }
+
+    // 4. 保存对话框
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filePath = await save({
+      defaultPath: `SMOM-Config-export-${dateStr}.smomconfig`,
+      filters: [{ name: "SMOM配置", extensions: ["smomconfig"] }],
+    });
+    if (!filePath) {
+      ElMessage.info("您已取消保存");
+      return;
+    }
+
+    // 5. 写文件
+    const saveResult = await cmdInvoke("save_content_to_file", {
+      content: encrypted,
+      filePath,
+    });
+    if (saveResult.code !== 0) {
+      ElMessage.error(`保存文件失败：${saveResult.data}`);
+      return;
+    }
+
+    // 6. 提示
+    const skipped = ids.length - items.length;
+    if (skipped > 0) {
+      ElMessage.warning(`导出完成：成功 ${items.length} 条，跳过 ${skipped} 条`);
+    } else {
+      ElMessage.success(`导出成功，共 ${items.length} 个应用配置`);
+    }
+  } catch (err) {
+    console.error("导出失败:", err);
+    ElMessage.error("导出失败：" + (err as Error).message);
+  } finally {
+    exportLoading.value = false;
+  }
+};
+
+// 暂存待导入的完整数据（在 onImportConfig 解析后设置，onImportConfirm 使用）
+let _pendingImportItems: ExportItem[] = [];
+
+// 导入配置
+const onImportConfig = async () => {
+  try {
+    // 1. 打开文件对话框
+    const filePath = await open({
+      multiple: false,
+      filters: [{ name: "SMOM配置", extensions: ["smomconfig"] }],
+    });
+    if (!filePath) {
+      return;
+    }
+
+    // 2. 读取文件
+    const readResult = await cmdInvoke<string>("read_content_to_file", {
+      filePath: String(filePath),
+    });
+    if (readResult.code !== 0) {
+      ElMessage.error(`读取文件失败：${readResult.data}`);
+      return;
+    }
+
+    // 3. 解密
+    const decrypted = await aesDecrypt(String(readResult.data));
+    if (!decrypted) {
+      ElMessage.error("文件格式不正确或已损坏");
+      return;
+    }
+
+    // 4. 解析 JSON
+    let exportFile: ExportFile;
+    try {
+      exportFile = JSON.parse(decrypted);
+    } catch {
+      ElMessage.error("文件格式不正确或已损坏");
+      return;
+    }
+
+    // 5. 版本检查
+    if (exportFile.version !== 1) {
+      ElMessage.error(`文件版本不兼容，当前支持 v1，文件为 v${exportFile.version}`);
+      return;
+    }
+
+    if (!exportFile.items || exportFile.items.length === 0) {
+      ElMessage.warning("文件中没有可导入的数据");
+      return;
+    }
+
+    // 6. 冲突检测
+    const previewItems = await importExportDb.checkImportConflicts(exportFile.items);
+
+    // 暂存完整数据供确认回调使用
+    _pendingImportItems = exportFile.items;
+    // 7. 显示预览弹窗
+    importPreviewDialogRef.value.openDialog(
+      String(filePath).split(/[\\/]/).pop() || "unknown",
+      exportFile.exportedAt,
+      previewItems
+    );
+  } catch (err) {
+    console.error("导入失败:", err);
+    ElMessage.error("导入失败：" + (err as Error).message);
+  }
+};
+
+// 导入确认回调
+const onImportConfirm = async (previewItems: ImportPreviewItem[]) => {
+  const dialog = importPreviewDialogRef.value;
+  dialog.setImporting(true);
+
+  try {
+    const items = _pendingImportItems;
+    const total = items.length;
+
+    // 逐条导入
+    const results: ImportResult[] = [];
+    for (let i = 0; i < total; i++) {
+      dialog.setProgress(Math.round(((i + 1) / total) * 100));
+      const batchResult = await importExportDb.executeImport([items[i]]);
+      results.push(...batchResult);
+    }
+
+    // 汇总
+    const succeeded = results.filter((r) => r.success).length;
+    const failed = results.filter((r) => !r.success).length;
+
+    if (failed === 0) {
+      dialog.setProgress(100, "success");
+      ElMessage.success(`导入成功，共 ${succeeded} 条`);
+    } else if (succeeded > 0) {
+      dialog.setProgress(100, "exception");
+      ElMessage.warning(`成功 ${succeeded} 条，失败 ${failed} 条`);
+    } else {
+      dialog.setProgress(100, "exception");
+      ElMessage.error(`全部导入失败`);
+    }
+
+    dialog.closeDialog();
+    await getTableData();
+    await getProjectList();
+  } catch (err) {
+    console.error("导入执行失败:", err);
+    ElMessage.error("导入执行失败：" + (err as Error).message);
+  } finally {
+    dialog.setImporting(false);
+  }
 };
 
 onBeforeMount(async () => {
