@@ -440,5 +440,23 @@ const other = {
 	},
 };
 
+/**
+ * 格式化服务操作日志前缀，用于多服务器多节点的日志区分
+ * @param serverName  服务器名称（来自 RowServerType.name / PublishServerType.serverName）
+ * @param serverIp    服务器IP（来自 RowServerType.ip / PublishServerType.serverIp），可空
+ * @param serviceType 服务类型名：WebClient、ScheduleServer、WebApiHost、SpcMonitor、WpfClient
+ * @param serviceIdentity 服务标识：Windows 服务名或 Docker 容器名（来自 serverPathVal.identity / serverConfig.serverIdentity）
+ * @returns "[服务器名称(IP)] 服务类型(服务标识)" 格式的日志前缀
+ */
+export const formatServiceLog = (
+  serverName: string,
+  serverIp: string | null | undefined,
+  serviceType: string,
+  serviceIdentity: string,
+): string => {
+  const server = serverIp ? `${serverName}(${serverIp})` : serverName;
+  return `[${server}] ${serviceType}(${serviceIdentity})`;
+};
+
 // 统一批量导出
 export default other;
