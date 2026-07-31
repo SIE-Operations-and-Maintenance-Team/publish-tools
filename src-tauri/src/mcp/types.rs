@@ -163,6 +163,37 @@ pub struct RestoreListParam {
     pub backup_id: Option<i64>,
 }
 
+// ── 定时发布参数（Phase 4）──
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct ScheduleListParam {
+    #[serde(default)]
+    pub project_id: Option<i64>,
+    #[serde(default)]
+    pub status: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct ScheduleIdParam {
+    pub id: i64,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct ScheduleCreateParam {
+    pub project_id: i64,
+    pub project_name: String,
+    pub environment: i64,
+    pub appconfig_id: i64,
+    pub publish_type: String,
+    pub scheduled_time: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct ScheduleUpdateTimeParam {
+    pub id: i64,
+    pub scheduled_time: String,
+}
+
 // ── MCP 配置参数（Phase 3）──
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
