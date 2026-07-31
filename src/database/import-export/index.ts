@@ -1,7 +1,8 @@
 // src/database/import-export/index.ts
-// 注: RowProjectType、RowAppconfigType、RowServerType、ConfigItemsType 等类型
-// 均为 .d.ts 中的 ambient declaration，全局可用，无需 import
 import { db } from "@/database/sqlite";
+import type { RowProjectType } from "@/types/project";
+import type { RowAppconfigType } from "@/types/appconfig";
+import type { RowServerType } from "@/types/server";
 
 /**
  * 从 ConfigItemsType JSON 中提取所有被引用的 server ID
@@ -89,7 +90,6 @@ export function useImportExportDb() {
             if (serverRows && serverRows.length > 0) {
               const srv = serverRows[0];
               servers.push({
-                oldServerId: sid,  // 保存原始 ID 用于导入时精确映射
                 name: srv.name,
                 os: srv.os,
                 ip: srv.ip,
@@ -229,6 +229,7 @@ export function useImportExportDb() {
           }
 
           if (configItems) {
+            const oldServerIds = extractServerIds(configItems);
             for (let si = 0; si < item.servers.length; si++) {
               const srv = item.servers[si];
               const insertServerResult = await database.execute(
@@ -245,8 +246,8 @@ export function useImportExportDb() {
                 ]
               );
               const newServerId = insertServerResult.lastInsertId;
-              if (newServerId && newServerId > 0 && srv.oldServerId != null) {
-                serverIdMap[srv.oldServerId] = newServerId;
+              if (newServerId && newServerId > 0 && si < oldServerIds.length) {
+                serverIdMap[oldServerIds[si]] = newServerId;
               }
             }
 

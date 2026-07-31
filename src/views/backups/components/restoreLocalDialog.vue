@@ -265,7 +265,7 @@ const restoreLocalWpfServer = async (
   const tempRestoreDir = `${pPath}/tempRestore`;
   const execRestoreDirResult = await createDir(tempRestoreDir);
   if (!execRestoreDirResult) {
-    printInfoLog(`服务 ${serviceName} 创建备份目录失败.`, "log-error");
+    printInfoLog(`${logPrefix} 创建备份目录失败.`, "log-error");
     return false;
   }
 
@@ -294,7 +294,7 @@ const restoreLocalWpfServer = async (
     if (zipFileName != "Plugins.zip" || unzipPluginsNum == 1 || isNewVersion) {
       const execRestoreDirPathResult = await createDir(tempRestoreDirPath);
       if (!execRestoreDirPathResult) {
-        printInfoLog(`服务 ${serviceName} 创建一个缓存目录失败.`, "log-error");
+        printInfoLog(`${logPrefix} 创建一个缓存目录失败.`, "log-error");
         return false;
       }
 
