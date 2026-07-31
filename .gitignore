@@ -39,8 +39,3 @@ src-tauri/tauri.key
 
 src-tauri/Cargo.lock
 src-tauri/Cargo.toml
-
-# Local data & env
-/db/
-src/.env
-src/.env.*
