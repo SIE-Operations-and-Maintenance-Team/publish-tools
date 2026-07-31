@@ -25,7 +25,7 @@ pub async fn parse_sln_project(module_name: &str, sln_file_path: &str, is_new_ve
     let (out_content, _, _) = GBK.decode(&sln_content);
 
     // 查找项目路径
-    let project_paths = find_project_paths(&out_content.to_string()).await;
+    let project_paths = find_project_paths(out_content.as_ref()).await;
     let mut module_generate_path = "".to_string();
     for project_path in project_paths {
         if project_path.ends_with(module_name) {

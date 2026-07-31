@@ -38,10 +38,10 @@ pub async fn upgrade_module_version(file_path: &str, module_name: &str) -> Resul
         match reader.read_event(&mut buf) {
             Ok(Event::Decl(e)) => {
                 has_xml_decl = true;
-                writer.write_event(&Event::Decl(e)).unwrap();
+                writer.write_event(Event::Decl(e)).unwrap();
             }
             Ok(Event::Start(e)) => {
-                let name_bytes: &[u8] = &e.name();
+                let name_bytes: &[u8] = e.name();
                 if name_bytes == b"Module" {
                     in_module = true;
                     current_module_name.clear();
@@ -51,10 +51,10 @@ pub async fn upgrade_module_version(file_path: &str, module_name: &str) -> Resul
                 } else if in_module && name_bytes == b"Version" && should_modify {
                     in_version = true;
                 }
-                writer.write_event(&Event::Start(e)).unwrap();
+                writer.write_event(Event::Start(e)).unwrap();
             }
             Ok(Event::End(e)) => {
-                let name_bytes: &[u8] = &e.name();
+                let name_bytes: &[u8] = e.name();
                 if name_bytes == b"Module" {
                     in_module = false;
                     should_modify = false;
@@ -68,19 +68,19 @@ pub async fn upgrade_module_version(file_path: &str, module_name: &str) -> Resul
                     in_version = false;
                     should_modify = false;
                 }
-                writer.write_event(&Event::End(e)).unwrap();
+                writer.write_event(Event::End(e)).unwrap();
             }
             Ok(Event::Text(e)) => {
                 if in_name {
                     current_module_name = std::str::from_utf8(&e)
                         .unwrap_or("")
                         .to_string();
-                    writer.write_event(&Event::Text(e)).unwrap();
+                    writer.write_event(Event::Text(e)).unwrap();
                 } else if in_version && should_modify {
                     let version_str =
                         std::str::from_utf8(&e).unwrap_or("").to_string();
                     if version_str.is_empty() {
-                        writer.write_event(&Event::Text(e)).unwrap();
+                        writer.write_event(Event::Text(e)).unwrap();
                     } else {
                         let new_version = increment_version(&version_str)?;
                         new_version_result = new_version.clone();
@@ -89,7 +89,7 @@ pub async fn upgrade_module_version(file_path: &str, module_name: &str) -> Resul
                         writer.write_event(&new_text_event).unwrap();
                     }
                 } else {
-                    writer.write_event(&Event::Text(e)).unwrap();
+                    writer.write_event(Event::Text(e)).unwrap();
                 }
             }
             Ok(Event::Eof) => break,
