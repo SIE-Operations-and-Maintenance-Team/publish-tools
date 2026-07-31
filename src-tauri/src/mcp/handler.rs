@@ -419,4 +419,155 @@ impl McpHandler {
             .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
         Ok(CallToolResult::success(vec![ContentBlock::text(json.to_string())]))
     }
+
+    // ═══════════════════════════════════════════════
+    // 定时发布（Phase 4）
+    // ═══════════════════════════════════════════════
+
+    /// 查询定时发布任务列表
+    #[tool(description = "查询定时发布任务列表（从本地 SQLite t_publish_schedule 表），支持按项目 ID 和状态筛选")]
+    async fn schedule_list(&self, Parameters(params): Parameters<ScheduleListParam>) -> Result<CallToolResult, ErrorData> {
+        let conn = crate::mcp::db::open_db(&self.app_handle).map_err(|e| ErrorData::internal_error(e, None))?;
+        let result = crate::mcp::db::query_schedules(&conn, params.project_id, params.status.as_deref())
+            .map_err(|e| ErrorData::internal_error(e, None))?;
+        let json = serde_json::to_value(&result)
+            .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+        Ok(CallToolResult::success(vec![ContentBlock::text(json.to_string())]))
+    }
+
+    /// 按 ID 查询单个定时发布任务
+    #[tool(description = "按 ID 查询单个定时发布任务（从本地 SQLite t_publish_schedule 表）")]
+    async fn schedule_get_by_id(&self, Parameters(params): Parameters<ScheduleIdParam>) -> Result<CallToolResult, ErrorData> {
+        let conn = crate::mcp::db::open_db(&self.app_handle).map_err(|e| ErrorData::internal_error(e, None))?;
+        let result = crate::mcp::db::query_schedule_by_id(&conn, params.id)
+            .map_err(|e| ErrorData::internal_error(e, None))?;
+        let json = serde_json::to_value(&result)
+            .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+        Ok(CallToolResult::success(vec![ContentBlock::text(json.to_string())]))
+    }
+
+    /// 查询所有待执行的定时发布任务
+    #[tool(description = "查询所有待执行的定时发布任务（status = 'pending'，按计划时间升序）")]
+    async fn pending_schedule_list(&self) -> Result<CallToolResult, ErrorData> {
+        let conn = crate::mcp::db::open_db(&self.app_handle).map_err(|e| ErrorData::internal_error(e, None))?;
+        let result = crate::mcp::db::query_pending_schedules(&conn)
+            .map_err(|e| ErrorData::internal_error(e, None))?;
+        let json = serde_json::to_value(&result)
+            .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+        Ok(CallToolResult::success(vec![ContentBlock::text(json.to_string())]))
+    }
+
+    /// 创建定时发布任务
+    #[tool(description = "创建定时发布任务（写入本地 SQLite t_publish_schedule 表）")]
+    async fn schedule_create(&self, Parameters(params): Parameters<ScheduleCreateParam>) -> Result<CallToolResult, ErrorData> {
+        // 参数校验
+        if params.project_id <= 0 {
+            return Err(ErrorData::invalid_params("project_id 必须大于 0", None));
+        }
+        if params.scheduled_time.is_empty() {
+            return Err(ErrorData::invalid_params("scheduled_time 不能为空", None));
+        }
+        if params.publish_type != "一键发布" && params.publish_type != "手动发布" {
+            return Err(ErrorData::invalid_params(
+                "publish_type 仅接受 \"一键发布\" 或 \"手动发布\"",
+                None,
+            ));
+        }
+
+        let conn = crate::mcp::db::open_db(&self.app_handle).map_err(|e| ErrorData::internal_error(e, None))?;
+        let new_id = crate::mcp::db::create_schedule(
+            &conn,
+            params.project_id,
+            &params.project_name,
+            params.environment,
+            params.appconfig_id,
+            &params.publish_type,
+            &params.scheduled_time,
+        )
+        .map_err(|e| ErrorData::internal_error(e, None))?;
+
+        // 审计日志
+        self.audit(
+            AuditEntry::new("schedule_create", "ok")
+                .with_file_path(&format!(
+                    "project_id={},scheduled_time={}",
+                    params.project_id, params.scheduled_time
+                )),
+        );
+
+        Ok(CallToolResult::success(vec![ContentBlock::text(
+            serde_json::json!({"id": new_id}).to_string(),
+        )]))
+    }
+
+    /// 取消定时发布任务
+    #[tool(description = "取消定时发布任务（仅允许取消 pending 状态的任务）")]
+    async fn schedule_cancel(&self, Parameters(params): Parameters<ScheduleIdParam>) -> Result<CallToolResult, ErrorData> {
+        let conn = crate::mcp::db::open_db(&self.app_handle).map_err(|e| ErrorData::internal_error(e, None))?;
+
+        // 状态校验：仅 pending 可取消
+        let status = crate::mcp::db::get_schedule_status(&conn, params.id)
+            .map_err(|e| ErrorData::internal_error(e, None))?;
+        if status != "pending" {
+            return Err(ErrorData::invalid_params(
+                format!("任务状态为 {}，不能取消（仅 pending 可取消）", status),
+                None,
+            ));
+        }
+
+        crate::mcp::db::cancel_schedule(&conn, params.id)
+            .map_err(|e| ErrorData::internal_error(e, None))?;
+
+        // 返回更新后的任务记录
+        let updated = crate::mcp::db::query_schedule_by_id(&conn, params.id)
+            .map_err(|e| ErrorData::internal_error(e, None))?;
+        let json = serde_json::to_value(&updated)
+            .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+
+        // 审计日志
+        self.audit(
+            AuditEntry::new("schedule_cancel", "ok")
+                .with_file_path(&format!("schedule_id={}", params.id)),
+        );
+
+        Ok(CallToolResult::success(vec![ContentBlock::text(json.to_string())]))
+    }
+
+    /// 修改定时发布任务的计划执行时间
+    #[tool(description = "修改定时发布任务的计划执行时间（仅允许修改 pending 状态的任务）")]
+    async fn schedule_update_time(&self, Parameters(params): Parameters<ScheduleUpdateTimeParam>) -> Result<CallToolResult, ErrorData> {
+        let conn = crate::mcp::db::open_db(&self.app_handle).map_err(|e| ErrorData::internal_error(e, None))?;
+
+        // 状态校验：仅 pending 可修改
+        let status = crate::mcp::db::get_schedule_status(&conn, params.id)
+            .map_err(|e| ErrorData::internal_error(e, None))?;
+        if status != "pending" {
+            return Err(ErrorData::invalid_params(
+                format!("任务状态为 {}，不能修改时间（仅 pending 可修改）", status),
+                None,
+            ));
+        }
+
+        crate::mcp::db::update_schedule_time(&conn, params.id, &params.scheduled_time)
+            .map_err(|e| ErrorData::internal_error(e, None))?;
+
+        // 返回更新后的任务记录
+        let updated = crate::mcp::db::query_schedule_by_id(&conn, params.id)
+            .map_err(|e| ErrorData::internal_error(e, None))?;
+        let json = serde_json::to_value(&updated)
+            .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+
+        Ok(CallToolResult::success(vec![ContentBlock::text(json.to_string())]))
+    }
+
+    /// 删除定时发布任务
+    #[tool(description = "删除定时发布任务")]
+    async fn schedule_delete(&self, Parameters(params): Parameters<ScheduleIdParam>) -> Result<CallToolResult, ErrorData> {
+        let conn = crate::mcp::db::open_db(&self.app_handle).map_err(|e| ErrorData::internal_error(e, None))?;
+        crate::mcp::db::delete_schedule(&conn, params.id)
+            .map_err(|e| ErrorData::internal_error(e, None))?;
+        Ok(CallToolResult::success(vec![ContentBlock::text(
+            serde_json::json!({"id": params.id}).to_string(),
+        )]))
+    }
 }
