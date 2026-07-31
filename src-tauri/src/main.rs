@@ -148,14 +148,11 @@ fn main() {
             parse_sln_module::find_assembly_name,
         ])
         // 保持前端在后台运行
-        .on_window_event(|window, event| match event {
-            tauri::WindowEvent::CloseRequested { api, .. } => {
-                if let Err(e) = window.hide() {
-                    eprintln!("隐藏窗口失败: {:?}", e);
-                }
-                api.prevent_close();
+        .on_window_event(|window, event| if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            if let Err(e) = window.hide() {
+                eprintln!("隐藏窗口失败: {:?}", e);
             }
-            _ => {}
+            api.prevent_close();
         })
         .run(tauri::generate_context!())
         .expect("运行Tauri应用程序出错，请检查！");

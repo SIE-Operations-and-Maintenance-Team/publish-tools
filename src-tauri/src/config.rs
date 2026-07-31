@@ -51,18 +51,12 @@ impl Default for McpConfig {
 
 /// 应用配置（包含 MCP 配置）
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct AppConfig {
     #[serde(default)]
     pub mcp: McpConfig,
 }
 
-impl Default for AppConfig {
-    fn default() -> Self {
-        Self {
-            mcp: McpConfig::default(),
-        }
-    }
-}
 
 /// 获取 config.json 文件路径
 fn config_path(app_handle: &tauri::AppHandle) -> PathBuf {

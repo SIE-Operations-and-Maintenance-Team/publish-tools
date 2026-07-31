@@ -306,7 +306,7 @@ pub async fn zip_dir(src_dir: &str, dst_file: &str) -> Result<bool, String> {
                 .map_err(|e| e.to_string())?;
             let mut f = File::open(path).map_err(|e| e.to_string())?;
             io::copy(&mut f, &mut zip).map_err(|e| e.to_string())?;
-        } else if path.is_dir() && name.as_os_str().len() != 0 {
+        } else if path.is_dir() && !name.as_os_str().is_empty() {
             // zip.add_directory_from_path(name, options)
             zip.add_directory(path_to_string(name), options)
                 .map_err(|e| e.to_string())?;
@@ -324,7 +324,7 @@ fn path_to_string(path: &std::path::Path) -> String {
             if !path_str.is_empty() {
                 path_str.push('/');
             }
-            path_str.push_str(&*os_str.to_string_lossy());
+            path_str.push_str(&os_str.to_string_lossy());
         }
     }
     path_str
@@ -593,7 +593,7 @@ pub async fn copy_path_by_time(
     }
 
     // 复制文件
-    let metadata = match fs::metadata(&source) {
+    let metadata = match fs::metadata(source) {
         Ok(meta) => meta,
         Err(e) => return Err(format!("获取文件元数据失败: {}", e)),
     };
@@ -605,7 +605,7 @@ pub async fn copy_path_by_time(
         Err(e) => return Err(format!("获取文件修改时间失败: {}", e)),
     };
     if modified_time >= start_date && modified_time <= end_date {
-        if let Err(e) = fs::copy(&source, &destination) {
+        if let Err(e) = fs::copy(source, destination) {
             return Err(format!("复制文件失败: {}", e));
         }
     }
@@ -654,7 +654,7 @@ pub async fn copy_dll_files(
             Err(e) => return Err(format!("无法读取目录条目: {}", e)),
         };
         let path = entry.path();
-        if path.is_file() && path.extension().map_or(false, |ext| ext == "dll") {
+        if path.is_file() && path.extension().is_some_and(|ext| ext == "dll") {
             let destination_file = dst_dir.join(path.file_name().ok_or("无效的文件名")?);
             if let Err(e) = fs::copy(&path, &destination_file) {
                 return Err(format!("无法复制文件: {}", e));
@@ -946,7 +946,7 @@ async fn exec_download_server_files(
                             .map_err(|e| format!("无法创建本地目录: {:?}", e))?;
                     } else {
                         // 下载文件
-                        if !download_server_file(&entry_path, &local_file_path, &sftp) {
+                        if !download_server_file(entry_path, &local_file_path, &sftp) {
                             return Err(format!("下载文件[{}]失败！", entry_path.display()));
                         }
                     }
@@ -1005,11 +1005,10 @@ fn download_server_file(remote_path: &Path, local_path: &Path, sftp: &ssh2::Sftp
         Ok(mut remote_file) => {
             if let Ok(mut local_file) = File::create(local_path) {
                 let mut buffer = Vec::new();
-                if remote_file.read_to_end(&mut buffer).is_ok() {
-                    if local_file.write_all(&buffer).is_ok() {
+                if remote_file.read_to_end(&mut buffer).is_ok()
+                    && local_file.write_all(&buffer).is_ok() {
                         return true;
                     }
-                }
             }
         }
         Err(e) => {
@@ -1118,7 +1117,7 @@ async fn exec_upload_server_files(
                             .map_err(|e| format!("无法创建远程目录: {:?}", e))?;
                     } else {
                         // 上传文件
-                        if !upload_server_file(&entry_path, &remote_file_path, &sftp) {
+                        if !upload_server_file(entry_path, &remote_file_path, &sftp) {
                             return Err(format!("上传文件[{}]失败！", entry_path.display()));
                         }
                     }
@@ -1251,7 +1250,7 @@ async fn exec_local_command(command: &str, args: Vec<String>) -> Result<String, 
                 Ok(stdout.to_string())
             } else {
                 let (stderr, _, _) = GBK.decode(&output.stderr);
-                Err(format!("命令失败，出现错误:\n{}", stderr.to_string()))
+                Err(format!("命令失败，出现错误:\n{}", stderr))
             }
         }
         Err(e) => {
@@ -1352,7 +1351,7 @@ async fn exec_local_command_with_working_dir(
         Ok(output) => {
             if output.status.success() {
                 // 尝试使用 UTF-8 解码，如果失败则回退到 GBK 解码
-                let (stdout, encoding_used, is_errors) = UTF_8.decode(&output.stdout);
+                let (stdout, _encoding_used, is_errors) = UTF_8.decode(&output.stdout);
                 if is_errors {
                     // 如果 UTF-8 解码出现错误，使用 GBK 解码
                     let (gbk_stdout, _, _) = GBK.decode(&output.stdout);
@@ -1362,12 +1361,12 @@ async fn exec_local_command_with_working_dir(
                 }
             } else {
                 // 错误信息同样处理编码问题
-                let (stderr, encoding_used, is_errors) = UTF_8.decode(&output.stderr);
+                let (stderr, _encoding_used, is_errors) = UTF_8.decode(&output.stderr);
                 if is_errors {
                     let (gbk_stderr, _, _) = GBK.decode(&output.stderr);
-                    Err(format!("命令失败，出现错误:\n{}", gbk_stderr.to_string()))
+                    Err(format!("命令失败，出现错误:\n{}", gbk_stderr))
                 } else {
-                    Err(format!("命令失败，出现错误:\n{}", stderr.to_string()))
+                    Err(format!("命令失败，出现错误:\n{}", stderr))
                 }
             }
         }
@@ -1513,7 +1512,7 @@ pub async fn get_encryption_key() -> String {
     // 先写死
     let key = "REX_SMOM_15200";
     // ...
-    return key.to_string();
+    key.to_string()
 }
 
 /// 删除指定目录中所有以给定前缀开头的文件
@@ -1671,10 +1670,8 @@ fn parse_patterns(patterns_text: &str) -> Vec<Regex> {
                     patterns.push(re);
                 }
             }
-        } else {
-            if let Ok(re) = wildcard_to_regex(line) {
-                patterns.push(re);
-            }
+        } else if let Ok(re) = wildcard_to_regex(line) {
+            patterns.push(re);
         }
     }
     patterns

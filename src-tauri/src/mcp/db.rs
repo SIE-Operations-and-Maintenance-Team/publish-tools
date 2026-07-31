@@ -32,8 +32,7 @@ fn rows_to_json(conn: &Connection, sql: &str, params: &[&dyn rusqlite::types::To
 
     let rows = stmt.query_map(params, |row| {
         let mut map = serde_json::Map::new();
-        for i in 0..col_count {
-            let name = &col_names[i];
+        for (i, name) in col_names.iter().enumerate() {
             let val: rusqlite::types::Value = row.get_unwrap(i);
             let json_val = sqlite_val_to_json(val);
             map.insert(name.clone(), json_val);
