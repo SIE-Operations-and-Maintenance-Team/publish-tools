@@ -1,8 +1,5 @@
 // src/database/import-export/index.ts
 import { db } from "@/database/sqlite";
-import type { RowProjectType } from "@/types/project";
-import type { RowAppconfigType } from "@/types/appconfig";
-import type { RowServerType } from "@/types/server";
 
 /**
  * 从 ConfigItemsType JSON 中提取所有被引用的 server ID
@@ -90,6 +87,7 @@ export function useImportExportDb() {
             if (serverRows && serverRows.length > 0) {
               const srv = serverRows[0];
               servers.push({
+                oldServerId: srv.id ?? 0,
                 name: srv.name,
                 os: srv.os,
                 ip: srv.ip,
@@ -131,8 +129,17 @@ export function useImportExportDb() {
     },
 
     /**
-     * 执行导入。每条 ExportItem 独立事务：冲突时级联删除旧数据 -> 插入新数据 -> serverId 重映射。
-     * 单条失败回滚该条事务，继续下一条。
+     * 执行导入。采用「先插新 -> 全部成功后删旧 -> 失败补偿」策略，不使用显式事务。
+     *
+     * 背景：plugin-sql 底层为 sqlx 连接池（默认 max_connections=10），每次 execute/select
+     * 落在不同连接上；前端 BEGIN/COMMIT 跨连接无法绑定同一连接，会导致写锁互斥超时
+     * 报 "database is locked" (code 5)。故改用补偿式保证业务一致性：
+     *   1. 记录冲突的旧 projectId（先不删）
+     *   2. 插入新 project / appconfig / servers，并做 serverId 重映射
+     *   3. 新数据全部成功后，才删除旧数据（删旧失败不影响新数据，仅记录警告）
+     *   4. 任一步骤失败 -> 补偿删除本次新插入的数据（按 newProjectId 级联），旧数据保持不动
+     *
+     * 单条失败回滚该条（补偿清理），继续下一条。
      *
      * @param items - 导入项数组
      * @returns ImportResult[] 每条结果
@@ -150,40 +157,21 @@ export function useImportExportDb() {
           message: "",
         };
 
+        // 声明在外层，供 catch 中失败补偿清理使用
+        let newProjectId = 0;
+
         try {
           const database = await db();
 
-          // 开启事务
-          await database.execute("BEGIN TRANSACTION");
-
-          // 1. 冲突检测
+          // 1. 冲突检测：记录所有同 code 的旧 projectId（先不删，确保新数据插入成功后再删）
+          //    收集全部，避免历史残留的重复记录累积
           const existRows = await database.select<{ id: number }[]>(
             "SELECT id FROM t_project WHERE code = $1",
             [item.project.code]
           );
+          const oldProjectIds = (existRows || []).map((r) => r.id);
 
-          let oldProjectId: number | null = null;
-          if (existRows && existRows.length > 0) {
-            oldProjectId = existRows[0].id;
-          }
-
-          // 2. 级联删除旧数据
-          if (oldProjectId !== null) {
-            await database.execute(
-              "DELETE FROM t_server WHERE project_id = $1",
-              [oldProjectId]
-            );
-            await database.execute(
-              "DELETE FROM t_app_config WHERE project_id = $1",
-              [oldProjectId]
-            );
-            await database.execute(
-              "DELETE FROM t_project WHERE id = $1",
-              [oldProjectId]
-            );
-          }
-
-          // 3. 插入新 project（isDefault 不导入旧值，固定为 0）
+          // 2. 插入新 project（isDefault 不导入旧值，固定为 0）
           const insertProjectResult = await database.execute(
             "INSERT INTO t_project (code, name, description, is_default, assembly_out_path) VALUES($1, $2, $3, $4, $5) RETURNING id;",
             [
@@ -194,12 +182,12 @@ export function useImportExportDb() {
               item.project.assemblyOutPath,
             ]
           );
-          const newProjectId = insertProjectResult.lastInsertId;
+          newProjectId = insertProjectResult.lastInsertId ?? 0;
           if (!newProjectId || newProjectId <= 0) {
             throw new Error("插入 project 失败，未获取到新 ID");
           }
 
-          // 4. 插入新 appconfig（buildMode 默认 Debug）
+          // 3. 插入新 appconfig（buildMode 默认 Debug）
           const insertAppconfigResult = await database.execute(
             "INSERT INTO t_app_config (project_id, environment, ms_build_path, dll_mode, dll_mode_value, build_mode, config_items_json) VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING id;",
             [
@@ -212,12 +200,12 @@ export function useImportExportDb() {
               item.appconfig.configItemsJson,
             ]
           );
-          const newAppconfigId = insertAppconfigResult.lastInsertId;
+          const newAppconfigId = insertAppconfigResult.lastInsertId ?? 0;
           if (!newAppconfigId || newAppconfigId <= 0) {
             throw new Error("插入 appconfig 失败，未获取到新 ID");
           }
 
-          // 5. 插入 servers，记录 oldId -> newId 映射
+          // 4. 插入 servers，记录 oldId -> newId 映射
           const serverIdMap: Record<number, number> = {};
 
           // 先从 configItemsJson 中提取原始 serverIds 作为 oldId
@@ -245,13 +233,13 @@ export function useImportExportDb() {
                   srv.description,
                 ]
               );
-              const newServerId = insertServerResult.lastInsertId;
+              const newServerId = insertServerResult.lastInsertId ?? 0;
               if (newServerId && newServerId > 0 && si < oldServerIds.length) {
                 serverIdMap[oldServerIds[si]] = newServerId;
               }
             }
 
-            // 6. serverId 重映射：更新 configItemsJson 中的 serverId 引用
+            // 5. serverId 重映射：更新 configItemsJson 中的 serverId 引用
             if (Object.keys(serverIdMap).length > 0) {
               let updatedJson = item.appconfig.configItemsJson;
               for (const [oldIdStr, newId] of Object.entries(serverIdMap)) {
@@ -272,18 +260,56 @@ export function useImportExportDb() {
             }
           }
 
-          // 提交事务
-          await database.execute("COMMIT");
+          // 6. 新数据全部插入成功后，删除旧数据（放最后，确保"删旧"不会先于"插新"导致数据丢失）
+          //    删旧失败不影响新数据可用性，仅记录警告
+          let cleanupWarning = "";
+          for (const oldId of oldProjectIds) {
+            try {
+              await database.execute(
+                "DELETE FROM t_server WHERE project_id = $1",
+                [oldId]
+              );
+              await database.execute(
+                "DELETE FROM t_app_config WHERE project_id = $1",
+                [oldId]
+              );
+              await database.execute(
+                "DELETE FROM t_project WHERE id = $1",
+                [oldId]
+              );
+            } catch (cleanErr) {
+              cleanupWarning += ` 旧记录 id=${oldId} 清理失败: ${(cleanErr as Error).message};`;
+            }
+          }
 
           result.success = true;
-          result.message = "导入成功";
+          result.message = cleanupWarning
+            ? `导入成功，但存在清理警告:${cleanupWarning}`
+            : "导入成功";
         } catch (err: any) {
-          // 回滚事务
-          try {
-            const database = await db();
-            await database.execute("ROLLBACK");
-          } catch {
-            // 忽略回滚错误
+          // 失败补偿：删除本次已插入的新数据（按 newProjectId 级联清理），保证不留半成品
+          if (newProjectId) {
+            try {
+              const database = await db();
+              await database.execute(
+                "DELETE FROM t_server WHERE project_id = $1",
+                [newProjectId]
+              );
+              await database.execute(
+                "DELETE FROM t_app_config WHERE project_id = $1",
+                [newProjectId]
+              );
+              await database.execute(
+                "DELETE FROM t_project WHERE id = $1",
+                [newProjectId]
+              );
+            } catch (cleanErr) {
+              // 补偿清理失败需上报，不吞掉
+              console.error(
+                `[import-export] 补偿清理失败 item ${i}, newProjectId=${newProjectId}:`,
+                cleanErr
+              );
+            }
           }
           result.success = false;
           result.message = `导入失败: ${err?.message || JSON.stringify(err)}`;

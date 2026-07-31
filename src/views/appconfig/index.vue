@@ -496,7 +496,7 @@ const onImportConfig = async () => {
 };
 
 // 导入确认回调
-const onImportConfirm = async (previewItems: ImportPreviewItem[]) => {
+const onImportConfirm = async (_previewItems: ImportPreviewItem[]) => {
   const dialog = importPreviewDialogRef.value;
   dialog.setImporting(true);
 
@@ -524,7 +524,17 @@ const onImportConfirm = async (previewItems: ImportPreviewItem[]) => {
       ElMessage.warning(`成功 ${succeeded} 条，失败 ${failed} 条`);
     } else {
       dialog.setProgress(100, "exception");
-      ElMessage.error(`全部导入失败`);
+      // 收集失败原因（去重）
+      const failReasons = results
+        .filter((r) => !r.success)
+        .map((r) => r.message)
+        .filter(Boolean);
+      const distinctReasons = [...new Set(failReasons)];
+      const detailMsg =
+        distinctReasons.length > 0
+          ? `：${distinctReasons.join("；")}`
+          : "";
+      ElMessage.error(`全部导入失败${detailMsg}`);
     }
 
     dialog.closeDialog();
