@@ -182,3 +182,146 @@ pub fn query_restores(conn: &Connection, backup_id: Option<i64>) -> Result<Vec<V
     let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
     rows_to_json(conn, &sql, &param_refs)
 }
+
+// ── 定时发布查询（Phase 4）──
+
+/// 查询定时发布任务列表（t_publish_schedule），支持按 project_id 和 status 筛选
+pub fn query_schedules(
+    conn: &Connection,
+    project_id: Option<i64>,
+    status: Option<&str>,
+) -> Result<Vec<Value>, String> {
+    let mut conditions: Vec<String> = Vec::new();
+    let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+
+    if let Some(pid) = project_id {
+        conditions.push(format!("project_id = ?{}", params.len() + 1));
+        params.push(Box::new(pid));
+    }
+    if let Some(s) = status {
+        conditions.push(format!("status = ?{}", params.len() + 1));
+        params.push(Box::new(s.to_string()));
+    }
+
+    let where_clause = if conditions.is_empty() {
+        String::new()
+    } else {
+        format!("WHERE {}", conditions.join(" AND "))
+    };
+
+    let sql = format!(
+        "SELECT id, project_id, project_name, environment, appconfig_id, publish_type, \
+         scheduled_time, status, create_time, execute_time, result_log \
+         FROM t_publish_schedule {} ORDER BY scheduled_time DESC",
+        where_clause
+    );
+    let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+    rows_to_json(conn, &sql, &param_refs)
+}
+
+/// 按 ID 查询单条定时发布任务
+pub fn query_schedule_by_id(conn: &Connection, id: i64) -> Result<Value, String> {
+    let mut results = rows_to_json(
+        conn,
+        "SELECT id, project_id, project_name, environment, appconfig_id, publish_type, \
+         scheduled_time, status, create_time, execute_time, result_log \
+         FROM t_publish_schedule WHERE id = ?1",
+        &[&id],
+    )?;
+    if results.is_empty() {
+        Err(format!("定时任务 id={} 不存在", id))
+    } else {
+        Ok(results.remove(0))
+    }
+}
+
+/// 查询所有待执行的定时发布任务（status = 'pending'，按 scheduled_time 升序）
+pub fn query_pending_schedules(conn: &Connection) -> Result<Vec<Value>, String> {
+    rows_to_json(
+        conn,
+        "SELECT id, project_id, project_name, environment, appconfig_id, publish_type, \
+         scheduled_time, status, create_time, execute_time, result_log \
+         FROM t_publish_schedule WHERE status = 'pending' ORDER BY scheduled_time ASC",
+        &[],
+    )
+}
+
+/// 创建定时发布任务，返回新插入的 ID
+pub fn create_schedule(
+    conn: &Connection,
+    project_id: i64,
+    project_name: &str,
+    environment: i64,
+    appconfig_id: i64,
+    publish_type: &str,
+    scheduled_time: &str,
+) -> Result<i64, String> {
+    conn.execute(
+        "INSERT INTO t_publish_schedule \
+         (project_id, project_name, environment, appconfig_id, publish_type, scheduled_time, status, create_time) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', datetime('now', 'localtime'))",
+        params![project_id, project_name, environment, appconfig_id, publish_type, scheduled_time],
+    )
+    .map_err(|e| format!("创建定时发布任务失败: {e}"))?;
+
+    Ok(conn.last_insert_rowid())
+}
+
+/// 获取定时任务当前状态（用于 handler 层状态校验）
+pub fn get_schedule_status(conn: &Connection, id: i64) -> Result<String, String> {
+    let results = rows_to_json(
+        conn,
+        "SELECT status FROM t_publish_schedule WHERE id = ?1",
+        &[&id],
+    )?;
+    if results.is_empty() {
+        Err(format!("定时任务 id={} 不存在", id))
+    } else {
+        results[0]["status"]
+            .as_str()
+            .map(|s| s.to_string())
+            .ok_or_else(|| "无法读取任务状态".to_string())
+    }
+}
+
+/// 取消定时任务（设置 status = 'cancelled'，记录 execute_time）
+pub fn cancel_schedule(conn: &Connection, id: i64) -> Result<(), String> {
+    let affected = conn
+        .execute(
+            "UPDATE t_publish_schedule SET status = 'cancelled', execute_time = datetime('now', 'localtime') WHERE id = ?1",
+            params![id],
+        )
+        .map_err(|e| format!("取消定时任务失败: {e}"))?;
+    if affected == 0 {
+        Err(format!("定时任务 id={} 不存在", id))
+    } else {
+        Ok(())
+    }
+}
+
+/// 更新定时任务的计划执行时间
+pub fn update_schedule_time(conn: &Connection, id: i64, scheduled_time: &str) -> Result<(), String> {
+    let affected = conn
+        .execute(
+            "UPDATE t_publish_schedule SET scheduled_time = ?1 WHERE id = ?2",
+            params![scheduled_time, id],
+        )
+        .map_err(|e| format!("更新定时任务时间失败: {e}"))?;
+    if affected == 0 {
+        Err(format!("定时任务 id={} 不存在", id))
+    } else {
+        Ok(())
+    }
+}
+
+/// 删除定时任务
+pub fn delete_schedule(conn: &Connection, id: i64) -> Result<(), String> {
+    let affected = conn
+        .execute("DELETE FROM t_publish_schedule WHERE id = ?1", params![id])
+        .map_err(|e| format!("删除定时任务失败: {e}"))?;
+    if affected == 0 {
+        Err(format!("定时任务 id={} 不存在", id))
+    } else {
+        Ok(())
+    }
+}
