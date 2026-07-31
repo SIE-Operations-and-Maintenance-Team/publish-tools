@@ -269,7 +269,7 @@ pub fn create_schedule(
 
 /// 获取定时任务当前状态（用于 handler 层状态校验）
 pub fn get_schedule_status(conn: &Connection, id: i64) -> Result<String, String> {
-    let mut results = rows_to_json(
+    let results = rows_to_json(
         conn,
         "SELECT status FROM t_publish_schedule WHERE id = ?1",
         &[&id],
