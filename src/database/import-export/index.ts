@@ -101,6 +101,7 @@ export function useImportExportDb() {
             }
           }
 
+          // 导出时固定为「当天」获取方式，不保留原配置的获取DLL方式内容
           items.push({
             project: {
               code: proj.code ?? "",
@@ -112,8 +113,8 @@ export function useImportExportDb() {
             appconfig: {
               environment: ac.environment ?? 0,
               msBuildPath: ac.msBuildPath,
-              dllMode: ac.dllMode,
-              dllModeValue: ac.dllModeValue,
+              dllMode: "当天",
+              dllModeValue: null,
               buildMode: ac.buildMode ?? "Debug",
               configItemsJson: ac.configItemsJson ?? "{}",
             },

@@ -361,6 +361,24 @@ const onBatchDel = () => {
   });
 };
 
+// 本地时间格式化:YYYY-MM-DD HH:mm:ss(24 小时制)
+const formatDateTime = (date: Date): string => {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  );
+};
+
+// 时间戳格式化:YYYYMMDDHHmmss(用于导出文件名)
+const formatTimestamp = (date: Date): string => {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}` +
+    `${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`
+  );
+};
+
 // 导出选中
 const onExportSelected = async () => {
   if (selectedRows.value.length === 0) return;
@@ -376,10 +394,10 @@ const onExportSelected = async () => {
       return;
     }
 
-    // 2. 组装 ExportFile
+    // 2. 组装 ExportFile（exportedAt 使用本地时间的 24 小时制标准时间字符串）
     const exportFile: ExportFile = {
       version: 1,
-      exportedAt: new Date().toISOString(),
+      exportedAt: formatDateTime(new Date()),
       items,
     };
 
@@ -391,10 +409,9 @@ const onExportSelected = async () => {
       return;
     }
 
-    // 4. 保存对话框
-    const dateStr = new Date().toISOString().slice(0, 10);
+    // 4. 保存对话框（文件名格式：20260803094406）
     const filePath = await save({
-      defaultPath: `SMOM-Config-export-${dateStr}.smomconfig`,
+      defaultPath: `SMOM-Config-export-${formatTimestamp(new Date())}.smomconfig`,
       filters: [{ name: "SMOM配置", extensions: ["smomconfig"] }],
     });
     if (!filePath) {
