@@ -198,6 +198,8 @@ jobs:
       # 将自动补全的 update.json 推回 master（[skip ci] 避免再次触发流水线）
       - name: Push update.json back to master
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           if git diff --quiet -- update.json; then
             echo "update.json 无变化，跳过推送"
