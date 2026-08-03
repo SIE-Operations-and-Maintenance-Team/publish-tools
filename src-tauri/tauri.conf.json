@@ -28,7 +28,7 @@
   "identifier": "com.smompublish.tool",
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDkxNTkyQTA0RTE2NzI4MEQKUldRTktHZmhCQ3Baa2RUUmJOVDI2a2xza2UyN21QeEdIbFhhWkIzc1d3R1JLTnA4N2IwNzNGSWoK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDIxMEQwM0Y3MjZENjk0RUQKUldUdGxOWW05d01OSVY2U29NN2Jqd3F4RjVEZ0ZPZWxtYTZtRXRYdzYrdDdhTCsvWG1qMS9HMWUK",
       "endpoints": [
         "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/raw/master/update.json"
       ]
