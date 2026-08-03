@@ -56,7 +56,7 @@
           </el-col>
           <el-col :span="15" class="mb15" v-show="state.ruleForm.dllMode === '日期范围'">
             <el-form-item label-width="0" prop="dllModeValue">
-              <el-date-picker v-model="dllModeDate" type="datetimerange" range-separator="~" start-placeholder="起始日期"
+              <el-date-picker v-model="dllModeDate" type="datetimerange" :default-time="DLL_MODE_DEFAULT_TIME" range-separator="~" start-placeholder="起始日期"
                 end-placeholder="截止日期" @change="onDllModeDateChange" />
             </el-form-item>
           </el-col>
@@ -536,6 +536,11 @@ const formDisabled = ref(false);
 const generateDirs = ref<string[]>([]);
 const compressFiles = ref([]);
 const dllModeDate = ref<[Date, Date]>();
+// 日期范围选择器默认时间：起始日 00:00:00，截止日 23:59:59（覆盖截止日全天）
+const DLL_MODE_DEFAULT_TIME: [Date, Date] = [
+  new Date(2000, 0, 1, 0, 0, 0),
+  new Date(2000, 0, 1, 23, 59, 59),
+];
 const selectTfsItem = ref<SelectTfsType>({
   id: null,
   tfsName: null,
