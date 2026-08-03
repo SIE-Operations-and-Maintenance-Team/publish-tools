@@ -91,23 +91,22 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
-      # 从 Tauri 生成的 updater 元数据中提取 NSIS/MSI 签名，供 release 作业写入 update.json
+      # 从 Tauri 生成的 .sig 文件中读取 NSIS/MSI 签名（文件内容即 signature）
+      #（Tauri 2 CI 构建只产出 .sig 签名文件，不产出 update 元数据 JSON）
       - name: Extract updater signatures
-        working-directory: src-tauri
         shell: pwsh
         run: |
-          $nsisMeta = "target/release/bundle/nsis/smompublish-update.json"
-          $msiMeta  = "target/release/bundle/msi/smompublish-update.json"
-          if (-not (Test-Path $nsisMeta)) { throw "NSIS updater metadata not found: $nsisMeta" }
-          if (-not (Test-Path $msiMeta))  { throw "MSI updater metadata not found: $msiMeta" }
-          $nsis = Get-Content $nsisMeta -Raw | ConvertFrom-Json
-          $msi  = Get-Content $msiMeta  -Raw | ConvertFrom-Json
+          function Get-Sig([string]$dir) {
+            $dir = (Resolve-Path $dir).Path
+            $files = @(Get-ChildItem -Path $dir -Filter "*.sig" -ErrorAction Stop)
+            if ($files.Count -ne 1) { throw "Expected exactly 1 .sig file in $dir, found $($files.Count)" }
+            return [System.IO.File]::ReadAllText($files[0].FullName).Trim()
+          }
           $out = @{
-            version = $nsis.version
-            nsis    = @{ signature = $nsis.signature; url = $nsis.url }
-            msi     = @{ signature = $msi.signature;  url = $msi.url }
+            nsis = Get-Sig "src-tauri/target/release/bundle/nsis"
+            msi  = Get-Sig "src-tauri/target/release/bundle/msi"
           } | ConvertTo-Json
-          [System.IO.File]::WriteAllText("../smompublish-signatures.json", $out)
+          [System.IO.File]::WriteAllText("$env:GITHUB_WORKSPACE/smompublish-signatures.json", $out)
 
       # 将安装包复制到扁平目录（upload-artifact 会保留上传路径，不扁平化会导致 release 步骤匹配不到文件）
       - name: Stage installers
@@ -183,11 +182,11 @@ jobs:
           data["pub_date"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
           data["notes"] = data["notes"].replace("0.0.26", version)
           data["platforms"]["windows-x86_64"] = {
-              "signature": sigs["nsis"]["signature"],
+              "signature": sigs["nsis"],
               "url": base + "/" + nsis_exe,
           }
           data["platforms"]["windows-msi"] = {
-              "signature": sigs["msi"]["signature"],
+              "signature": sigs["msi"],
               "url": base + "/" + msi_file,
           }
 
