@@ -178,9 +178,12 @@ jobs:
           with open("sigs/smompublish-signatures.json", encoding="utf-8") as f:
               sigs = json.load(f)
 
+          old_version = data["version"]  # 发布前版本号（notes 中下载链接/文件名指向的旧版本）
           data["version"] = version
           data["pub_date"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-          data["notes"] = data["notes"].replace("0.0.26", version)
+          if old_version not in data["notes"]:
+              print(f"WARNING: '{old_version}' not found in notes; download links will keep the old version", flush=True)
+          data["notes"] = data["notes"].replace(old_version, version)
           data["platforms"]["windows-x86_64"] = {
               "signature": sigs["nsis"],
               "url": base + "/" + nsis_exe,
