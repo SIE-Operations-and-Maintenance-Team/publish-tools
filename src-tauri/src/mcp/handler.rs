@@ -404,14 +404,15 @@ impl McpHandler {
 
     /// 获取或设置 MCP 配置
     ///
-    /// 无参数时返回当前 MCP 配置；传 mcp_enabled/mcp_port 时写入 config.json。
-    /// 修改配置后当前 MCP 连接不重启，下次应用启动时生效。
-    #[tool(description = "获取或设置 MCP 配置（mcp_enabled/mcp_port）。修改后不重启当前连接，下次启动生效")]
+    /// 无参数时返回当前 MCP 配置；传 mcp_enabled/mcp_port 时写入 config.json，
+    /// 并立即重启/停止 MCP 服务使新配置生效。
+    #[tool(description = "获取或设置 MCP 配置（mcp_enabled/mcp_port）。修改后立即生效")]
     async fn mcp_config(&self, Parameters(params): Parameters<McpConfigParam>) -> Result<CallToolResult, ErrorData> {
         // 如果有参数，先写入 config.json
         if params.mcp_enabled.is_some() || params.mcp_port.is_some() {
             crate::config::update_mcp_config(&self.app_handle, params.mcp_enabled, params.mcp_port)
                 .map_err(|e| ErrorData::internal_error(e, None))?;
+            crate::mcp::manager::apply(&self.app_handle);
         }
         // 读取当前配置返回
         let cfg = crate::config::load(&self.app_handle);

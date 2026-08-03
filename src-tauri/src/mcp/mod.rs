@@ -1,6 +1,7 @@
 pub mod audit;
 pub mod db;
 pub mod handler;
+pub mod manager;
 pub mod types;
 
 use crate::mcp::audit::AuditLogger;

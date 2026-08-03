@@ -2,7 +2,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::process;
-use tauri::Emitter;
 use tauri::Manager;
 use SmomPublish::cmd_module::file_module;
 use SmomPublish::cmd_module::parse_sln_module;
@@ -27,15 +26,16 @@ fn get_mcp_config(app_handle: tauri::AppHandle) -> Result<SmomPublish::config::M
     Ok(cfg.mcp)
 }
 
-/// 更新 MCP 配置
+/// 更新 MCP 配置（保存后立即生效：启动/停止 MCP 服务）
 #[tauri::command]
 fn update_mcp_config(
     app_handle: tauri::AppHandle,
     mcp_enabled: Option<bool>,
     mcp_port: Option<u16>,
 ) -> Result<SmomPublish::config::McpConfig, String> {
-    SmomPublish::config::update_mcp_config(&app_handle, mcp_enabled, mcp_port)
-        .map(|cfg| cfg.mcp)
+    let cfg = SmomPublish::config::update_mcp_config(&app_handle, mcp_enabled, mcp_port)?;
+    SmomPublish::mcp::manager::apply(&app_handle);
+    Ok(cfg.mcp)
 }
 
 /// 获取 MCP 运行状态（持久化，不依赖事件时序）
@@ -70,37 +70,8 @@ fn main() {
             // 初始化托盘菜单
             SmomPublish::tray::smom_menu(app.handle()).expect("初始化托盘失败，请检查！");
 
-            // 启动 MCP Server（在 async 上下文中直接 await，不 block_on）
-            let cfg = SmomPublish::config::load(app.handle());
-            if cfg.mcp.mcp_enabled {
-                let handle = app.handle().clone();
-                let port = cfg.mcp.mcp_port;
-                tauri::async_runtime::spawn(async move {
-                    match SmomPublish::mcp::serve(handle.clone(), port).await {
-                        Err(e) => {
-                            eprintln!("[mcp] {e}；MCP 不可用，主界面继续运行");
-                            SmomPublish::config::set_mcp_status("error");
-                            let _ = handle.emit("mcp-status", serde_json::json!({
-                                "status": "error",
-                                "message": e
-                            }));
-                        }
-                        Ok(()) => {
-                            println!("[mcp] MCP Server 已正常退出");
-                            SmomPublish::config::set_mcp_status("stopped");
-                            let _ = handle.emit("mcp-status", serde_json::json!({
-                                "status": "stopped"
-                            }));
-                        }
-                    }
-                });
-            } else {
-                println!("[mcp] MCP 已禁用（mcp_enabled=false），跳过启动");
-                SmomPublish::config::set_mcp_status("disabled");
-                let _ = app.handle().emit("mcp-status", serde_json::json!({
-                    "status": "disabled"
-                }));
-            }
+            // 初始化 MCP Server 管理（按配置启动；后续配置变更通过 update_mcp_config 动态启停）
+            SmomPublish::mcp::manager::init(app.handle());
 
             Ok(())
         })
@@ -156,4 +127,7 @@ fn main() {
         })
         .run(tauri::generate_context!())
         .expect("运行Tauri应用程序出错，请检查！");
+
+    // 应用退出时停止 MCP 服务（清理管理循环）
+    SmomPublish::mcp::manager::stop_after_run();
 }
