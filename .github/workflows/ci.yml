@@ -167,8 +167,10 @@ jobs:
           # tag 名如 v0.0.28 → 版本 0.0.28
           ref = os.environ["GITHUB_REF"]
           version = ref.rsplit("/", 1)[-1].lstrip("v")
+          # Release 下载路径使用完整 tag 名（含 v），否则链接 404
+          tag = ref.rsplit("/", 1)[-1]
 
-          base = "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/" + version
+          base = "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/" + tag
           with open("update.json", encoding="utf-8") as f:
               data = json.load(f)
 

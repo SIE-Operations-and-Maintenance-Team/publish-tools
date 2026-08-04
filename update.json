@@ -1,15 +1,15 @@
 {
     "version": "0.0.29",
-    "notes": "1. 新增 MCP 服务，支持 AI 工具通过 MCP 协议调用文件操作、SSH、项目构建、数据库查询等功能<br/>2. 新增定时发布 MCP 工具（列表/创建/取消/改期/删除）<br/>3. 新增应用配置导入导出功能<br/>4. 服务日志增加服务器名称与 IP 标识<br/>5. 修复已知问题<b>注：版本 ≤ 0.0.14 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/0.0.29/SmomPublish_0.0.29_x64-setup.exe'>点击此处</a> 下载。</b>",
+    "notes": "1. 新增 MCP 服务，支持 AI 工具通过 MCP 协议调用文件操作、SSH、项目构建、数据库查询等功能<br/>2. 新增定时发布 MCP 工具（列表/创建/取消/改期/删除）<br/>3. 新增应用配置导入导出功能<br/>4. 服务日志增加服务器名称与 IP 标识<br/>5. 修复已知问题<b>注：版本 ≤ 0.0.14 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.29/SmomPublish_0.0.29_x64-setup.exe'>点击此处</a> 下载。</b>",
     "pub_date": "2026-08-04T01:57:19Z",
     "platforms": {
         "windows-x86_64": {
             "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWIyTW9FQisvQk16MVkvRlhVSURBN1lDMXgycXJRbUVPR2tVSk5zcW13czB4ZG90MUphZjJkSldrcklMRHZyTjVwNldDK0xaUHJhNVR5ZFcyV01RZWd3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg1ODA4NjEyCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjI5X3g2NC1zZXR1cC5leGUKQ1lqOXFyQXlkQXQrNE0rWWFxcjM1a0NOaHFEaWllR0oveE5pZlUyQ1BkMWlOKy9Taml3aS9SeGRMME40N29zVXlZWXVVcHpSVDh4eWRwY1A1R1hiRHc9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/0.0.29/SmomPublish_0.0.29_x64-setup.exe"
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.29/SmomPublish_0.0.29_x64-setup.exe"
         },
         "windows-msi": {
             "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWVBQm10OWl5WE5sbDI4bGZ1SjE2aEhvbm53V0xyVys3UnZJSG53TExWVjRzQWhNUnJ2aVI0d3BLcFRIQ3A1NndYSElaTFppMWpHOFE2Mm1wdnEvY1FVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg1ODA4NjEyCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjI5X3g2NF96aC1DTi5tc2kKSVBabGVmS1pRWkFaMDVOdW4xaGY0TVVtKzJxMFR2aVpDR0Nqa0p2UGNhWUtLRHVUZEdrNkgyRnMzbFlkdDRmSE9POC96UzlacFdRaENlcG95VjJVRHc9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/0.0.29/SmomPublish_0.0.29_x64_zh-CN.msi"
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.29/SmomPublish_0.0.29_x64_zh-CN.msi"
         }
     }
 }
