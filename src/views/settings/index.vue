@@ -99,8 +99,10 @@ onUnmounted(() => {
 
 // 轮询真实状态，直到获得确定状态（ok/error/disabled/stopped）或超时
 const pollMcpStatus = async (timeoutMs: number = 8000) => {
+  // 先作废旧轮询（令牌 + 计时器），再取本轮令牌
+  stopMcpStatusPolling();
   const startedAt = Date.now();
-  const token = ++mcpPollToken;
+  const token = mcpPollToken;
   mcpStatus.value = "starting";
   const tick = async () => {
     if (token !== mcpPollToken) return; // 已被停止/新轮询取代，作废
@@ -120,7 +122,6 @@ const pollMcpStatus = async (timeoutMs: number = 8000) => {
     }
     mcpStatusTimer = window.setTimeout(tick, 500);
   };
-  stopMcpStatusPolling();
   mcpStatusTimer = window.setTimeout(tick, 0);
 };
 
