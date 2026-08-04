@@ -134,6 +134,9 @@ pub fn init(app_handle: &tauri::AppHandle) {
     set_sender(sender);
     let handle = app_handle.clone();
     tauri::async_runtime::spawn(async move { manager_loop(handle, receiver).await });
+    // 发送初始信号，触发管理循环按当前配置启动/不启动 MCP 服务
+    // （manager_loop 仅在收到信号后执行，watch 通道初始值不会触发 changed()）
+    notify_change();
 }
 
 /// 配置变更后调用：立即按新配置启动/停止 MCP 服务

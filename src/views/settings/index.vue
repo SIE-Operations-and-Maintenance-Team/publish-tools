@@ -72,6 +72,10 @@ const mcpConfig = reactive({
 const mcpStatus = ref<string>("unknown");
 // 保存前的 MCP 配置快照（用于判断配置是否实际变化）
 let mcpConfigSnapshot = { mcp_enabled: true, mcp_port: 17541 };
+// 轮询计时器（加载/启用时轮询真实状态，避免依赖事件时序）
+let mcpStatusTimer: number | null = null;
+// 轮询代次令牌：stopMcpStatusPolling()/新轮询会递增，作废飞行中的旧轮询请求
+let mcpPollToken = 0;
 
 let unlisten: (() => void) | null = null;
 
@@ -81,6 +85,7 @@ onMounted(async () => {
   try {
     unlisten = await listen<{ status: string; message?: string; port?: number }>("mcp-status", (event) => {
       mcpStatus.value = event.payload.status;
+      stopMcpStatusPolling();
     });
   } catch (e) {
     console.warn("监听 mcp-status 事件失败:", e);
@@ -89,7 +94,43 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (unlisten) unlisten();
+  stopMcpStatusPolling();
 });
+
+// 轮询真实状态，直到获得确定状态（ok/error/disabled/stopped）或超时
+const pollMcpStatus = async (timeoutMs: number = 8000) => {
+  const startedAt = Date.now();
+  const token = ++mcpPollToken;
+  mcpStatus.value = "starting";
+  const tick = async () => {
+    if (token !== mcpPollToken) return; // 已被停止/新轮询取代，作废
+    const statusR = await cmdInvoke<string>("get_mcp_status");
+    if (token !== mcpPollToken) return; // 请求期间被取代，丢弃结果
+    const status = statusR.code === 0 && statusR.data ? statusR.data : "unknown";
+    if (status !== "unknown") {
+      mcpStatus.value = status;
+      stopMcpStatusPolling();
+      return;
+    }
+    if (Date.now() - startedAt >= timeoutMs) {
+      // 超时仍未获得真实状态：按配置回退，避免无限等待
+      mcpStatus.value = mcpConfig.mcp_enabled ? "starting" : "disabled";
+      stopMcpStatusPolling();
+      return;
+    }
+    mcpStatusTimer = window.setTimeout(tick, 500);
+  };
+  stopMcpStatusPolling();
+  mcpStatusTimer = window.setTimeout(tick, 0);
+};
+
+const stopMcpStatusPolling = () => {
+  mcpPollToken++;
+  if (mcpStatusTimer !== null) {
+    clearTimeout(mcpStatusTimer);
+    mcpStatusTimer = null;
+  }
+};
 
 const mcpStatusTagType = computed(() => {
   switch (mcpStatus.value) {
@@ -97,6 +138,7 @@ const mcpStatusTagType = computed(() => {
     case "error": return "danger";
     case "disabled": return "info";
     case "stopped": return "warning";
+    case "starting": return "warning";
     default: return "info";
   }
 });
@@ -107,6 +149,7 @@ const mcpStatusI18nKey = computed(() => {
   if (key === "error") return "message.settings.mcpStatusError";
   if (key === "disabled") return "message.settings.mcpStatusDisabled";
   if (key === "stopped") return "message.settings.mcpStatusStopped";
+  if (key === "starting") return "message.settings.mcpStatusStarting";
   return "message.settings.mcpStatusDisabled";
 });
 
@@ -132,8 +175,9 @@ const onMcpEnabledChange = async (val: boolean) => {
       mcpConfig.mcp_enabled = r.data.mcp_enabled;
       mcpConfig.mcp_port = r.data.mcp_port;
       mcpConfigSnapshot = { ...mcpConfig };
-      // 服务启停由 Rust 端异步执行，先同步占位状态
-      mcpStatus.value = val ? "unknown" : "disabled";
+      // 服务启停由 Rust 端异步执行，先同步占位状态，再轮询真实状态
+      mcpStatus.value = val ? "starting" : "disabled";
+      if (val) pollMcpStatus();
     } else {
       // 回滚开关状态
       mcpConfig.mcp_enabled = !val;
@@ -166,8 +210,9 @@ const onSave = async () => {
       mcpConfig.mcp_port = mcpR.data.mcp_port;
       mcpConfigSnapshot = { ...mcpConfig };
       if (mcpChanged) {
-        // 配置实际变化：服务启停/重启由 Rust 端异步执行，先同步占位状态
-        mcpStatus.value = mcpConfig.mcp_enabled ? "unknown" : "disabled";
+        // 配置实际变化：服务启停/重启由 Rust 端异步执行，先同步占位状态，再轮询真实状态
+        mcpStatus.value = mcpConfig.mcp_enabled ? "starting" : "disabled";
+        if (mcpConfig.mcp_enabled) pollMcpStatus();
       }
       ElMessage.success('设置保存成功');
       mittBus.emit('settingsChanged');
@@ -193,14 +238,8 @@ const load = async () => {
     mcpConfigSnapshot = { ...mcpConfig };
   }
   // 加载 MCP 运行状态（mcp-status 事件在启动时已发射，页面挂载后可能收不到）
-  // 先查持久化状态，若为 unknown 则根据配置推断
-  const statusR = await cmdInvoke<string>("get_mcp_status");
-  if (statusR.code === 0 && statusR.data && statusR.data !== "unknown") {
-    mcpStatus.value = statusR.data;
-  } else {
-    // 持久化状态尚未更新（serve() 异步启动中），根据配置推断
-    mcpStatus.value = mcpConfig.mcp_enabled ? "ok" : "disabled";
-  }
+  // 轮询真实状态；若为 unknown（服务仍在启动）则显示"启动中"并在超时后按配置回退
+  await pollMcpStatus();
   loading.value = false;
 };
 </script>

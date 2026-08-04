@@ -141,6 +141,7 @@ export default {
 		mcpStatusError: '不可用',
 		mcpStatusDisabled: '已禁用',
 		mcpStatusStopped: '已停止',
+		mcpStatusStarting: '启动中',
 		mcpConfigSaved: 'MCP 配置已保存，重启应用后生效',
 	},
 	upgrade: {

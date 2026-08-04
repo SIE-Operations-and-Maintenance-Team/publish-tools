@@ -141,6 +141,7 @@ export default {
 		mcpStatusError: 'Unavailable',
 		mcpStatusDisabled: 'Disabled',
 		mcpStatusStopped: 'Stopped',
+		mcpStatusStarting: 'Starting',
 		mcpConfigSaved: 'MCP config saved. Restart the app to apply changes.',
 	},
 	upgrade: {

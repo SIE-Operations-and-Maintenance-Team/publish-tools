@@ -25,8 +25,8 @@ pub async fn serve(app_handle: tauri::AppHandle, port: u16) -> Result<(), String
         .await
         .map_err(|e| format!("MCP 端口 {port} 绑定失败: {e}"))?;
 
-    println!("[mcp] MCP Server 启动成功，监听 http://127.0.0.1:{port}/mcp");
     // 绑定成功后通知前端，与 main.rs 的 error/panic 路径互斥
+    eprintln!("[mcp] MCP Server 启动成功，监听 http://127.0.0.1:{port}/mcp");
     config::set_mcp_status("ok");
     let _ = app_handle.emit("mcp-status", serde_json::json!({
         "status": "ok",
