@@ -164,7 +164,7 @@ jobs:
           python - <<'EOF'
           import json, os, glob, datetime
 
-          # tag 名如 v0.0.29 → 版本 0.0.29
+          # tag 名如 v0.0.30 → 版本 0.0.30
           ref = os.environ["GITHUB_REF"]
           version = ref.rsplit("/", 1)[-1].lstrip("v")
           # Release 下载路径使用完整 tag 名（含 v），否则链接 404

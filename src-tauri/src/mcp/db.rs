@@ -121,6 +121,87 @@ pub fn query_app_configs(conn: &Connection, project_id: Option<i64>) -> Result<V
     rows_to_json(conn, &sql, &param_refs)
 }
 
+/// 按 ID 查询单个应用配置
+pub fn query_app_config_by_id(conn: &Connection, id: i64) -> Result<Value, String> {
+    let mut results = rows_to_json(
+        conn,
+        "SELECT id, project_id, environment, ms_build_path, dll_mode, dll_mode_value, config_items_json, build_mode FROM t_app_config WHERE id = ?1",
+        &[&id],
+    )?;
+    if results.is_empty() {
+        Err(format!("应用配置 id={} 不存在", id))
+    } else {
+        Ok(results.remove(0))
+    }
+}
+
+/// 更新应用配置中 TFS 变更集的开始/结束值，返回更新后的记录
+pub fn update_appconfig_changeset(
+    conn: &Connection,
+    id: i64,
+    start_value: Option<&str>,
+    end_value: Option<&str>,
+) -> Result<Value, String> {
+    let row = query_app_config_by_id(conn, id)?;
+
+    let dll_mode = row["dll_mode"].as_str().unwrap_or("").to_string();
+    if dll_mode != "TFS" {
+        return Err(format!(
+            "应用配置 id={} 的获取模式为 {}, 不是 TFS，不支持修改变更集",
+            id, dll_mode
+        ));
+    }
+
+    let dll_mode_value = row["dll_mode_value"].as_str().unwrap_or("").to_string();
+    if dll_mode_value.is_empty() {
+        return Err(format!("应用配置 id={} 未配置 TFS 信息", id));
+    }
+
+    let mut mode_json: serde_json::Value = serde_json::from_str(&dll_mode_value)
+        .map_err(|e| format!("解析应用配置 dll_mode_value 失败: {e}"))?;
+
+    if mode_json["selectModel"].as_str() != Some("变更集") {
+        return Err(format!(
+            "应用配置 id={} 的 TFS 模式为 {}, 不是变更集，不支持修改变更集",
+            id,
+            mode_json["selectModel"].as_str().unwrap_or("")
+        ));
+    }
+
+    let select_value = mode_json
+        .get_mut("selectValue")
+        .and_then(|v| v.as_array_mut())
+        .ok_or_else(|| format!("应用配置 id={} 的 TFS 配置缺少 selectValue 数组", id))?;
+    if select_value.len() < 2 {
+        return Err(format!(
+            "应用配置 id={} 的 TFS 配置 selectValue 长度不足",
+            id
+        ));
+    }
+
+    if let Some(sv) = start_value {
+        select_value[0]["value"] = serde_json::Value::String(sv.to_string());
+    }
+    if let Some(ev) = end_value {
+        select_value[1]["value"] = serde_json::Value::String(ev.to_string());
+    }
+
+    let new_value = serde_json::to_string(&mode_json)
+        .map_err(|e| format!("序列化应用配置 dll_mode_value 失败: {e}"))?;
+
+    let affected = conn
+        .execute(
+            "UPDATE t_app_config SET dll_mode_value = ?1 WHERE id = ?2",
+            params![new_value, id],
+        )
+        .map_err(|e| format!("更新应用配置失败: {e}"))?;
+    if affected == 0 {
+        return Err(format!("应用配置 id={} 不存在", id));
+    }
+
+    query_app_config_by_id(conn, id)
+}
+
 /// 查询 TFS 配置列表（t_team_foundation_server）
 pub fn query_tfs_configs(conn: &Connection) -> Result<Vec<Value>, String> {
     rows_to_json(conn, "SELECT id, tfs_name, tfs_server_url, tfs_source_path, tfvc_path, remark, tfs_local_path FROM t_team_foundation_server ORDER BY id", &[])

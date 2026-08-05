@@ -332,6 +332,49 @@ impl McpHandler {
         Ok(CallToolResult::success(vec![ContentBlock::text(json.to_string())]))
     }
 
+    /// 修改应用配置的 TFS 变更集开始值/结束值
+    ///
+    /// 仅支持 dll_mode=TFS 且 selectModel=变更集 的应用配置。start_value/end_value
+    /// 至少传一个；只传一个时仅更新对应值，另一个保持不变。返回更新后的完整应用配置。
+    #[tool(description = "修改应用配置的 TFS 变更集开始值/结束值（start_value/end_value 至少传一个）")]
+    async fn appconfig_update_changeset(&self, Parameters(params): Parameters<AppConfigUpdateChangesetParam>) -> Result<CallToolResult, ErrorData> {
+        if params.start_value.is_none() && params.end_value.is_none() {
+            return Err(ErrorData::invalid_params(
+                "start_value 和 end_value 至少传一个",
+                None,
+            ));
+        }
+        if params.start_value.as_deref() == Some("") {
+            return Err(ErrorData::invalid_params(
+                "start_value 不能为空（变更集开始值必填）",
+                None,
+            ));
+        }
+
+        let conn = crate::mcp::db::open_db(&self.app_handle).map_err(|e| ErrorData::internal_error(e, None))?;
+        let result = crate::mcp::db::update_appconfig_changeset(
+            &conn,
+            params.id,
+            params.start_value.as_deref(),
+            params.end_value.as_deref(),
+        )
+        .map_err(|e| ErrorData::internal_error(e, None))?;
+
+        self.audit(
+            AuditEntry::new("appconfig_update_changeset", "ok")
+                .with_file_path(&format!(
+                    "appconfig_id={},start_value={},end_value={}",
+                    params.id,
+                    params.start_value.as_deref().unwrap_or(""),
+                    params.end_value.as_deref().unwrap_or("")
+                )),
+        );
+
+        let json = serde_json::to_value(&result)
+            .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+        Ok(CallToolResult::success(vec![ContentBlock::text(json.to_string())]))
+    }
+
     /// 查询 TFS 配置列表
     #[tool(description = "查询 TFS 版本控制配置列表（从本地 SQLite t_team_foundation_server 表）")]
     async fn tfs_config_list(&self) -> Result<CallToolResult, ErrorData> {

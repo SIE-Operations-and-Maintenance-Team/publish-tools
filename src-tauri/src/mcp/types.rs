@@ -194,6 +194,17 @@ pub struct ScheduleUpdateTimeParam {
     pub scheduled_time: String,
 }
 
+// ── 应用配置变更集参数 ──
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct AppConfigUpdateChangesetParam {
+    pub id: i64,
+    #[serde(default)]
+    pub start_value: Option<String>,
+    #[serde(default)]
+    pub end_value: Option<String>,
+}
+
 // ── MCP 配置参数（Phase 3）──
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
