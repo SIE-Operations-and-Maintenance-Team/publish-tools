@@ -130,26 +130,44 @@ pub async fn upgrade_module_version(file_path: &str, module_name: &str) -> Resul
 
 /// 版本号累加
 ///
+/// 输入版本号支持 `x`、`x.x`、`x.x.x`、`x.x.x.x` 四种段数；
+/// 仅对输入的最后一段执行 +1，不进行补齐，输出保持与输入一致的段数。
+///
 /// # Arguments
-/// * `version` - 版本号
+/// * `version` - 版本号字符串
 ///
 /// # Returns
-/// * `Result<String, String>` - 累加后的版本号
+/// * `Result<String, String>` - 累加后的版本号，或错误描述
 fn increment_version(version: &str) -> Result<String, String> {
-    let mut parts: Vec<u32> = version
-        .split('.')
-        .map(|part| {
-            part.parse::<u32>()
-                .map_err(|_| format!("无效的版本号格式: {}", version))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    if parts.len() < 4 {
-        return Err(format!("版本号格式不正确，期望 X.Y.Z.N 格式: {}", version));
+    let raw = version.trim();
+    if raw.is_empty() {
+        return Err("版本号为空".to_string());
     }
-    parts[3] += 1;
+    let segments: Vec<&str> = raw.split('.').collect();
+    if segments.is_empty() || segments.len() > 4 {
+        return Err(format!(
+            "版本号格式错误：期望 1~4 段（x / x.x / x.x.x / x.x.x.x），实际为 \"{}\"",
+            raw
+        ));
+    }
+    let mut parts: Vec<u32> = Vec::with_capacity(segments.len());
+    for seg in &segments {
+        match seg.trim().parse::<u32>() {
+            Ok(n) => parts.push(n),
+            Err(_) => {
+                return Err(format!(
+                    "无效的版本号格式：\"{}\" 不是有效的数字",
+                    seg.trim()
+                ))
+            }
+        }
+    }
+    // 仅对最后一段执行 +1，保持原有段数
+    let last = parts.len() - 1;
+    parts[last] += 1;
     Ok(parts
         .iter()
-        .map(|part| part.to_string())
+        .map(|p| p.to_string())
         .collect::<Vec<String>>()
         .join("."))
 }
