@@ -1,6 +1,6 @@
 {
     "version": "0.0.31",
-    "notes": "1. 修复发布 WpfClient 时 Manifest.xml 版本号为 3 段（如 10.2.19）导致更新版本号失败的问题，现支持 1~4 段版本号<b>注：版本 ≤ 0.0.14 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.31/SmomPublish_0.0.31_x64-setup.exe'>点击此处</a> 下载。</b>",
+    "notes": "1. 修复发布 WpfClient 时 Manifest.xml 版本号为 3 段（如 10.2.19）导致更新版本号失败的问题，现支持 1~4 段版本号<b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.31/SmomPublish_0.0.31_x64-setup.exe'>点击此处</a> 下载。</b>",
     "pub_date": "2026-08-06T03:55:16Z",
     "platforms": {
         "windows-x86_64": {
