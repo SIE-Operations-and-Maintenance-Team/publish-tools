@@ -243,16 +243,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # 先备份本步生成的 update.json（Python 步骤已写入新签名/版本）
+          cp update.json /tmp/update.json.new
+          gh auth setup-git
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # CI 运行时 master 可能有新提交，先同步到最新远程状态（runner 是 detached HEAD，不能直接 rebase）
+          git fetch origin master
+          git checkout -B master FETCH_HEAD
+          # 恢复本步生成的 update.json，再与远程 master 对比
+          cp /tmp/update.json.new update.json
           if git diff --quiet -- update.json; then
             echo "update.json 无变化，跳过推送"
-          else
-            gh auth setup-git
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add update.json
-            git commit -m "chore(ci): update update.json for ${GITHUB_REF##*/} [skip ci]"
-            git push origin HEAD:master
+            exit 0
           fi
+          git add update.json
+          git commit -m "chore(ci): update update.json for ${GITHUB_REF##*/} [skip ci]"
+          git push origin HEAD:master
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
