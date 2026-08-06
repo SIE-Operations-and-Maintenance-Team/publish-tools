@@ -16,6 +16,43 @@ env:
 
 jobs:
   # ═══════════════════════════════════════════════════
+  # 0. 自动打版本 tag（push master 时检测 tauri.conf.json 版本号，
+  #    高于最新 v* tag 则自动创建并推送 tag，触发下方打包发布流程，无需手动打 tag）
+  # ═══════════════════════════════════════════════════
+  auto-tag:
+    name: Auto Tag (version bump)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 拉取全部历史与 tag，用于版本比较
+
+      - name: Auto create tag if version bumped
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          latest_tag=$(git tag -l 'v*' --sort=-v:refname | head -n 1 || true)
+          if [ -z "$latest_tag" ]; then
+            echo "未找到已有 v* tag，跳过自动打 tag"
+            exit 0
+          fi
+          latest=${latest_tag#v}
+          echo "当前版本: $version, 最新 tag: $latest_tag"
+          higher=$(printf '%s\n%s\n' "$latest" "$version" | sort -V | tail -n 1)
+          if [ "$higher" = "$version" ] && [ "$version" != "$latest" ]; then
+            git tag "v$version"
+            # || true：若并发 run 已创建同名 tag，推送失败也无需报错（tag 触发流程会处理打包）
+            git push origin "v$version" || true
+            echo "已自动创建并推送 tag: v$version"
+          else
+            echo "版本 $version 不高于最新 tag $latest_tag，跳过自动打 tag"
+          fi
+
+  # ═══════════════════════════════════════════════════
   # 1. 代码校验 + 前端编译 + 单元测试（Windows，与目标平台一致）
   # ═══════════════════════════════════════════════════
   lint-build-test:
