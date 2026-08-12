@@ -11,7 +11,7 @@ use std::fs::File;
 use std::io::ErrorKind;
 use std::io::{self, Read, Write};
 use std::os::windows::process::CommandExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::str;
 use std::time::Instant;
@@ -395,7 +395,86 @@ pub async fn read_files(path: &str) -> Result<Vec<String>, String> {
     }
 }
 
+/// 查找 Directory Opus 的请求器工具 dopusrt.exe
+///
+/// 按以下顺序检测，取第一个存在 dopusrt.exe 的目录：
+/// 1. 官方注册表键 `SOFTWARE\GPSoftware\Directory Opus` → `InstallDirectory`（HKLM/HKCU，覆盖 64/32 位注册表视图）
+/// 2. 扫描 Uninstall 键中 DisplayName 为 `Directory Opus` 的条目，取 `InstallLocation` / `Inno Setup: App Path`（兼容非标准安装）
+/// 3. 文件系统默认目录 `%ProgramFiles%\GPSoftware\Directory Opus`（含 x86 目录）
+///
+/// # Returns
+/// * `Some(path)` dopusrt.exe 完整路径
+/// * `None` 未安装 Directory Opus，调用方应回退到系统资源管理器
+fn find_directory_opus_rt() -> Option<PathBuf> {
+    use winreg::enums::*;
+    use winreg::RegKey;
+
+    let mut candidates: Vec<PathBuf> = Vec::new();
+
+    // 1. Directory Opus 官方注册表键：HKLM/HKCU × 64 位/32 位注册表视图
+    let sam_flags = [KEY_READ | KEY_WOW64_64KEY, KEY_READ | KEY_WOW64_32KEY];
+    for root in [HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER] {
+        for sam in sam_flags {
+            let predef = RegKey::predef(root);
+            if let Ok(key) = predef.open_subkey_with_flags(r"SOFTWARE\GPSoftware\Directory Opus", sam) {
+                if let Ok(dir) = key.get_value::<String, _>("InstallDirectory") {
+                    candidates.push(PathBuf::from(dir));
+                }
+            }
+        }
+    }
+
+    // 2. Uninstall 注册表键：兼容自定义 Inno Setup 打包等非标准安装
+    let uninstall_paths = [
+        r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+        r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
+    ];
+    for root in [HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER] {
+        let predef = RegKey::predef(root);
+        for uninstall_path in uninstall_paths {
+            let uninstall = match predef.open_subkey(uninstall_path) {
+                Ok(k) => k,
+                Err(_) => continue,
+            };
+            for entry in uninstall.enum_keys().into_iter().flatten() {
+                let app = match uninstall.open_subkey(&entry) {
+                    Ok(k) => k,
+                    Err(_) => continue,
+                };
+                let display_name: String = app.get_value("DisplayName").unwrap_or_default();
+                if display_name != "Directory Opus" {
+                    continue;
+                }
+                if let Ok(dir) = app.get_value::<String, _>("InstallLocation") {
+                    candidates.push(PathBuf::from(dir.trim_end_matches(|c| c == '\\' || c == '/')));
+                } else if let Ok(dir) = app.get_value::<String, _>("Inno Setup: App Path") {
+                    candidates.push(PathBuf::from(dir));
+                }
+            }
+        }
+    }
+
+    // 3. 文件系统默认安装目录
+    for var in ["ProgramFiles", "ProgramW6432", "ProgramFiles(x86)"] {
+        if let Some(base) = env::var_os(var) {
+            candidates.push(PathBuf::from(base).join(r"GPSoftware\Directory Opus"));
+        }
+    }
+
+    // 校验候选目录：必须存在 dopusrt.exe 才视为有效安装
+    for dir in candidates {
+        let rt = dir.join("dopusrt.exe");
+        if rt.is_file() {
+            return Some(rt);
+        }
+    }
+    None
+}
+
 /// 打开文件目录
+///
+/// Windows 下优先使用 Directory Opus（已安装时通过 dopusrt.exe 打开），
+/// 未安装或启动失败时回退到系统资源管理器 explorer。
 ///
 /// # Arguments
 /// * `path` - 文件目录路径
@@ -415,12 +494,36 @@ pub async fn open_dir(path: &str) -> Result<bool, String> {
     };
     let path_str = path.to_str().ok_or_else(|| "路径转换失败".to_string())?;
 
+    // 去除 canonicalize 在 Windows 上添加的 \\?\ 扩展长度前缀：
+    // explorer 对该前缀透明兼容，但 Directory Opus 会原样显示，需剥离；
+    // \\?\UNC\server\share 形式需还原为 \\server\share
+    let path_string = if let Some(rest) = path_str.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{rest}")
+    } else {
+        path_str.strip_prefix(r"\\?\").unwrap_or(path_str).to_string()
+    };
+    let path_str = path_string.as_str();
+
     // 获取当前操作系统信息
     let os_type = env::consts::OS;
 
     // 根据操作系统类型执行不同的命令
     let result = match os_type {
-        "windows" => Command::new("explorer").arg(path_str).spawn(),
+        "windows" => {
+            // 优先 Directory Opus：dopusrt.exe /acmd 会在 DOpus 未运行时先拉起主程序，
+            // 再执行 Go 命令按用户自身的列表器设置打开目录
+            match find_directory_opus_rt() {
+                Some(rt) => match Command::new(&rt)
+                    .args(["/acmd", "Go", path_str])
+                    .creation_flags(0x08000000) // CREATE_NO_WINDOW
+                    .spawn()
+                {
+                    Ok(child) => Ok(child),
+                    Err(_) => Command::new("explorer").arg(path_str).spawn(),
+                },
+                None => Command::new("explorer").arg(path_str).spawn(),
+            }
+        }
         "macos" => Command::new("open").arg(path_str).spawn(),
         "linux" => Command::new("xdg-open").arg(path_str).spawn(),
         _ => {
