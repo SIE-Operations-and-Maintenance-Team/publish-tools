@@ -436,7 +436,7 @@ fn find_directory_opus_rt() -> Option<PathBuf> {
                 Ok(k) => k,
                 Err(_) => continue,
             };
-            for entry in uninstall.enum_keys().into_iter().flatten() {
+            for entry in uninstall.enum_keys().flatten() {
                 let app = match uninstall.open_subkey(&entry) {
                     Ok(k) => k,
                     Err(_) => continue,
@@ -446,7 +446,7 @@ fn find_directory_opus_rt() -> Option<PathBuf> {
                     continue;
                 }
                 if let Ok(dir) = app.get_value::<String, _>("InstallLocation") {
-                    candidates.push(PathBuf::from(dir.trim_end_matches(|c| c == '\\' || c == '/')));
+                    candidates.push(PathBuf::from(dir.trim_end_matches(['\\', '/'])));
                 } else if let Ok(dir) = app.get_value::<String, _>("Inno Setup: App Path") {
                     candidates.push(PathBuf::from(dir));
                 }
