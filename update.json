@@ -1,15 +1,15 @@
 {
-    "version": "0.0.31",
-    "notes": "1. 修复发布 WpfClient 时 Manifest.xml 版本号为 3 段（如 10.2.19）导致更新版本号失败的问题，现支持 1~4 段版本号<b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.31/SmomPublish_0.0.31_x64-setup.exe'>点击此处</a> 下载。</b>",
-    "pub_date": "2026-08-06T11:08:43Z",
+    "version": "0.0.33",
+    "notes": "1. 修复发布 WpfClient 时 Manifest.xml 版本号为 3 段（如 10.2.19）导致更新版本号失败的问题，现支持 1~4 段版本号<b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.33/SmomPublish_0.0.33_x64-setup.exe'>点击此处</a> 下载。</b>",
+    "pub_date": "2026-08-13T10:40:25Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWVKU3dtNnZoNi9SYkEvdmFYWkdDSE1YZ1ppemVwdkJIcXJiWnNUSHk3Y08wLzZJc0gyZ0JrTEZhQXphZkNsWjNpR21oZXFJYUo3dGtRb21FK1hhcndrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDE0NTA2CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjMxX3g2NC1zZXR1cC5leGUKZWE2MlI3K1VVSkduQVEzeHNmS01CRmR0ci9VdnpuR0lZbXBaemg5MjlsWTBzNnRpRzRyT0NoendBTFU5UVpJR21HRU53bkpLYkc0a2lHaVltMCtTQXc9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.31/SmomPublish_0.0.31_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWE3c3ArOXhPYmJrWVRXbUNZeHo1dVdEUjZhdnRtMVRYQ05Kd1BmY1VrWmtUSis5MWdnbTNGdEJjeFhDd2JGYzhJcFBMMG1xeVk5NzZsZ2pGbXBjRndJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2NjE3NTk2CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjMzX3g2NC1zZXR1cC5leGUKSmVGbzgwQzlmTUFFRVdjdWY5eUxBaFVLVzY2TWVnSVRQVnNWdENSd3laZG9DcU9rUFZraVFvdFZLVWxaci95bjQzSjZhYmxBMGVHN21heG5GTG93QXc9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.33/SmomPublish_0.0.33_x64-setup.exe"
         },
         "windows-msi": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVgwb3NRT0VJTWFLYUpIWTJGdkd4UTNNbUw4cCtVdEJka3NSR2dGbXhZQlVBY3NvcE9wa1V1UEhPR0gyK3c5SGloNUJPNTkzcmZERDZhcjVzWGJoWlFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDE0NTA2CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjMxX3g2NF96aC1DTi5tc2kKdUo0NkNNSUgvaUdHNVBUa1JjOGRmOS90YUk1RmFKUGZpKzgvcUZXZHN3M0ZoaWlwL010dXZSc1UxcGJRRGhnWnM5UGxUR2xtekpTZFl3aWdBU25PQXc9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.31/SmomPublish_0.0.31_x64_zh-CN.msi"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVR4cmRtd1FHQ1dEOFpZNlY1dkNwaTc1VVlNR04yejAzN3FSeWhBbythZGtnQW9jcWpGV2VQbFRFZ2JRNSsxWkFIYU5XTU9nT2NMZEg2Y090VTRQQkFRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2NjE3NTk2CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjMzX3g2NF96aC1DTi5tc2kKb3E4cnczREJDSGh1ZnF2bE5mZ1lKM2JxUWdBekZTQVp1Y2xLZWttR3JHOHBKODZXdGk2SVY3VHljSUs3ZEw5UVNWbDdvVXA3Tmd5VFRVdms4bS9nQmc9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.33/SmomPublish_0.0.33_x64_zh-CN.msi"
         }
     }
 }
