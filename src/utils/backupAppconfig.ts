@@ -234,6 +234,25 @@ const getServerBackupItems = async (
           );
           if (!dllNameBackFiles) return null;
           backFiles.push(...dllNameBackFiles);
+        } else if (appconfigData.dllMode == "Git") {
+          if (!appconfigData.dllModeValue) {
+            console.error("未配置Git获取程序集的相关信息，请检查.");
+            return null;
+          }
+          const selectGitItem = JSON.parse(
+            appconfigData.dllModeValue
+          ) as SelectGitType;
+          const dllFiles = await getGitDllFiles(selectGitItem);
+          if (dllFiles && dllFiles.length > 0) {
+            let allDllFiles = await getReadAllDlls(serverConfigItem.clientPath);
+            for (let m = 0; m < allDllFiles.length; m++) {
+              const dllFile = allDllFiles[m];
+              const gitDllFile = dllFiles.find((x) => x === dllFile);
+              if (gitDllFile) {
+                backFiles.push(dllFile);
+              }
+            }
+          }
         } else {
           let dllModeDateRange = getDllModeDateRange(
             appconfigData.dllMode,
@@ -356,6 +375,25 @@ const getScheduleServerBackupItems = async (
           );
           if (!dllNameBackFiles) return null;
           backFiles.push(...dllNameBackFiles);
+        } else if (appconfigData.dllMode == "Git") {
+          if (!appconfigData.dllModeValue) {
+            console.error("未配置Git获取程序集的相关信息，请检查.");
+            return null;
+          }
+          const selectGitItem = JSON.parse(
+            appconfigData.dllModeValue
+          ) as SelectGitType;
+          const dllFiles = await getGitDllFiles(selectGitItem);
+          if (dllFiles && dllFiles.length > 0) {
+            let allDllFiles = await getReadAllDlls(serverConfigItem.clientPath);
+            for (let m = 0; m < allDllFiles.length; m++) {
+              const dllFile = allDllFiles[m];
+              const gitDllFile = dllFiles.find((x) => x === dllFile);
+              if (gitDllFile) {
+                backFiles.push(dllFile);
+              }
+            }
+          }
         } else {
           let dllModeDateRange = getDllModeDateRange(
             appconfigData.dllMode,
@@ -462,6 +500,28 @@ const getWpfClientConfigType = async (
           const dllFile = allDllFiles[m];
           const tfsDllFile = dllFiles.find((x) => x === dllFile);
           if (tfsDllFile) {
+            cBackFile[generateDir].push(dllFile);
+          }
+        }
+      }
+      backFiles.push(cBackFile);
+    } else if (appconfigData.dllMode == "Git") {
+      if (!appconfigData.dllModeValue) {
+        console.error("未配置Git获取程序集的相关信息，请检查.");
+        return null;
+      }
+      const selectGitItem = JSON.parse(
+        appconfigData.dllModeValue
+      ) as SelectGitType;
+      const dllFiles = await getGitDllFiles(selectGitItem);
+      var cBackFile = {} as any;
+      cBackFile[generateDir] = [];
+      if (dllFiles && dllFiles.length > 0) {
+        let allDllFiles = await getReadAllDlls(cPath);
+        for (let m = 0; m < allDllFiles.length; m++) {
+          const dllFile = allDllFiles[m];
+          const gitDllFile = dllFiles.find((x) => x === dllFile);
+          if (gitDllFile) {
             cBackFile[generateDir].push(dllFile);
           }
         }
