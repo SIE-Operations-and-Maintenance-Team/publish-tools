@@ -327,12 +327,20 @@ export function useImportExportDb() {
             try {
               const parsed = JSON.parse(dllModeValue);
               const idMap = item.appconfig.dllMode === "TFS" ? tfsIdMap : gitIdMap;
+              if (typeof parsed?.id === "number" && !idMap[parsed.id]) {
+                console.warn(
+                  `[import-export] item ${i} 的配置 id=${parsed.id} 未在导出文件中找到，原样保留`
+                );
+              }
               if (typeof parsed?.id === "number" && idMap[parsed.id]) {
                 parsed.id = idMap[parsed.id];
                 dllModeValue = JSON.stringify(parsed);
               }
             } catch {
               // dllModeValue 非 JSON 时原样写入（仅手工构造的文件可能出现，使用时报错由业务层提示）
+              console.warn(
+                `[import-export] item ${i} 的 dllModeValue 无法解析为 JSON，原样写入`
+              );
             }
           }
           const insertAppconfigResult = await database.execute(
