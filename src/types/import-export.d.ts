@@ -12,8 +12,8 @@ declare type ExportItem = {
 	project: ExportProject;
 	appconfig: ExportAppconfig;
 	servers: ExportServer[];
-	tfsConfigs?: ExportTfsConfig[];   // v2 新增，本 item 引用的 TFS 配置（按 id 去重，不含 id）
-	gitConfigs?: ExportGitConfig[];   // v2 新增，本 item 引用的 Git 配置（按 id 去重，不含 id）
+	tfsConfigs?: ExportTfsConfig[];   // v2 新增，本 item 引用的 TFS 配置（至多一条，不含 id）
+	gitConfigs?: ExportGitConfig[];   // v2 新增，本 item 引用的 Git 配置（至多一条，不含 id）
 };
 
 /** 导出项目字段（不含 id） */
