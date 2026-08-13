@@ -227,6 +227,13 @@ const getServerBackupItems = async (
               }
             }
           }
+        } else if (appconfigData.dllMode == "DLL名称") {
+          const dllNameBackFiles = await getDllNameBackFiles(
+            serverConfigItem.clientPath,
+            appconfigData
+          );
+          if (!dllNameBackFiles) return null;
+          backFiles.push(...dllNameBackFiles);
         } else {
           let dllModeDateRange = getDllModeDateRange(
             appconfigData.dllMode,
@@ -342,6 +349,13 @@ const getScheduleServerBackupItems = async (
               }
             }
           }
+        } else if (appconfigData.dllMode == "DLL名称") {
+          const dllNameBackFiles = await getDllNameBackFiles(
+            serverConfigItem.clientPath,
+            appconfigData
+          );
+          if (!dllNameBackFiles) return null;
+          backFiles.push(...dllNameBackFiles);
         } else {
           let dllModeDateRange = getDllModeDateRange(
             appconfigData.dllMode,
@@ -454,15 +468,10 @@ const getWpfClientConfigType = async (
       }
       backFiles.push(cBackFile);
     } else if (appconfigData.dllMode == "DLL名称") {
-      const patterns = getDllModePatterns(appconfigData.dllMode, appconfigData.dllModeValue);
-      if (!patterns) {
-        console.error("未配置DLL名称获取程序集的相关信息，请检查.");
-        return null;
-      }
+      const dllNameBackFiles = await getDllNameBackFiles(cPath, appconfigData);
+      if (!dllNameBackFiles) return null;
       var cBackFile = {} as any;
-      cBackFile[generateDir] = [];
-      let allDllFiles = await getReadAllDlls(cPath);
-      cBackFile[generateDir].push(...allDllFiles);
+      cBackFile[generateDir] = dllNameBackFiles;
       backFiles.push(cBackFile);
     } else {
       let dllModeDateRange = getDllModeDateRange(
@@ -568,6 +577,27 @@ const getDllModePatterns = (dllMode: string, dllModeValue: string) => {
     return String(dllModeValue || "");
   }
   return "";
+};
+
+// 按DLL名称模式读取匹配的DLL文件名列表
+const getDllNameBackFiles = async (clientPath: string, appconfigData: any) => {
+  const patterns = getDllModePatterns(
+    appconfigData.dllMode,
+    appconfigData.dllModeValue
+  );
+  if (!patterns) {
+    console.error("未配置DLL名称获取程序集的相关信息，请检查.");
+    return null;
+  }
+  const readDllNameResult = await cmdInvoke<string[]>("read_dlls_by_name", {
+    dir: clientPath,
+    patterns,
+  });
+  if (readDllNameResult.code !== 0 || !readDllNameResult.data) {
+    console.error(`按DLL名称读取DLL失败：${readDllNameResult.data}`);
+    return null;
+  }
+  return readDllNameResult.data;
 };
 
 /**
