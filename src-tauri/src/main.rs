@@ -113,6 +113,7 @@ fn main() {
             file_module::copy_sie_dlls,
             file_module::copy_non_sie_dlls,
             file_module::copy_dll_files_by_name,
+            file_module::read_dlls_by_name,
             file_module::invalidate_ssh_session,
             wpf_upgrade_module::upgrade_module_version,
             parse_sln_module::parse_sln_project,

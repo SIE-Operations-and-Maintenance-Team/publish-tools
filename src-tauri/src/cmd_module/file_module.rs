@@ -1877,3 +1877,47 @@ pub async fn copy_dll_files_by_name(
 
     Ok(true)
 }
+
+/// 按DLL名称模式读取匹配的DLL文件名列表（支持*和?通配符、顿号分隔）
+///
+/// # 参数
+/// - `dir`: 源目录
+/// - `patterns`: DLL名称模式文本，每行一个，支持顿号分隔
+///
+/// # 返回值
+/// - `Ok(Vec<String>)` 匹配的DLL文件名列表（仅文件名，不含路径）
+/// - `Err(String)` 失败
+#[tauri::command]
+pub async fn read_dlls_by_name(dir: &str, patterns: &str) -> Result<Vec<String>, String> {
+    let src_dir = Path::new(dir);
+    if !src_dir.exists() {
+        return Err(format!("源目录不存在: {}", dir));
+    }
+
+    let regex_patterns = parse_patterns(patterns);
+    if regex_patterns.is_empty() {
+        return Err("未提供有效的DLL匹配模式".to_string());
+    }
+
+    let mut dll_files = Vec::new();
+    for entry in fs::read_dir(src_dir).map_err(|e| format!("无法读取源目录 {:?}: {}", src_dir, e))? {
+        let entry = entry.map_err(|e| format!("读取目录项失败: {}", e))?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let file_name = match path.file_name().and_then(|n| n.to_str()) {
+            Some(name) => name,
+            None => continue,
+        };
+        // 检查是否是 .dll 文件（不区分大小写），与 copy_dll_files_by_name 一致
+        if !file_name.to_lowercase().ends_with(".dll") {
+            continue;
+        }
+        // 尝试匹配任一模式（大小写敏感，与 copy_dll_files_by_name 一致）
+        if regex_patterns.iter().any(|re| re.is_match(file_name)) {
+            dll_files.push(file_name.to_string());
+        }
+    }
+    Ok(dll_files)
+}
