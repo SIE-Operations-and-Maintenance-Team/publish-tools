@@ -396,7 +396,7 @@ const onExportSelected = async () => {
 
     // 2. 组装 ExportFile（exportedAt 使用本地时间的 24 小时制标准时间字符串）
     const exportFile: ExportFile = {
-      version: 1,
+      version: 2,
       exportedAt: formatDateTime(new Date()),
       items,
     };
@@ -484,9 +484,9 @@ const onImportConfig = async () => {
       return;
     }
 
-    // 5. 版本检查
-    if (exportFile.version !== 1) {
-      ElMessage.error(`文件版本不兼容，当前支持 v1，文件为 v${exportFile.version}`);
+    // 5. 版本检查（v1：无 tfs/git 字段走原逻辑；v2：完整恢复获取DLL方式）
+    if (![1, 2].includes(exportFile.version)) {
+      ElMessage.error(`文件版本不兼容，当前支持 v1/v2，文件为 v${exportFile.version}`);
       return;
     }
 
