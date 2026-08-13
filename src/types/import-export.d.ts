@@ -2,7 +2,7 @@
 
 /** 导出文件顶层结构 */
 declare type ExportFile = {
-	version: 1;
+	version: 1 | 2;          // v2：新增 tfsConfigs/gitConfigs（TFS/Git 配置随导出）
 	exportedAt: string;        // ISO 8601
 	items: ExportItem[];
 };
@@ -12,6 +12,8 @@ declare type ExportItem = {
 	project: ExportProject;
 	appconfig: ExportAppconfig;
 	servers: ExportServer[];
+	tfsConfigs?: ExportTfsConfig[];   // v2 新增，本 item 引用的 TFS 配置（按 id 去重，不含 id）
+	gitConfigs?: ExportGitConfig[];   // v2 新增，本 item 引用的 Git 配置（按 id 去重，不含 id）
 };
 
 /** 导出项目字段（不含 id） */
@@ -43,6 +45,27 @@ declare type ExportServer = {
 	account: string;
 	pwd: string;
 	description: string | null;
+};
+
+/** 导出 TFS 配置字段（不含 id，oldTfsId 用于导入时重映射） */
+declare type ExportTfsConfig = {
+	oldTfsId: number;
+	tfsName: string | null;
+	tfsServerUrl: string | null;
+	tfsSourcePath: string | null;
+	tfsLocalPath: string | null;
+	tfvcPath: string | null;
+	remark: string | null;
+};
+
+/** 导出 Git 配置字段（不含 id，oldGitId 用于导入时重映射） */
+declare type ExportGitConfig = {
+	oldGitId: number;
+	gitName: string | null;
+	gitRepository: string | null;
+	gitPath: string | null;
+	branchName: string | null;
+	remark: string | null;
 };
 
 /** 导入预览行 */
