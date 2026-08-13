@@ -26,6 +26,21 @@ function extractServerIds(configItems: ConfigItemsType): number[] {
   return [...new Set(ids)];
 }
 
+/**
+ * 从 dllModeValue JSON 中提取引用的 TFS/Git 配置 id
+ * @param dllModeValue - SelectTfsType / SelectGitType 的 JSON 字符串
+ * @returns 有效 id；dllModeValue 为空、非 JSON、或 id 非正数时返回 null
+ */
+function extractDllModeId(dllModeValue: string | null): number | null {
+  if (!dllModeValue) return null;
+  try {
+    const parsed = JSON.parse(dllModeValue);
+    return typeof parsed?.id === "number" && parsed.id > 0 ? parsed.id : null;
+  } catch {
+    return null;
+  }
+}
+
 export function useImportExportDb() {
   return {
     /**
@@ -75,6 +90,73 @@ export function useImportExportDb() {
           }
           const serverIds = extractServerIds(configItems);
 
+          // 2.5 解析获取DLL方式：TFS/Git 模式收集引用的配置记录；悬空引用回退「当天」
+          let dllMode = ac.dllMode;
+          let dllModeValue = ac.dllModeValue;
+          const tfsConfigs: ExportTfsConfig[] = [];
+          const gitConfigs: ExportGitConfig[] = [];
+
+          const fallbackToToday = () => {
+            console.warn(
+              `[import-export] appconfig ${id} 的获取DLL方式引用无效（dllMode=${ac.dllMode}），回退为「当天」`
+            );
+            dllMode = "当天";
+            dllModeValue = null;
+          };
+
+          if (dllMode === "TFS") {
+            const tfsId = extractDllModeId(dllModeValue);
+            if (tfsId) {
+              const tfsRows = await (
+                await db()
+              ).select<RowTfsType[]>(
+                "SELECT id, tfs_name tfsName, tfs_server_url tfsServerUrl, tfs_source_path tfsSourcePath, tfs_local_path tfsLocalPath, tfvc_path tfvcPath, remark FROM t_team_foundation_server WHERE id = $1",
+                [tfsId]
+              );
+              if (tfsRows && tfsRows.length > 0) {
+                const tfs = tfsRows[0];
+                tfsConfigs.push({
+                  oldTfsId: tfs.id ?? 0,
+                  tfsName: tfs.tfsName,
+                  tfsServerUrl: tfs.tfsServerUrl,
+                  tfsSourcePath: tfs.tfsSourcePath,
+                  tfsLocalPath: tfs.tfsLocalPath,
+                  tfvcPath: tfs.tfvcPath,
+                  remark: tfs.remark,
+                });
+              } else {
+                fallbackToToday();
+              }
+            } else {
+              fallbackToToday();
+            }
+          } else if (dllMode === "Git") {
+            const gitId = extractDllModeId(dllModeValue);
+            if (gitId) {
+              const gitRows = await (
+                await db()
+              ).select<RowGitType[]>(
+                "SELECT id, git_name gitName, git_repository gitRepository, git_path gitPath, branch_name branchName, remark FROM t_git WHERE id = $1",
+                [gitId]
+              );
+              if (gitRows && gitRows.length > 0) {
+                const git = gitRows[0];
+                gitConfigs.push({
+                  oldGitId: git.id ?? 0,
+                  gitName: git.gitName,
+                  gitRepository: git.gitRepository,
+                  gitPath: git.gitPath,
+                  branchName: git.branchName,
+                  remark: git.remark,
+                });
+              } else {
+                fallbackToToday();
+              }
+            } else {
+              fallbackToToday();
+            }
+          }
+
           // 4. 查询 servers
           const servers: ExportServer[] = [];
           for (const sid of serverIds) {
@@ -101,7 +183,7 @@ export function useImportExportDb() {
             }
           }
 
-          // 导出时固定为「当天」获取方式，不保留原配置的获取DLL方式内容
+          // 原样保留获取DLL方式；TFS/Git 引用的配置记录随导出，悬空引用已回退「当天」
           items.push({
             project: {
               code: proj.code ?? "",
@@ -113,12 +195,14 @@ export function useImportExportDb() {
             appconfig: {
               environment: ac.environment ?? 0,
               msBuildPath: ac.msBuildPath,
-              dllMode: "当天",
-              dllModeValue: null,
+              dllMode,
+              dllModeValue,
               buildMode: ac.buildMode ?? "Debug",
               configItemsJson: ac.configItemsJson ?? "{}",
             },
             servers,
+            tfsConfigs: tfsConfigs.length > 0 ? tfsConfigs : undefined,
+            gitConfigs: gitConfigs.length > 0 ? gitConfigs : undefined,
           });
         } catch (err) {
           console.error(`[import-export] collectExportData error for appconfig id=${id}:`, err);
