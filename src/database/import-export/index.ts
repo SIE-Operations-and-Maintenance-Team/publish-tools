@@ -244,6 +244,8 @@ export function useImportExportDb() {
 
         // 声明在外层，供 catch 中失败补偿清理使用
         let newProjectId = 0;
+        const newTfsIds: number[] = []; // 本次插入的 TFS 配置 id，失败时补偿删除
+        const newGitIds: number[] = []; // 本次插入的 Git 配置 id，失败时补偿删除
 
         try {
           const database = await db();
@@ -255,6 +257,49 @@ export function useImportExportDb() {
             [item.project.code]
           );
           const oldProjectIds = (existRows || []).map((r) => r.id);
+
+          // 1.5 插入 TFS/Git 配置（先于 project；总是插入新记录，不做同名匹配）
+          //     直接 SQL 插入，绕过 insertTfs 业务层的重名校验（t_git 的 insertGit 无校验，统一走直接 SQL）
+          const tfsIdMap: Record<number, number> = {};
+          for (const tfs of item.tfsConfigs ?? []) {
+            const insertTfsResult = await database.execute(
+              "INSERT INTO t_team_foundation_server (tfs_name, tfs_server_url, tfs_source_path, tfs_local_path, tfvc_path, remark) VALUES($1, $2, $3, $4, $5, $6) RETURNING id;",
+              [
+                tfs.tfsName,
+                tfs.tfsServerUrl,
+                tfs.tfsSourcePath,
+                tfs.tfsLocalPath,
+                tfs.tfvcPath,
+                tfs.remark,
+              ]
+            );
+            const newTfsId = insertTfsResult.lastInsertId ?? 0;
+            if (!newTfsId || newTfsId <= 0) {
+              throw new Error("插入 TFS 配置失败，未获取到新 ID");
+            }
+            newTfsIds.push(newTfsId);
+            tfsIdMap[tfs.oldTfsId] = newTfsId;
+          }
+
+          const gitIdMap: Record<number, number> = {};
+          for (const git of item.gitConfigs ?? []) {
+            const insertGitResult = await database.execute(
+              "INSERT INTO t_git (git_name, git_repository, git_path, branch_name, remark) VALUES($1, $2, $3, $4, $5) RETURNING id;",
+              [
+                git.gitName,
+                git.gitRepository,
+                git.gitPath,
+                git.branchName,
+                git.remark,
+              ]
+            );
+            const newGitId = insertGitResult.lastInsertId ?? 0;
+            if (!newGitId || newGitId <= 0) {
+              throw new Error("插入 Git 配置失败，未获取到新 ID");
+            }
+            newGitIds.push(newGitId);
+            gitIdMap[git.oldGitId] = newGitId;
+          }
 
           // 2. 插入新 project（isDefault 不导入旧值，固定为 0）
           const insertProjectResult = await database.execute(
@@ -273,6 +318,23 @@ export function useImportExportDb() {
           }
 
           // 3. 插入新 appconfig（buildMode 默认 Debug）
+          //    TFS/Git 模式：把 dllModeValue 中的配置 id 重映射为本次插入的新 id（精确替换 id 字段，不用正则）
+          let dllModeValue = item.appconfig.dllModeValue;
+          if (
+            (item.appconfig.dllMode === "TFS" || item.appconfig.dllMode === "Git") &&
+            dllModeValue
+          ) {
+            try {
+              const parsed = JSON.parse(dllModeValue);
+              const idMap = item.appconfig.dllMode === "TFS" ? tfsIdMap : gitIdMap;
+              if (typeof parsed?.id === "number" && idMap[parsed.id]) {
+                parsed.id = idMap[parsed.id];
+                dllModeValue = JSON.stringify(parsed);
+              }
+            } catch {
+              // dllModeValue 非 JSON 时原样写入（仅手工构造的文件可能出现，使用时报错由业务层提示）
+            }
+          }
           const insertAppconfigResult = await database.execute(
             "INSERT INTO t_app_config (project_id, environment, ms_build_path, dll_mode, dll_mode_value, build_mode, config_items_json) VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING id;",
             [
@@ -280,7 +342,7 @@ export function useImportExportDb() {
               item.appconfig.environment,
               item.appconfig.msBuildPath,
               item.appconfig.dllMode,
-              item.appconfig.dllModeValue,
+              dllModeValue,
               item.appconfig.buildMode || "Debug",
               item.appconfig.configItemsJson,
             ]
@@ -392,6 +454,34 @@ export function useImportExportDb() {
               // 补偿清理失败需上报，不吞掉
               console.error(
                 `[import-export] 补偿清理失败 item ${i}, newProjectId=${newProjectId}:`,
+                cleanErr
+              );
+            }
+          }
+          // 失败补偿：删除本次已插入的 TFS/Git 配置记录（只删本次插入的，不影响目标库原有记录）
+          for (const tid of newTfsIds) {
+            try {
+              const database = await db();
+              await database.execute(
+                "DELETE FROM t_team_foundation_server WHERE id = $1",
+                [tid]
+              );
+            } catch (cleanErr) {
+              // 补偿清理失败需上报，不吞掉
+              console.error(
+                `[import-export] 补偿清理失败 TFS id=${tid}:`,
+                cleanErr
+              );
+            }
+          }
+          for (const gid of newGitIds) {
+            try {
+              const database = await db();
+              await database.execute("DELETE FROM t_git WHERE id = $1", [gid]);
+            } catch (cleanErr) {
+              // 补偿清理失败需上报，不吞掉
+              console.error(
+                `[import-export] 补偿清理失败 Git id=${gid}:`,
                 cleanErr
               );
             }
