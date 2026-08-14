@@ -230,10 +230,20 @@ jobs:
           git commit -m "chore(ci): update update.json for ${GITHUB_REF##*/} [skip ci]"
           git push origin HEAD:master
 
+      # 从 CHANGELOG.md 提取当前版本更新日志作为 Release 说明（格式：## vX.Y.Z 条目）
+      - name: Extract release notes
+        id: changelog
+        shell: bash
+        run: |
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "release_notes<<$EOF" >> "$GITHUB_OUTPUT"
+          awk '/^## /{if(found)exit; found=1; next} found{print}' CHANGELOG.md >> "$GITHUB_OUTPUT"
+          echo "$EOF" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             ./dist/nsis/*.exe
             ./dist/msi/*.msi
-          generate_release_notes: true
+          body: ${{ steps.changelog.outputs.release_notes }}
