@@ -2386,6 +2386,11 @@ const getApplicationAssemblys = async (isOpenDir: boolean = false) => {
   if (state.publishData.appconfigData.dllMode == "DLL名称" && generatePublishLog.value.isEnable) {
     const patterns = getDllModePatterns();
     if (patterns) {
+      // 删除旧的发布日志（与TFS/Git日志生成一致）
+      await cmdInvoke("delete_files_with_prefix", {
+        dirPath: projectAssemblyOutPath.value,
+        prefix: "SMOM发布日志",
+      });
       const content = `DLL名称匹配模式：\n${patterns}`;
       const logFilePath = `${removeSlash(projectAssemblyOutPath.value)}/SMOM发布日志_${formatDate(new Date(), "YYYYmmddHHMMSS")}.log`;
       const saveResult = await cmdInvoke("save_content_to_file", {
