@@ -32,6 +32,8 @@ jobs:
 
       - name: Auto create tag if version bumped
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           version=$(node -p "require('./src-tauri/tauri.conf.json').version")
@@ -47,7 +49,11 @@ jobs:
             git tag "v$version"
             # || true：若并发 run 已创建同名 tag，推送失败也无需报错（tag 触发流程会处理打包）
             git push origin "v$version" || true
-            echo "已自动创建并推送 tag: v$version"
+            # GITHUB_TOKEN 推送 tag 不会创建新的 workflow run（GitHub 规则），
+            # 需显式触发 tag 流水线。workflow_dispatch 是 GITHUB_TOKEN 的豁免事件；
+            # --ref 指定 tag 后 GITHUB_REF 为 refs/tags/v0.0.xx，满足打包/发布 job 的 tag 条件
+            gh workflow run ci.yml --ref "v$version"
+            echo "已自动创建并推送 tag: v$version，并触发 tag 打包流水线"
           else
             echo "版本 $version 不高于最新 tag $latest_tag，跳过自动打 tag"
           fi
