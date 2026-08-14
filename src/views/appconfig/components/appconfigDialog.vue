@@ -93,6 +93,7 @@
               <el-form-item label-width="0px">
                 <el-date-picker class="w100" v-if="selectTfsItem.selectModel === '日期'"
                   v-model="selectTfsItem.selectValue[0].value" type="datetime"
+                  :default-time="DEFAULT_DATE_TIME_START"
                   :placeholder="selectTfsItem.selectValue[0].placeholder" />
                 <el-input v-else v-model="selectTfsItem.selectValue[0].value"
                   :placeholder="selectTfsItem.selectValue[0].placeholder" maxlength="150" clearable></el-input>
@@ -105,6 +106,7 @@
               <el-form-item label-width="0px">
                 <el-date-picker class="w100" v-if="selectTfsItem.selectModel === '日期'"
                   v-model="selectTfsItem.selectValue[1].value" type="datetime"
+                  :default-time="DEFAULT_DATE_TIME_END"
                   :placeholder="selectTfsItem.selectValue[1].placeholder" />
                 <el-input v-else v-model="selectTfsItem.selectValue[1].value"
                   :placeholder="selectTfsItem.selectValue[1].placeholder" maxlength="150" clearable></el-input>
@@ -123,6 +125,7 @@
               <el-form-item label-width="0px">
                 <el-date-picker class="w100" v-if="selectGitItem.selectModel === '日期'"
                   v-model="selectGitItem.selectValue[0].value" type="datetime"
+                  :default-time="DEFAULT_DATE_TIME_START"
                   :placeholder="selectGitItem.selectValue[0].placeholder" />
                 <el-input v-else v-model="selectGitItem.selectValue[0].value"
                   :placeholder="selectGitItem.selectValue[0].placeholder" maxlength="150" clearable></el-input>
@@ -135,6 +138,7 @@
               <el-form-item label-width="0px">
                 <el-date-picker class="w100" v-if="selectGitItem.selectModel === '日期'"
                   v-model="selectGitItem.selectValue[1].value" type="datetime"
+                  :default-time="DEFAULT_DATE_TIME_END"
                   :placeholder="selectGitItem.selectValue[1].placeholder" />
                 <el-input v-else v-model="selectGitItem.selectValue[1].value"
                   :placeholder="selectGitItem.selectValue[1].placeholder" maxlength="150" clearable></el-input>
@@ -513,7 +517,7 @@ import { useProjectDb } from "@/database/project/index";
 import { useServerDb } from "@/database/servers/index";
 import { useTfsDb } from "@/database/teamFoundationServer/index";
 import { useGitDb } from "@/database/git/index";
-import { formatDate } from "@/utils/formatTime";
+import { formatDate, DEFAULT_DATE_TIME_START, DEFAULT_DATE_TIME_END } from "@/utils/formatTime";
 import { getDefaultSubObject, removeSlash } from "@/utils/other";
 
 // 定义子组件向父组件传值/事件
@@ -537,10 +541,7 @@ const generateDirs = ref<string[]>([]);
 const compressFiles = ref([]);
 const dllModeDate = ref<[Date, Date]>();
 // 日期范围选择器默认时间：起始日 00:00:00，截止日 23:59:59（覆盖截止日全天）
-const DLL_MODE_DEFAULT_TIME: [Date, Date] = [
-  new Date(2000, 0, 1, 0, 0, 0),
-  new Date(2000, 0, 1, 23, 59, 59),
-];
+const DLL_MODE_DEFAULT_TIME: [Date, Date] = [DEFAULT_DATE_TIME_START, DEFAULT_DATE_TIME_END];
 const selectTfsItem = ref<SelectTfsType>({
   id: null,
   tfsName: null,
