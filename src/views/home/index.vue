@@ -2446,9 +2446,12 @@ const newCopyWpfAssemblyFile = async (
     path: outPath,
   });
   if (projectOutPathExists.code === 0) {
-    await cmdInvoke("delete_paths", {
+    const delResult = await cmdInvoke("delete_paths", {
       paths: [outPath],
     });
+    if (delResult.code !== 0) {
+      printInfoLog(`删除输出目录失败：${outPath}，${delResult.data}`, "log-error");
+    }
   }
   let createPathResult = await createDir(outPath);
   if (!createPathResult) {
@@ -2535,6 +2538,7 @@ const newCopyWpfAssemblyFile = async (
         copyResult = await cmdInvoke("copy_dll_files_by_name", {
           source: dirPath,
           destination: `${outPath}/${generateDir}`,
+          delDestination: true,
           patterns: patterns,
         });
       } else {
@@ -2820,9 +2824,12 @@ const copyWpfAssemblyFile = async (
     path: outPath,
   });
   if (projectOutPathExists.code === 0) {
-    await cmdInvoke("delete_paths", {
+    const delResult = await cmdInvoke("delete_paths", {
       paths: [outPath],
     });
+    if (delResult.code !== 0) {
+      printInfoLog(`删除输出目录失败：${outPath}，${delResult.data}`, "log-error");
+    }
   }
   let createPathResult = await createDir(outPath);
   if (!createPathResult) {
@@ -2891,6 +2898,7 @@ const copyWpfAssemblyFile = async (
         copyResult = await cmdInvoke("copy_dll_files_by_name", {
           source: dirPath,
           destination: `${outPath}/${generateDir}`,
+          delDestination: true,
           patterns: patterns,
         });
       } else {
@@ -3122,9 +3130,12 @@ const copyAssemblyFile = async (
     path: outPath,
   });
   if (projectOutPathExists.code === 0) {
-    await cmdInvoke("delete_paths", {
+    const delResult = await cmdInvoke("delete_paths", {
       paths: [outPath],
     });
+    if (delResult.code !== 0) {
+      printInfoLog(`删除输出目录失败：${outPath}，${delResult.data}`, "log-error");
+    }
   }
   let createPathResult = await createDir(outPath);
   if (!createPathResult) {
@@ -3192,6 +3203,7 @@ const copyAssemblyFile = async (
       copyResult = await cmdInvoke("copy_dll_files_by_name", {
         source: appConfig.clientPath,
         destination: outPath,
+        delDestination: true,
         patterns: patterns,
       });
     }

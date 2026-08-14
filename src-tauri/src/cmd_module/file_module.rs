@@ -1786,6 +1786,7 @@ fn parse_patterns(patterns_text: &str) -> Vec<Regex> {
 /// - `source`: 源目录
 /// - `destination`: 目标目录
 /// - `patterns`: DLL名称模式文本，每行一个，支持顿号分隔
+/// - `del_destination`: 是否先删除目标目录（避免残留旧文件）
 ///
 /// # 返回值
 /// - `Ok(true)` 表示操作完成
@@ -1795,12 +1796,20 @@ pub async fn copy_dll_files_by_name(
     source: &str,
     destination: &str,
     patterns: &str,
+    del_destination: bool,
 ) -> Result<bool, String> {
     let src_dir = Path::new(source);
     let dst_dir = Path::new(destination);
 
     if !src_dir.exists() {
         return Err(format!("源目录不存在: {}", source));
+    }
+
+    // 删除目标文件夹
+    if del_destination {
+        if let Err(e) = delete_dir(destination).await {
+            return Err(e.to_string());
+        }
     }
 
     // 确保目标目录存在

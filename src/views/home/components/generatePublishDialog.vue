@@ -1367,6 +1367,7 @@ const copyWpfAssemblyFile = async (
         copyResult = await cmdInvoke("copy_dll_files_by_name", {
           source: dirPath,
           destination: `${outPath}/${generateDir}`,
+          delDestination: true,
           patterns: patterns,
         });
       } else {
@@ -1457,6 +1458,7 @@ const copyAssemblyFile = async (
       copyResult = await cmdInvoke("copy_dll_files_by_name", {
         source: clientPath,
         destination: outPath,
+        delDestination: true,
         patterns: patterns,
       });
     }
