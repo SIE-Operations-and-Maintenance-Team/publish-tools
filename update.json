@@ -1,15 +1,15 @@
 {
-    "version": "0.0.35",
-    "notes": "1. 修复发布 WpfClient 时 Manifest.xml 版本号为 3 段（如 10.2.19）导致更新版本号失败的问题，现支持 1~4 段版本号<b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.35/SmomPublish_0.0.35_x64-setup.exe'>点击此处</a> 下载。</b>",
-    "pub_date": "2026-08-14T07:14:15Z",
+    "version": "0.0.36",
+    "notes": "1. 修复 DLL名称获取方式残留旧文件问题：复制前清空目标目录，防止旧 DLL 混入发布包<br>2. 修复 DLL名称模式生成发布日志时未清理旧日志的问题（与 TFS/Git 一致，仅保留最新日志）<br>3. TFS/Git 查询记录与生成日志的日期选择默认 00:00:00 ~ 23:59:59（应用配置、TFS 查询、Git 查询）<br>4. 修复 CI 自动打 tag 后无法自动触发打包流水线的问题<b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.36/SmomPublish_0.0.36_x64-setup.exe'>点击此处</a> 下载。</b>",
+    "pub_date": "2026-08-14T04:02:35Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWF1bThWMGtsMFg3NGJLWTdWRlpLS0VVVXZZT1J0VlBwZXJENXh4aWpOaXpvVyt6WnFjdEJpV0tBbHJCcUEvTU5IMFR0TGNITFhWaGpoUzdSRjViTEFBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2NjkxNjI4CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjM1X3g2NC1zZXR1cC5leGUKKzJoc2Q5UTFtcXoxcG5pRlErZFRJYStRTEtGNHpUZEQ1R1BuK1JiaHh5WTlRamNwaWh5T2Rad1JvVjFHajFtYTFGeDduM3hSeGJhL1RoYURPSi9TQlE9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.35/SmomPublish_0.0.35_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVoxdFJVak5HSHpWcGpRL2xUUmk0a3ZHTExRS3ZxUlVGWTR3TkxMdENZazM4K2M3Sjk4Tk5NVXBVL1NZaW5sY1BHN3RFaHEzZ0tCcFBNcmJUNklmcGcwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2NjgwMTIyCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjM0X3g2NC1zZXR1cC5leGUKUTRBVEJ2bk0rdmk3UUw1VUsvWXlrTWkzSitCRExWd3JMeThsUnZseHRJT2s5cDJPMWVUbUlLSlpURmZveWxZZUVybURsYm1MRFJ5ZDdpc2pyVEljQVE9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.36/SmomPublish_0.0.36_x64-setup.exe"
         },
         "windows-msi": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVNVekR3ZUlHRDBUZUthdXQveFBCc004SWZicEZNQkhkbElOQTZFNTlDa2VMcUJwYStyYlYvZ1hxVzAvc1ZFb3p5SnZWU0NSbHBYc3NaS1dhOUVySmc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2NjkxNjI4CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjM1X3g2NF96aC1DTi5tc2kKUi9vUmlhWlVQZVZ6d1QvQnZicHhKc3FSTXRDc212dmhIUWVWNzJwaUVTNjdGUEZvUDhJR2dab0o0WmdqMDFBYnN6R0RFVkV3K3BPYjhMMFNQTlgwRHc9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.35/SmomPublish_0.0.35_x64_zh-CN.msi"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVRuNjJZVGg3QmJmSkp1L2s4ekRZNWNTVkh4RExoNXNicHA0Qjc3cXVkbDdoVjdpbHd2QTd2dkIyWUlEMnhHaVluQkJPOTRhMWxyK3dyUmUyQzJCeVFjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2NjgwMTIyCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjM0X3g2NF96aC1DTi5tc2kKKzNiL2RSOFNZdlZwc2NIT2JhSVpEdzRZdUtKU1pDeVBONEtxSGdYOGNFYm9CZ2UzcWpiRVlvTEcrdkk1aTc1dGpJK25VaGhwT2luN1Q0TlRjcVdaQVE9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.36/SmomPublish_0.0.36_x64_zh-CN.msi"
         }
     }
 }
