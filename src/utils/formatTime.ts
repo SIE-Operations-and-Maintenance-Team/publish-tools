@@ -188,3 +188,9 @@ export function formatGitDate(gitDate: string, format: string = "YYYY-mm-dd HH:M
 	// 使用现有的formatDate函数格式化时间
 	return formatDate(date, format);
 }
+
+/**
+ * 日期范围选择器默认时间：开始 00:00:00，结束 23:59:59（结束覆盖全天）
+ */
+export const DEFAULT_DATE_TIME_START = new Date(2000, 0, 1, 0, 0, 0);
+export const DEFAULT_DATE_TIME_END = new Date(2000, 0, 1, 23, 59, 59);
