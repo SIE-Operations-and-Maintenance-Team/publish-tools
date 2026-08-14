@@ -39,6 +39,7 @@
                   <el-form-item :label="historyParams.historyModel">
                     <el-date-picker class="w100" v-if="historyParams.historyModel === '日期'"
                       v-model="historyParams.historyValue[0].value" type="datetime"
+                      :default-time="DEFAULT_DATE_TIME_START"
                       :placeholder="historyParams.historyValue[0].placeholder" />
                     <el-input v-else v-model="historyParams.historyValue[0].value"
                       :placeholder="historyParams.historyValue[0].placeholder" maxlength="150" />
@@ -51,6 +52,7 @@
                   <el-form-item label-width="0px">
                     <el-date-picker class="w100" v-if="historyParams.historyModel === '日期'"
                       v-model="historyParams.historyValue[1].value" type="datetime"
+                      :default-time="DEFAULT_DATE_TIME_END"
                       :placeholder="historyParams.historyValue[1].placeholder" />
                     <el-input v-else v-model="historyParams.historyValue[1].value"
                       :placeholder="historyParams.historyValue[1].placeholder" maxlength="150" clearable />
@@ -90,7 +92,7 @@ import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage } from "element-plus";
 import _ from "lodash";
 import { getDefaultSubObject } from "@/utils/other";
-import { formatDate } from "@/utils/formatTime";
+import { formatDate, DEFAULT_DATE_TIME_START, DEFAULT_DATE_TIME_END } from "@/utils/formatTime";
 import { parseGitContent } from "@/utils/outPublishInfo";
 
 // 定义变量内容
