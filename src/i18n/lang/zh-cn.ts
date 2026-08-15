@@ -121,6 +121,8 @@ export default {
 		copyTextError: '复制失败！',
 	},
 	settings: {
+		autoStart: '开机自启',
+		autoStartTip: '开启后开机自动启动应用，并驻留系统托盘',
 		oneClickPublish: '一键发布',
 		oneClickPublishTip: '开启后显示一键发布按钮与定时发布中的一键发布选项',
 		winServiceStopRetry: 'Windows 服务关闭重试',

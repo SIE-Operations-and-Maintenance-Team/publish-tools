@@ -3,6 +3,7 @@
 
 use std::process;
 use tauri::Manager;
+use SmomPublish::cmd_module::auto_start_module;
 use SmomPublish::cmd_module::file_module;
 use SmomPublish::cmd_module::parse_sln_module;
 use SmomPublish::cmd_module::wpf_upgrade_module;
@@ -73,12 +74,21 @@ fn main() {
             // 初始化 MCP Server 管理（按配置启动；后续配置变更通过 update_mcp_config 动态启停）
             SmomPublish::mcp::manager::init(app.handle());
 
+            // 开机自启（--autostart）场景：静默驻留系统托盘，不显示主窗口
+            if std::env::args().any(|arg| arg == "--autostart") {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
+            }
+
             Ok(())
         })
         // 注册[前端调用]命令
         .invoke_handler(tauri::generate_handler![
             greet,
             exit_app,
+            auto_start_module::get_auto_start,
+            auto_start_module::set_auto_start,
             get_mcp_config,
             update_mcp_config,
             get_mcp_status,

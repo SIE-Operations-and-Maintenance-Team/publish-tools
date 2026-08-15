@@ -121,6 +121,8 @@ export default {
 		copyTextError: 'Copy failed!',
 	},
 	settings: {
+		autoStart: 'Auto Start on Boot',
+		autoStartTip: 'Launch the app automatically on boot and keep it in the system tray',
 		oneClickPublish: 'One-Click Publish',
 		oneClickPublishTip: 'Show one-click publish button and its scheduled option when enabled',
 		winServiceStopRetry: 'Windows Service Stop Retry',

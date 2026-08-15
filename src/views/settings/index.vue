@@ -2,6 +2,13 @@
   <div class="settings-container">
     <el-card shadow="never">
       <el-form ref="formRef" :model="form" label-width="180px" size="default" v-loading="loading">
+        <!-- 开机自启 -->
+        <el-divider content-position="left">{{ $t('message.settings.autoStart') }}</el-divider>
+        <el-form-item :label="$t('message.settings.autoStart')">
+          <el-switch v-model="autoStartEnabled" :loading="autoStartLoading" @change="onAutoStartChange" />
+          <span class="settings-tip">{{ $t('message.settings.autoStartTip') }}</span>
+        </el-form-item>
+
         <!-- 一键发布 -->
         <el-divider content-position="left">{{ $t('message.settings.oneClickPublish') }}</el-divider>
         <el-form-item :label="$t('message.settings.oneClickPublish')">
@@ -63,6 +70,10 @@ const loading = ref(false);
 const saving = ref(false);
 
 const form = reactive<RowSettingsType>(defaultSettings());
+
+// 开机自启（状态以注册表为唯一真实源，切换立即生效，不落库）
+const autoStartEnabled = ref(false);
+const autoStartLoading = ref(false);
 
 // MCP 配置
 const mcpConfig = reactive({
@@ -165,6 +176,26 @@ const validate = (): boolean => {
   return true;
 };
 
+// 开机自启开关：立即写注册表，失败回滚开关状态
+const onAutoStartChange = async (val: boolean) => {
+  autoStartLoading.value = true;
+  try {
+    const r = await cmdInvoke<boolean>("set_auto_start", { enabled: val });
+    if (r.code === 0) {
+      autoStartEnabled.value = val;
+      ElMessage.success(val ? '开机自启已开启' : '开机自启已关闭');
+    } else {
+      autoStartEnabled.value = !val;
+      ElMessage.error('开机自启设置失败: ' + r.msg);
+    }
+  } catch (e) {
+    autoStartEnabled.value = !val;
+    ElMessage.error('开机自启设置失败: ' + e);
+  } finally {
+    autoStartLoading.value = false;
+  }
+};
+
 const onMcpEnabledChange = async (val: boolean) => {
   // 立即保存并生效，不等保存按钮
   try {
@@ -231,6 +262,9 @@ const load = async () => {
   // 加载业务设置
   const r = await settingsDb.getSettings();
   if (r.code === 0 && r.data) Object.assign(form, r.data);
+  // 加载开机自启状态（以注册表实际状态回显，与系统保持一致）
+  const autoR = await cmdInvoke<boolean>("get_auto_start");
+  if (autoR.code === 0) autoStartEnabled.value = !!autoR.data;
   // 加载 MCP 配置
   const mcpR = await cmdInvoke<{ mcp_enabled: boolean; mcp_port: number }>("get_mcp_config");
   if (mcpR.code === 0 && mcpR.data) {
