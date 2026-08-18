@@ -7,7 +7,7 @@ export function useSettingsDb() {
          * 读取全局设置（id=1）。若无行则插入默认行后重查。
          */
         getSettings: async () => {
-            const selectSql = "select id, one_click_publish_enabled oneClickPublishEnabled, win_service_stop_retry_count winServiceStopRetryCount, win_service_stop_retry_interval winServiceStopRetryInterval, win_copy_retry_count winCopyRetryCount, win_copy_retry_interval winCopyRetryInterval, update_time updateTime from t_settings where id = 1";
+            const selectSql = "select id, one_click_publish_enabled oneClickPublishEnabled, win_service_retry_count winServiceRetryCount, win_service_retry_interval winServiceRetryInterval, win_copy_retry_count winCopyRetryCount, win_copy_retry_interval winCopyRetryInterval, update_time updateTime from t_settings where id = 1";
 
             let dataResult: DataResultType<RowSettingsType> = {
                 code: 0,
@@ -35,12 +35,12 @@ export function useSettingsDb() {
          * 保存全局设置（upsert id=1）。
          */
         saveSettings: async (data: RowSettingsType) => {
-            const updateSql = "UPDATE t_settings SET one_click_publish_enabled = $1, win_service_stop_retry_count = $2, win_service_stop_retry_interval = $3, win_copy_retry_count = $4, win_copy_retry_interval = $5, update_time = $6 WHERE id = 1";
-            const insertSql = "INSERT INTO t_settings (id, one_click_publish_enabled, win_service_stop_retry_count, win_service_stop_retry_interval, win_copy_retry_count, win_copy_retry_interval, update_time) VALUES(1, $1, $2, $3, $4, $5, $6)";
+            const updateSql = "UPDATE t_settings SET one_click_publish_enabled = $1, win_service_retry_count = $2, win_service_retry_interval = $3, win_copy_retry_count = $4, win_copy_retry_interval = $5, update_time = $6 WHERE id = 1";
+            const insertSql = "INSERT INTO t_settings (id, one_click_publish_enabled, win_service_retry_count, win_service_retry_interval, win_copy_retry_count, win_copy_retry_interval, update_time) VALUES(1, $1, $2, $3, $4, $5, $6)";
             const bindValues = [
                 data.oneClickPublishEnabled,
-                data.winServiceStopRetryCount,
-                data.winServiceStopRetryInterval,
+                data.winServiceRetryCount,
+                data.winServiceRetryInterval,
                 data.winCopyRetryCount,
                 data.winCopyRetryInterval,
                 formatDate(new Date(), "YYYY-mm-dd HH:MM:SS"),

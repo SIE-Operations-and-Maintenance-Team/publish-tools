@@ -101,8 +101,8 @@ async function ensureSchema(database: Database) {
     await database.execute(`CREATE TABLE IF NOT EXISTS t_settings (
         id INTEGER NOT NULL PRIMARY KEY,
         one_click_publish_enabled INTEGER DEFAULT 0,
-        win_service_stop_retry_count INTEGER DEFAULT 3,
-        win_service_stop_retry_interval INTEGER DEFAULT 2,
+        win_service_retry_count INTEGER DEFAULT 3,
+        win_service_retry_interval INTEGER DEFAULT 2,
         win_copy_retry_count INTEGER DEFAULT 3,
         win_copy_retry_interval INTEGER DEFAULT 2,
         update_time TEXT
@@ -113,6 +113,24 @@ async function ensureSchema(database: Database) {
     const hasBuildMode = columns.some((column) => column.name === "build_mode");
     if (!hasBuildMode) {
         await database.execute("ALTER TABLE t_app_config ADD COLUMN build_mode TEXT DEFAULT 'Debug'");
+    }
+
+    // ========== 改列（服务重试列名由 stop_retry 统一为 retry，老库存在旧列则逐列重命名） ==========
+    // 注：Rust 端 migration 未在 main.rs 注册（死代码），实际建表/改列均由本函数承担
+    const settingsColumns = await database.select<{ name: string }[]>("PRAGMA table_info(t_settings)");
+    const hasSettingsColumn = (name: string) => settingsColumns.some((column) => column.name === name);
+    if (hasSettingsColumn("win_service_stop_retry_count")) {
+        await database.execute("ALTER TABLE t_settings RENAME COLUMN win_service_stop_retry_count TO win_service_retry_count");
+    }
+    if (hasSettingsColumn("win_service_stop_retry_interval")) {
+        await database.execute("ALTER TABLE t_settings RENAME COLUMN win_service_stop_retry_interval TO win_service_retry_interval");
+    }
+    // 兜底：新旧列名都不存在（畸形老库）时补建，保证 t_settings 结构完整
+    if (!hasSettingsColumn("win_service_retry_count") && !hasSettingsColumn("win_service_stop_retry_count")) {
+        await database.execute("ALTER TABLE t_settings ADD COLUMN win_service_retry_count INTEGER DEFAULT 3");
+    }
+    if (!hasSettingsColumn("win_service_retry_interval") && !hasSettingsColumn("win_service_stop_retry_interval")) {
+        await database.execute("ALTER TABLE t_settings ADD COLUMN win_service_retry_interval INTEGER DEFAULT 2");
     }
 }
 

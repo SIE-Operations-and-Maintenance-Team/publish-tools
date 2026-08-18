@@ -16,13 +16,13 @@
           <span class="settings-tip">{{ $t('message.settings.oneClickPublishTip') }}</span>
         </el-form-item>
 
-        <!-- 服务关闭重试 -->
-        <el-divider content-position="left">{{ $t('message.settings.winServiceStopRetry') }}</el-divider>
+        <!-- 服务启停重试 -->
+        <el-divider content-position="left">{{ $t('message.settings.winServiceRetry') }}</el-divider>
         <el-form-item :label="$t('message.settings.retryCount')">
-          <el-input-number v-model="form.winServiceStopRetryCount" :min="1" :max="99" :step="1" />
+          <el-input-number v-model="form.winServiceRetryCount" :min="1" :max="99" :step="1" />
         </el-form-item>
         <el-form-item :label="$t('message.settings.retryInterval')">
-          <el-input-number v-model="form.winServiceStopRetryInterval" :min="1" :max="60" :step="1" />
+          <el-input-number v-model="form.winServiceRetryInterval" :min="1" :max="60" :step="1" />
         </el-form-item>
 
         <!-- 复制重试 -->
@@ -166,11 +166,11 @@ const mcpStatusI18nKey = computed(() => {
 });
 
 const validate = (): boolean => {
-  if (form.winServiceStopRetryCount < 1 || form.winServiceStopRetryCount > 99) {
+  if (form.winServiceRetryCount < 1 || form.winServiceRetryCount > 99) {
     ElMessage.warning('重试次数需在 1-99 之间，间隔需在 1-60 之间');
     return false;
   }
-  if (form.winServiceStopRetryInterval < 1 || form.winServiceStopRetryInterval > 60) return false;
+  if (form.winServiceRetryInterval < 1 || form.winServiceRetryInterval > 60) return false;
   if (form.winCopyRetryCount < 1 || form.winCopyRetryCount > 99) return false;
   if (form.winCopyRetryInterval < 1 || form.winCopyRetryInterval > 60) return false;
   return true;

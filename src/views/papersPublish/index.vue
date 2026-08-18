@@ -754,7 +754,7 @@ const switchLocalWinService = async (serviceName: string, action: "stop" | "star
   const switchServerResult = await cmdInvoke("execute_local_command", {
     command: "net",
     args: [action, serviceName],
-    ...getRetryArgs("serviceStop"),
+    ...getRetryArgs("service"),
   });
   if (switchServerResult.code !== 0) printInfoLog(switchServerResult.data, "log-error");
   return switchServerResult.code === 0;
@@ -2276,7 +2276,7 @@ const switchRemoteWinService = async (
     password,
     server,
     command: `net ${action} "${serviceName}"`,
-    ...getRetryArgs("serviceStop"),
+    ...getRetryArgs("service"),
   });
   if (switchServerResult.code !== 0) printInfoLog(switchServerResult.data, "log-error");
   return switchServerResult.code === 0;

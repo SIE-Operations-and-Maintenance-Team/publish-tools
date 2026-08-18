@@ -619,7 +619,7 @@ const switchWinService = async (
     password,
     server,
     command: `sc ${action} "${serviceName}"`,
-    ...getRetryArgs("serviceStop"),
+    ...getRetryArgs("service"),
   });
   if (switchServerResult.code !== 0) {
     printInfoLog(switchServerResult.data, "log-error");

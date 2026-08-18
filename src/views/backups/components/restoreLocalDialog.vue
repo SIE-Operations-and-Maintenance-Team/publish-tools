@@ -389,7 +389,7 @@ const switchWinService = async (serviceName: string, action: "stop" | "start") =
   const switchServerResult = await cmdInvoke("execute_local_command", {
     command: "sc",
     args: [action, serviceName],
-    ...getRetryArgs("serviceStop"),
+    ...getRetryArgs("service"),
   });
   if (switchServerResult.code !== 0) {
     printInfoLog(switchServerResult.data, "log-error");

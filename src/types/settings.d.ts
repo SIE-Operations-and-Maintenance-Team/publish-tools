@@ -2,8 +2,8 @@
 declare interface RowSettingsType {
 	id: number;
 	oneClickPublishEnabled: number;       // 0 关 / 1 开
-	winServiceStopRetryCount: number;
-	winServiceStopRetryInterval: number;  // 秒
+	winServiceRetryCount: number;
+	winServiceRetryInterval: number;  // 秒
 	winCopyRetryCount: number;
 	winCopyRetryInterval: number;         // 秒
 	updateTime?: string;

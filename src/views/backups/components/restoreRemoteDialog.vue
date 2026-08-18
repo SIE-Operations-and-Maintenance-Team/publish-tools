@@ -91,6 +91,7 @@ import {
   formatServiceLog,
 } from "@/utils/other";
 import { useRestoreDb } from "@/database/restore/index";
+import { loadPublishSettings, getRetryArgs } from "@/utils/publishSettings";
 import { formatDate } from "@/utils/formatTime";
 import { ElMessage } from "element-plus";
 
@@ -128,6 +129,8 @@ const state = reactive<FormDialogType<BackupRemotePublishType>>({
 const onRestore = async () => {
   if (!state.ruleForm.projectName) return;
   state.dialog.submitTxt = "还原中";
+  // 加载发布设置缓存（供后续服务停止启动 调用点 getRetryArgs 使用）
+  await loadPublishSettings();
   onRemoveLogs();
   printInfoLog("项目名称：" + state.ruleForm.projectName);
   printInfoLog("项目环境：" + displayEnvironment(Number(state.ruleForm.environment)));
@@ -638,6 +641,7 @@ const switchWinService = async (
     password,
     server,
     command: `sc ${action} "${serviceName}"`,
+    ...getRetryArgs("service"),
   });
   if (switchServerResult.code !== 0) {
     printInfoLog(switchServerResult.data, "log-error");

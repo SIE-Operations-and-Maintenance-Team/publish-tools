@@ -125,7 +125,7 @@ export default {
 		autoStartTip: '开启后开机自动启动应用，并驻留系统托盘',
 		oneClickPublish: '一键发布',
 		oneClickPublishTip: '开启后显示一键发布按钮与定时发布中的一键发布选项',
-		winServiceStopRetry: 'Windows 服务关闭重试',
+		winServiceRetry: 'Windows 服务启停重试',
 		winCopyRetry: 'Windows 复制重试',
 		retryCount: '重试次数',
 		retryInterval: '重试间隔（秒）',

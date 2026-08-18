@@ -97,8 +97,8 @@ pub fn db_migration() -> Vec<Migration> {
     let t_settings = "CREATE TABLE IF NOT EXISTS t_settings (
         id INTEGER NOT NULL PRIMARY KEY,
         one_click_publish_enabled INTEGER DEFAULT 0,
-        win_service_stop_retry_count INTEGER DEFAULT 3,
-        win_service_stop_retry_interval INTEGER DEFAULT 2,
+        win_service_retry_count INTEGER DEFAULT 3,
+        win_service_retry_interval INTEGER DEFAULT 2,
         win_copy_retry_count INTEGER DEFAULT 3,
         win_copy_retry_interval INTEGER DEFAULT 2,
         update_time TEXT

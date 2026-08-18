@@ -43,3 +43,5 @@ src-tauri/Cargo.toml
 # Tauri 旧密钥备份(不提交)
 src-tauri/tauri.key.bak-oldkey
 src-tauri/tauri.key.pub.bak-oldkey
+
+Exp-Tools/*
