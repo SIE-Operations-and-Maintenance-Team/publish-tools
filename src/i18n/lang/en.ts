@@ -145,6 +145,11 @@ export default {
 		mcpStatusStopped: 'Stopped',
 		mcpStatusStarting: 'Starting',
 		mcpConfigSaved: 'MCP config saved. Restart the app to apply changes.',
+		about: 'About',
+		currentVersion: 'Current Version',
+		checkUpdate: 'Check for Updates',
+		alreadyLatest: 'You are already on the latest version',
+		checkUpdateFailed: 'Failed to check for updates',
 	},
 	upgrade: {
 		title: 'New version',

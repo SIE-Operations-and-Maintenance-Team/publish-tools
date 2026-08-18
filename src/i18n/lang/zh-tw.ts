@@ -145,6 +145,11 @@ export default {
 		mcpStatusStopped: '已停止',
 		mcpStatusStarting: '啟動中',
 		mcpConfigSaved: 'MCP 配置已儲存，重新啟動應用後生效',
+		about: '關於',
+		currentVersion: '目前版本',
+		checkUpdate: '檢查更新',
+		alreadyLatest: '目前已是最新版本',
+		checkUpdateFailed: '檢查更新失敗',
 	},
 	upgrade: {
 		title: '新版本陞級',

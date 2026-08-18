@@ -121,9 +121,15 @@ const currPercentage = computed(() => {
   return percentage.toFixed(2);
 });
 
+// 立即显示弹窗（手动触发检查更新时调用，跳过 delayShow 的延迟）
+const open = () => {
+  state.isUpgrade = true;
+};
+
 // 暴露变量
 defineExpose({
   downloadEvent,
+  open,
 });
 
 // 延迟显示，防止刷新时界面显示太快

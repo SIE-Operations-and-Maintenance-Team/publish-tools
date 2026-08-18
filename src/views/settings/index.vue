@@ -47,27 +47,61 @@
           <el-tag :type="mcpStatusTagType">{{ $t(mcpStatusI18nKey) }}</el-tag>
         </el-form-item>
 
+        <!-- 关于 -->
+        <el-divider content-position="left">{{ $t('message.settings.about') }}</el-divider>
+        <el-form-item :label="$t('message.settings.currentVersion')">
+          <span class="about-version">v{{ appVersion }}</span>
+          <el-button :loading="checkingUpdate" @click="onCheckUpdate">{{ $t('message.settings.checkUpdate') }}</el-button>
+        </el-form-item>
+
         <el-form-item>
           <el-button type="primary" :loading="saving" @click="onSave">{{ $t('message.settings.save') }}</el-button>
         </el-form-item>
       </el-form>
     </el-card>
+    <!-- 升级弹窗（与 App.vue 启动时检查更新共用同一组件与流程） -->
+    <upgrade
+      v-if="hasUpdate"
+      ref="upgradeRef"
+      :date="pendingUpdate?.date"
+      :version="pendingUpdate?.version"
+      :body="upgradeBody"
+      @confirm-updater="onConfirmUpdater"
+      @download-finished="onDownloadFinished"
+    />
   </div>
 </template>
 
 <script setup lang="ts" name="settings">
-import { reactive, ref, onMounted, onUnmounted, computed } from "vue";
+import { reactive, ref, onMounted, onUnmounted, computed, nextTick, defineAsyncComponent } from "vue";
 import { ElMessage, type FormInstance } from "element-plus";
+import { useI18n } from "vue-i18n";
 import { useSettingsDb } from "@/database/settings/index";
 import { defaultSettings } from "@/utils/publishSettings";
 import { cmdInvoke } from "@/utils/command";
 import mittBus from "@/utils/mitt";
 import { listen } from "@tauri-apps/api/event";
+import { check, Update } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
+import { getVersion } from "@tauri-apps/api/app";
+import { fetchGithubReleaseNotes } from "@/utils/githubRelease";
 
+// 升级弹窗组件（复用 App.vue 启动时检查更新同款组件）
+const Upgrade = defineAsyncComponent(() => import("@/layout/upgrade/index.vue"));
+
+const { t } = useI18n();
 const settingsDb = useSettingsDb();
 const formRef = ref<FormInstance>();
 const loading = ref(false);
 const saving = ref(false);
+
+// 关于：当前版本与检查更新（复用 App.vue 的 check/downloadAndInstall/relaunch 原有流程）
+const appVersion = ref("");
+const checkingUpdate = ref(false);
+const hasUpdate = ref(false);
+let pendingUpdate: Update | null = null;
+const upgradeBody = ref("");
+const upgradeRef = ref();
 
 const form = reactive<RowSettingsType>(defaultSettings());
 
@@ -93,6 +127,8 @@ let unlisten: (() => void) | null = null;
 // 监听 MCP 状态事件
 onMounted(async () => {
   load();
+  // 获取当前应用版本号（Tauri 包信息，与 package.json 同步）
+  getVersion().then((v) => (appVersion.value = v)).catch(() => {});
   try {
     unlisten = await listen<{ status: string; message?: string; port?: number }>("mcp-status", (event) => {
       mcpStatus.value = event.payload.status;
@@ -164,6 +200,53 @@ const mcpStatusI18nKey = computed(() => {
   if (key === "starting") return "message.settings.mcpStatusStarting";
   return "message.settings.mcpStatusDisabled";
 });
+
+// 检查更新：有更新时弹出升级弹窗（与 App.vue 启动时同一流程），无更新则提示
+const onCheckUpdate = async () => {
+  checkingUpdate.value = true;
+  try {
+    const update = await check();
+    if (!update) {
+      ElMessage.success(t('message.settings.alreadyLatest'));
+      return;
+    }
+    pendingUpdate = update;
+    // 弹窗内容先用 update.json notes 兜底，拉到 GitHub Release 说明后替换
+    upgradeBody.value = update.body ?? "";
+    hasUpdate.value = true;
+    const version = update.version;
+    fetchGithubReleaseNotes(version).then((notes) => {
+      // 仅当仍是同一次更新时再替换，防止竞态覆盖
+      if (notes && pendingUpdate?.version === version) upgradeBody.value = notes;
+    });
+    // 组件挂载后立即显示弹窗（跳过组件内启动场景的延迟）
+    await nextTick();
+    upgradeRef.value?.open();
+  } catch (e) {
+    ElMessage.error(t('message.settings.checkUpdateFailed') + ': ' + e);
+  } finally {
+    checkingUpdate.value = false;
+  }
+};
+
+// 确认更新（下载并安装，进度回调给弹窗）
+const onConfirmUpdater = async (isUpdater: boolean) => {
+  if (!isUpdater || !pendingUpdate) return;
+  await pendingUpdate.downloadAndInstall((event) => {
+    upgradeRef.value?.downloadEvent(event);
+  });
+};
+
+// 下载完成：提示后重启应用
+const onDownloadFinished = () => {
+  ElMessage.success({
+    duration: 5 * 1000,
+    message: "更新成功，正在重启！",
+    onClose: async () => {
+      await relaunch();
+    },
+  });
+};
 
 const validate = (): boolean => {
   if (form.winServiceRetryCount < 1 || form.winServiceRetryCount > 99) {
@@ -286,6 +369,10 @@ const load = async () => {
     margin-left: 10px;
     color: var(--el-text-color-secondary);
     font-size: 12px;
+  }
+  .about-version {
+    margin-right: 15px;
+    color: var(--el-text-color-regular);
   }
 }
 </style>
