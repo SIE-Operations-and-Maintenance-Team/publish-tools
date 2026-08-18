@@ -9,7 +9,7 @@
       ref="layoutUpgradeRef"
       :date="smomUpdate?.date"
       :version="smomUpdate?.version"
-      :body="smomUpdate?.body"
+      :body="upgradeBody"
       @confirm-updater="onConfirmUpdater"
       @download-finished="onDownloadFinished"
     />
@@ -39,6 +39,7 @@ import other from "@/utils/other";
 import { Local, Session } from "@/utils/storage";
 import mittBus from "@/utils/mitt";
 import setIntroduction from "@/utils/setIconfont";
+import { fetchGithubReleaseNotes } from "@/utils/githubRelease";
 import { ElMessage } from "element-plus";
 
 // 引入组件
@@ -53,6 +54,8 @@ const Upgrade = defineAsyncComponent(() => import("@/layout/upgrade/index.vue"))
 // 定义变量内容
 let smomUpdate: Update | null = null;
 const getVersion = ref(false);
+// 升级弹窗展示内容：先用 update.json notes 兜底，拉到 GitHub Release 说明后替换
+const upgradeBody = ref("");
 const layoutUpgradeRef = ref();
 const { messages, locale } = useI18n();
 const setingsRef = ref();
@@ -88,7 +91,16 @@ onBeforeMount(async () => {
 
   // 获取版本号
   smomUpdate = await check();
-  if (smomUpdate) getVersion.value = true;
+  if (smomUpdate) {
+    upgradeBody.value = smomUpdate.body ?? "";
+    getVersion.value = true;
+    // 异步拉取当前版本 GitHub Release 说明替换弹窗内容；失败（限流/Release 未建/断网）保持 update.json notes
+    const version = smomUpdate.version;
+    fetchGithubReleaseNotes(version).then((notes) => {
+      // 仅当仍是同一次更新时再替换，防止竞态覆盖
+      if (notes && smomUpdate?.version === version) upgradeBody.value = notes;
+    });
+  }
 });
 
 // 确认更新

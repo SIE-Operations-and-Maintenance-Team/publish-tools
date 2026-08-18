@@ -191,6 +191,9 @@ onMounted(() => {
     .upgrade-content {
       padding: 20px;
       line-height: 22px;
+      max-height: 320px;
+      overflow-y: auto;
+      word-break: break-word;
       .upgrade-content-desc {
         color: var(--el-color-info-light-5);
         font-size: 12px;
