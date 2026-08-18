@@ -1,15 +1,15 @@
 {
-    "version": "0.0.41",
-    "notes": "<b>功能</b><br>• 设置页新增\"关于\"区块：显示当前版本号，提供手动\"检查更新\"入口（与启动时自动检查更新复用同一升级弹窗与下载安装流程）<br><b>修复</b><br>• 修复窗口标题栏不再显示版本号的问题：版本号重构后误用 document.title 设置（不会同步 Tauri 原生窗口标题），改为 Rust 侧启动时拼接版本，恢复\"SMOM平台发布工具 vX.Y.Z\"格式<br><b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.41/SmomPublish_0.0.41_x64-setup.exe'>点击此处</a> 下载。</b>",
-    "pub_date": "2026-08-18T13:34:53Z",
+    "version": "0.0.42",
+    "notes": "<b>功能</b><br>• 新增独立\"关于\"页面（菜单位于设置下方）：显示当前版本号，提供手动\"检查更新\"入口（与启动时自动检查更新复用同一升级弹窗与下载安装流程）；v0.0.41 内嵌在设置页中的关于区块同步移除<br><b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.42/SmomPublish_0.0.42_x64-setup.exe'>点击此处</a> 下载。</b>",
+    "pub_date": "2026-08-18T14:43:33Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVE2VzJsR1htRUY0dFNDMVIxNVhvZ05jRmU4YjEzdzA1VVFyWUJHUUZPSG9mM2xLRm4vM1RTV0VMaDAweEZTekMvbXFhc1hxZFRoU1pEKzNHSFBKOXdVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MDYwMDcyCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjQxX3g2NC1zZXR1cC5leGUKcHlCcHFFcVJWZ3NiRVRZZU1nMXZuajlWd0srOWIzY2JzNWs3bVpSRmhMNVVFTDh3ZFlDRXFGL3NrdE5CK1BXL3UzMmtiRkhyNThtNE40dEJUTng3Qnc9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.41/SmomPublish_0.0.41_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWRWaWVUZG51dDRNc29pZHlETGwrbHR6U1pIc2NxNmRkNVRoNS84TnFyR1NZb3E0bkRBa0ExbWtKaUNyNDBVK3ptSUV2V2h6dExhUldYbVZnWVgya3c0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MDY0MTc5CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjQyX3g2NC1zZXR1cC5leGUKWFVNZjFlZ2VDdnBZWlpXcExDcnA5ajRtZHNhTE5sOUhNQjZXNmNWY1lYQnJYdmgxeG91eUwwUnkrVm9CaFpNcXprQ3BKZkVuakVJV3NqNW02bVpQRFE9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.42/SmomPublish_0.0.42_x64-setup.exe"
         },
         "windows-msi": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVl6bW1LVExIWDdMN1FMaURWenRyU2thMC9UMnMzU3FsS0JEQzYvdzZ5di85dEk5T256bS9aUXJnWkdWMG5SM2VJSFhRbGVUZmNIVzZQbXJxbER5V3dBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MDYwMDcyCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjQxX3g2NF96aC1DTi5tc2kKaU5UOUFjYXFsbXVHSXQvSmo3NUVIZmlUbURoVG11Z0ZqWDROMDVnWmFKWlgvd3dHYlJEOXFSUE5JeWJwODJ5NUNoVE44RHEwc1J6aGhJMzQ3ZG5RQVE9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.41/SmomPublish_0.0.41_x64_zh-CN.msi"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWFmbnkvZk5oQXZTVThDVWExenVJTnJ0dk91RlVqYmJGWGNpcGdtTGJMTjBtaGV6Z1NLTVVaL2pCNGZubDFDc1ZyWDBaL3JaZW5ldVNxaU9vL1Q1MndVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MDY0MTc5CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjQyX3g2NF96aC1DTi5tc2kKcEtYUXZYWHA1R3JnWEk1ckVuMGdMbEorWXZMdkdFWFh2M3NQRDBydFlTWW4rZDdCY0V1TE5Yb2Q0cTRYN0tqVC95ckYxMnlNNVBmU2NJM3l3VnBZQ2c9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.42/SmomPublish_0.0.42_x64_zh-CN.msi"
         }
     }
 }
