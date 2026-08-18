@@ -10,7 +10,6 @@ import Cookies from 'js-cookie';
 export const Local = {
 	// 查看 v2.4.3版本更新日志
 	setKey(key: string) {
-		// @ts-ignore
 		return `${__NEXT_NAME__}:${key}`;
 	},
 	// 设置永久缓存

@@ -113,6 +113,8 @@ const onDownloadFinished = () => {
 // 页面加载完时
 onMounted(() => {
   nextTick(() => {
+    // 初始化窗口标题（启动时 route watch 尚未触发，标题默认不含版本号）
+    other.useTitle();
     // 监听布局配'置弹窗点击打开
     mittBus.on("openSetingsDrawer", () => {
       setingsRef.value.openDrawer();

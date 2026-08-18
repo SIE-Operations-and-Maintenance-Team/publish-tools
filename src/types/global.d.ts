@@ -26,6 +26,10 @@ declare interface Window {
 	BMap: any;
 }
 
+// vite define 注入的全局常量（来源：package.json，见 vite.config.ts）
+declare const __NEXT_VERSION__: string;
+declare const __NEXT_NAME__: string;
+
 // 声明路由当前项类型
 declare type RouteItem<T = any> = {
 	path: string;

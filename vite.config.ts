@@ -3,6 +3,10 @@ import { defineConfig, loadEnv, ConfigEnv } from 'vite';
 import vueSetupExtend from 'vite-plugin-vue-setup-extend-plus';
 import viteCompression from 'vite-plugin-compression';
 import path from 'path';
+import fs from 'fs';
+
+// 版本号/应用名统一以 package.json 为唯一事实源（不依赖 npm 注入的 npm_package_* 环境变量，直接 vite 启动也可用）
+const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'));
 
 // const pathResolve = (dir: string) => {
 // 	return resolve(__dirname, '.', dir);
@@ -57,8 +61,8 @@ export default defineConfig((mode: ConfigEnv) => {
 			__VUE_I18N_LEGACY_API__: JSON.stringify(false),
 			__VUE_I18N_FULL_INSTALL__: JSON.stringify(false),
 			__INTLIFY_PROD_DEVTOOLS__: JSON.stringify(false),
-			__NEXT_VERSION__: JSON.stringify(process.env.npm_package_version),
-			__NEXT_NAME__: JSON.stringify(process.env.npm_package_name),
+			__NEXT_VERSION__: JSON.stringify(pkg.version),
+			__NEXT_NAME__: JSON.stringify(pkg.name),
 		}
   };
 });

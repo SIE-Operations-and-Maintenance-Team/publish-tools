@@ -10,9 +10,12 @@ on:
   workflow_dispatch: # 手动触发
 
 # 发布流程（重要）：
-#   1. 修改版本号（tauri.conf.json 等 5 个文件）并提交推送 master
-#   2. 本地打 tag 并推送：git tag vX.Y.Z && git push origin vX.Y.Z
-#   3. tag 推送（真实 push 事件）自动触发 lint → 打包 → 发布 GitHub Release，无需手动操作
+#   1. 升级版本号：npm run version:bump -- 0.0.40
+#      （以 package.json 为唯一事实源，自动同步 package-lock.json / Cargo.toml，并在 CHANGELOG.md 插入新版本骨架）
+#   2. 填写 CHANGELOG.md 当前版本条目，提交推送 master
+#   3. 本地打 tag 并推送：git tag vX.Y.Z && git push origin vX.Y.Z
+#      （tag 必须等于 package.json 的 version 加 v 前缀，流水线会强制校验，不一致直接失败）
+#   4. tag 推送（真实 push 事件）自动触发 lint → 打包 → 发布 GitHub Release，无需手动操作
 #   （注意：GITHUB_TOKEN 推送 tag 不会触发 workflow，打 tag 必须用本地凭据）
 
 env:
@@ -29,6 +32,21 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
+      # 版本一致性校验（fail fast）：package.json 是唯一事实源，Cargo.toml 由 bump 脚本同步；
+      # tag 触发时强制 tag == package.json version，保证发布产物与 tag 一致
+      - name: Verify version consistency
+        shell: pwsh
+        run: |
+          $pkg = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $cargo = (Select-String -Path src-tauri/Cargo.toml -Pattern '^version = "([^"]+)"').Matches.Groups[1].Value
+          if (-not $cargo) { throw "无法从 src-tauri/Cargo.toml 解析版本号" }
+          if ($pkg -ne $cargo) { throw "版本不一致: package.json=$pkg, Cargo.toml=$cargo（请用 npm run version:bump 统一升级）" }
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $tagVersion = $env:GITHUB_REF -replace '^refs/tags/v', ''
+            if ($tagVersion -ne $pkg) { throw "git tag 与版本号不一致: tag=$tagVersion, package.json=$pkg（tag 必须为 v$pkg）" }
+          }
+          Write-Host "✔ 版本一致性校验通过: $pkg"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -162,23 +180,20 @@ jobs:
           name: updater-signatures
           path: ./sigs
 
-      # 自动更新 update.json：写入 NSIS/MSI 签名、真实文件名 URL、版本号与发布日期
-      #（签名由构建时私钥在 Actions 环境中生成，无法预先计算，故在此补齐）
+      # 更新 update.json：写入 NSIS/MSI 签名、真实文件名 URL、版本号与发布日期
+      # notes / Release 正文统一从 CHANGELOG.md 的当前版本条目提取（找不到条目直接失败，避免发错上一版本说明）
       - name: Update update.json with signatures
         shell: bash
         run: |
           python - <<'EOF'
-          import json, os, glob, datetime
+          import json, os, glob, datetime, re, sys
 
           # tag 名如 v0.0.31 → 版本 0.0.31
           ref = os.environ["GITHUB_REF"]
-          version = ref.rsplit("/", 1)[-1].lstrip("v")
-          # Release 下载路径使用完整 tag 名（含 v），否则链接 404
-          tag = ref.rsplit("/", 1)[-1]
+          tag = ref.rsplit("/", 1)[-1]      # 完整 tag（含 v），Release 下载路径必须带 v，否则链接 404
+          version = tag.lstrip("v")
 
           base = "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/" + tag
-          with open("update.json", encoding="utf-8") as f:
-              data = json.load(f)
 
           nsis_exe = os.path.basename(glob.glob("dist/nsis/*.exe")[0])
           msi_file = os.path.basename(glob.glob("dist/msi/*.msi")[0])
@@ -186,12 +201,38 @@ jobs:
           with open("sigs/smompublish-signatures.json", encoding="utf-8") as f:
               sigs = json.load(f)
 
-          old_version = data["version"]  # 发布前版本号（notes 中下载链接/文件名指向的旧版本）
+          # 从 CHANGELOG.md 提取当前版本条目（唯一更新日志来源）
+          with open("CHANGELOG.md", encoding="utf-8") as f:
+              changelog = f.read()
+          m = re.search(rf"^## v{re.escape(version)}\s*\n(.*?)(?=^## |\Z)", changelog, re.S | re.M)
+          if not m or not m.group(1).strip():
+              sys.exit(f"CHANGELOG.md 中未找到 v{version} 条目，请先补充更新日志再打 tag")
+          section = m.group(1).strip()
+
+          # GitHub Release 正文：Markdown 原文
+          with open("release_notes.md", "w", encoding="utf-8") as f:
+              f.write(section + "\n")
+
+          # update.json 的 notes：Markdown 转简单 HTML（升级弹窗用 v-html 渲染）
+          lines = []
+          for ln in section.splitlines():
+              ln = ln.strip()
+              if not ln:
+                  continue
+              if ln.startswith("### "):
+                  lines.append(f"<b>{ln[4:]}</b>")
+              elif ln.startswith("- "):
+                  lines.append("• " + ln[2:])
+              else:
+                  lines.append(ln)
+          notes = "<br>".join(lines)
+          notes += f"<br><b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='{base}/{nsis_exe}'>点击此处</a> 下载。</b>"
+
+          with open("update.json", encoding="utf-8") as f:
+              data = json.load(f)
           data["version"] = version
           data["pub_date"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-          if old_version not in data["notes"]:
-              print(f"WARNING: '{old_version}' not found in notes; download links will keep the old version", flush=True)
-          data["notes"] = data["notes"].replace(old_version, version)
+          data["notes"] = notes
           data["platforms"]["windows-x86_64"] = {
               "signature": sigs["nsis"],
               "url": base + "/" + nsis_exe,
@@ -230,20 +271,11 @@ jobs:
           git commit -m "chore(ci): update update.json for ${GITHUB_REF##*/} [skip ci]"
           git push origin HEAD:master
 
-      # 从 CHANGELOG.md 提取当前版本更新日志作为 Release 说明（格式：## vX.Y.Z 条目）
-      - name: Extract release notes
-        id: changelog
-        shell: bash
-        run: |
-          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-          echo "release_notes<<$EOF" >> "$GITHUB_OUTPUT"
-          awk '/^## /{if(found)exit; found=1; next} found{print}' CHANGELOG.md >> "$GITHUB_OUTPUT"
-          echo "$EOF" >> "$GITHUB_OUTPUT"
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             ./dist/nsis/*.exe
             ./dist/msi/*.msi
-          body: ${{ steps.changelog.outputs.release_notes }}
+          # 正文由 Update update.json 步骤从 CHANGELOG.md 当前版本条目生成
+          body_path: release_notes.md

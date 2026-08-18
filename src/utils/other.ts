@@ -44,7 +44,8 @@ export function useTitle() {
 		} else {
 			webTitle = setTagsViewNameI18n(router.currentRoute.value);
 		}
-		document.title = `${webTitle} - ${globalTitle}` || globalTitle;
+		// 标题统一带版本号（__NEXT_VERSION__ 源自 package.json，经 vite define 注入）
+		document.title = `${webTitle} - ${globalTitle} v${__NEXT_VERSION__}`;
 	});
 }
 
