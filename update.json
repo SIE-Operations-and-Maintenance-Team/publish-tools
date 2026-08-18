@@ -1,15 +1,15 @@
 {
-    "version": "0.0.38",
-    "notes": "1. 新增：设置菜单支持开机自启，开启后开机自动启动应用并驻留系统托盘<br>2. 修复 DLL名称获取方式残留旧文件问题：复制前清空目标目录，防止旧 DLL 混入发布包<br>3. 修复 DLL名称模式生成发布日志时未清理旧日志的问题（与 TFS/Git 一致，仅保留最新日志）<br>4. TFS/Git 查询记录与生成日志的日期选择默认 00:00:00 ~ 23:59:59（应用配置、TFS 查询、Git 查询）<br>5. 修复 CI 自动打 tag 后无法自动触发打包流水线的问题<b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.38/SmomPublish_0.0.38_x64-setup.exe'>点击此处</a> 下载。</b>",
-    "pub_date": "2026-08-18T07:49:09Z",
+    "version": "0.0.39",
+    "notes": "1. 新增：设置菜单支持开机自启，开启后开机自动启动应用并驻留系统托盘<br>2. 修复 DLL名称获取方式残留旧文件问题：复制前清空目标目录，防止旧 DLL 混入发布包<br>3. 修复 DLL名称模式生成发布日志时未清理旧日志的问题（与 TFS/Git 一致，仅保留最新日志）<br>4. TFS/Git 查询记录与生成日志的日期选择默认 00:00:00 ~ 23:59:59（应用配置、TFS 查询、Git 查询）<br>5. 修复 CI 自动打 tag 后无法自动触发打包流水线的问题<b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.39/SmomPublish_0.0.39_x64-setup.exe'>点击此处</a> 下载。</b>",
+    "pub_date": "2026-08-18T08:41:09Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVlPN1cwSEZPLzcvTmtsZ3VMZnVDUWtsVkZraUlMUUR6OWc2aU9OVzJzOU9UK0dtR1NGTm9VaThwR3A5MHV0NXhEcWRIaEIrUmVuZHU0dFhxbnh1Zmc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MDM5MzMyCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjM4X3g2NC1zZXR1cC5leGUKa29sZ1k5SDFjeEdpd0xzV1VsQXoxR2xFUnlqNVFXRDVBUUl1S2NFallzbGVFTUQ0VHRQU0NCdVVCMjhWWDVHY1kwUjZwMXdJNmpFOTRwMkRqd0RRQWc9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.38/SmomPublish_0.0.38_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVJHdVZOckZadCs0c2E1b2oweHZOdXJxbHJyT00xbzRiV0xTelRDdjdYbEgrTm83dlVkUXN6eFpRd0ZWcjgvZS9KRTVTbVB1Z0QxM0hkQktIWUV3TndBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MDQyNDM1CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjM5X3g2NC1zZXR1cC5leGUKRWFnTkpCWnpKZ28zTnphUmZuZzdGbmlWU29WSGUwbmM2VCtoNTFSdFY3SnBxYWVSNlJXOHpNUXR0VDloeUhoK0RoeU1NTWkzTnJKZVNHcisvT1g1QUE9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.39/SmomPublish_0.0.39_x64-setup.exe"
         },
         "windows-msi": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVREN2dFL3Y1dTFueE55YnZ0TlZuVzdEcGpFZFFmelBicTF2d25Kdm81VVZ2d3QzUGhtR29LV1lwbkdEWUNENXluZDRuS252LzRUZU8yQ1g0ZElkUEEwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MDM5MzMyCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjM4X3g2NF96aC1DTi5tc2kKYkJ5QmNZVDJYT0RtRTRzVUcvZVNFQTcyOERmQ1YybVZCeHgyVXJWQmN5cXN1UmQ2blM3QjY3cnVHd1dza3RrcjhLdEZ5NlUwNzgrbkM3VlphSExLQUE9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.38/SmomPublish_0.0.38_x64_zh-CN.msi"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVIvQm15RlNmZ0ZaNmpLYjVvYnI0UmQ5NEc1WnlFSE4zTmhPMThBY0wxU2k0MGY3V0RFZEY3Q08vY3RoV1BGSmxGZGhBbkJnU3hjWDFVc24rdDkza3dRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MDQyNDM1CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjM5X3g2NF96aC1DTi5tc2kKYUJ2bncrcmpTMklpc0hmNW9OQm8wRFU4N3BCRmlRZDZndFZhUjFnZ3dnaHp5WnRyZkpDVkJJR0FxMlVBa3dxQTl1SlNwbG5lalZsR0xuWEtmY1B3RHc9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.39/SmomPublish_0.0.39_x64_zh-CN.msi"
         }
     }
 }
