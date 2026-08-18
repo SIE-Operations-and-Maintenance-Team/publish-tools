@@ -24,7 +24,7 @@
   },
   "productName": "SmomPublish",
   "mainBinaryName": "SmomPublish",
-  "version": "0.0.38",
+  "version": "0.0.39",
   "identifier": "com.smompublish.tool",
   "plugins": {
     "updater": {
