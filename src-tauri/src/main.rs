@@ -68,6 +68,13 @@ fn main() {
             println!("应用程序已启动，参数: {:?}, 工作目录: {:?}", args, cwd);
         }))
         .setup(|app| {
+            // 窗口标题动态带版本：标题文本取自 tauri.conf.json，版本取自 Cargo.toml（均派生自 package.json 单一事实源）
+            // 注意：webview 内 document.title 不会同步到原生窗口标题，必须在 Rust 侧设置
+            if let Some(window) = app.get_webview_window("main") {
+                let base = window.title().unwrap_or_else(|_| "SMOM平台发布工具".to_string());
+                let _ = window.set_title(&format!("{} v{}", base, app.package_info().version));
+            }
+
             // 初始化托盘菜单
             SmomPublish::tray::smom_menu(app.handle()).expect("初始化托盘失败，请检查！");
 
