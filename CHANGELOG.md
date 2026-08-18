@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.0.40
+
+### 功能
+
+- 升级弹窗显示内容改为当前版本的 GitHub Release 说明（实时拉取 Release 正文渲染），拉取失败（限流/Release 未创建/断网）自动回退 update.json notes；弹窗内容区加最大高度滚动
+
 ## v0.0.39
 
 ### 修复
