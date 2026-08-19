@@ -465,10 +465,6 @@ const getWpfClientConfigType = async (
   if (!serverConfigItem) return null;
   var backupServer: BackupServerType[] = new Array<BackupServerType>();
 
-  // 备份路径
-  const bkPath = removeSlash(String(serverConfigItem.serverPath));
-  const bkLastIndex = bkPath.lastIndexOf("/");
-  const backupPrefixPath = bkPath.substring(0, bkLastIndex);
   const folderName = currentDate
     .replace(/-/g, "")
     .replace(/:/g, "")
@@ -572,29 +568,59 @@ const getWpfClientConfigType = async (
   }
 
   // 发布路径
-  const publishPath = removeSlash(String(serverConfigItem.serverPath));
-  let backupPathWpf: string;
-  if (backupBasePath) {
-    backupPathWpf = `${removeSlash(backupBasePath)}/${folderName}/${bkPath.substring(
-      bkLastIndex + 1
-    )}`;
-  } else {
-    backupPathWpf = `${backupPrefixPath}/Backups/${folderName}/${bkPath.substring(
-      bkLastIndex + 1
-    )}`;
-  }
-  backupServer.push({
-    serverId: Number(serverConfigItem.serverId),
-    serverName: String(serverConfigItem.serverName),
-    backupPaths: [
+  // 存量兼容：旧单服务器配置归一化（未经过 appconfigDialog 的旧数据）
+  if (
+    (!serverConfigItem.serverArr || serverConfigItem.serverArr.length < 1) &&
+    serverConfigItem.serverId
+  ) {
+    serverConfigItem.serverIds = [serverConfigItem.serverId];
+    serverConfigItem.serverArr = [
       {
-        identity: "WpfClient",
-        publishPath,
-        backupPath: backupPathWpf,
-        backFiles,
+        id: serverConfigItem.serverId,
+        name: serverConfigItem.serverName,
+        serverPathArr: [
+          {
+            label: "",
+            value: [{ identity: "", path: serverConfigItem.serverPath || "" }],
+          },
+        ],
       },
-    ],
-  });
+    ];
+  }
+  const serverArr = serverConfigItem.serverArr || [];
+  if (serverArr.length < 1) return null;
+
+  for (let i = 0; i < serverArr.length; i++) {
+    const wpfServer = serverArr[i];
+    const publishPath = removeSlash(
+      wpfServer.serverPathArr?.[0]?.value?.[0]?.path || ""
+    );
+    if (!publishPath) continue;
+    const bkLastIndex = publishPath.lastIndexOf("/");
+    const backupPrefixPath = publishPath.substring(0, bkLastIndex);
+    let backupPathWpf: string;
+    if (backupBasePath) {
+      backupPathWpf = `${removeSlash(backupBasePath)}/${folderName}/${publishPath.substring(
+        bkLastIndex + 1
+      )}`;
+    } else {
+      backupPathWpf = `${backupPrefixPath}/Backups/${folderName}/${publishPath.substring(
+        bkLastIndex + 1
+      )}`;
+    }
+    backupServer.push({
+      serverId: Number(wpfServer.id),
+      serverName: String(wpfServer.name),
+      backupPaths: [
+        {
+          identity: "WpfClient",
+          publishPath,
+          backupPath: backupPathWpf,
+          backFiles,
+        },
+      ],
+    });
+  }
   return backupServer;
 };
 
