@@ -1,15 +1,15 @@
 {
-    "version": "0.0.43",
-    "notes": "<b>功能</b><br>• WpfClient 发布支持同时发布到多台不同服务器（与 WebApiHost/WebClient/ScheduleServer/SpcMonitor 一致），覆盖应用配置多选、主页一键/手动发布、生成发布、文件手动发布、发布前备份、备份还原与导入导出<br><b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.43/SmomPublish_0.0.43_x64-setup.exe'>点击此处</a> 下载。</b>",
-    "pub_date": "2026-08-19T06:08:41Z",
+    "version": "0.0.44",
+    "notes": "<b>功能</b><br>• 无<br><b>修复</b><br>• 修复 MCP 服务 list_tools 缺少 ttl_ms/cache_scope 参数，被严格协议校验的客户端整体拒绝工具列表的问题：手写 list_tools 返回 ttl_ms=0（不缓存）、cache_scope=Private，符合动态数据语义<br>• 修复应用配置 WpfClient 选项卡首次勾选服务器不显示发布路径输入项的问题：旧单服务器数据（serverId 为 null）归一化时补齐 serverIds/serverArr 字段，避免切换监听访问 serverArr.length 报错中断<br><b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.44/SmomPublish_0.0.44_x64-setup.exe'>点击此处</a> 下载。</b>",
+    "pub_date": "2026-08-19T12:29:57Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVViWGJxR1lyTWpqdGhTNm53MG5WOTYxK2FFd3BEMDZrT25VczNHa21neGRQWlVYTWNqOG1CQTJxU282NEhpMGJabkNWZGdOVWpHa0ZlSlUyWlR2MUFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MTE5Njk2CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjQzX3g2NC1zZXR1cC5leGUKNUd1bkJ0a2ZJMTQxQUw1TVd4NDUwTDZyMGdlMTQrMm1CNjQ4K1ZQalZ0dmg0MlVTdzQraWp6aFkySThNenpLQ2h4ai8rZFFoVEtOY3pJNnZjazJtQmc9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.43/SmomPublish_0.0.43_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVpYeE5xRkJIVnVFb0ZKQ2c1bVl1U3BDbkEvMXVSejFzZDhVQUgwQWVLVHlLbjJnU0xCVHozNnlQT2I0UzFOSCtQNWJmRXdpKzhpMy9qdUkraThwckFZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MTQyNTczCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjQ0X3g2NC1zZXR1cC5leGUKZk9YN3dON2NTVE5KSGw5U1hSNFdmV1luQ216ZVNxNlozNWZyUTExQ3Y0MEc0TWdvV3NqOEhnemF0cE5Ia2ROd0NxWHlkOHZOYWFCUzBQMUhMOUxDQ2c9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.44/SmomPublish_0.0.44_x64-setup.exe"
         },
         "windows-msi": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWUxVnZQOW9obTdsdDUvOGxVaGNvS2hWays1M0JYVzFVamdUVUpFNnhGWEN0bmozdlo2Wk5lenFvS29OdWdZMEF5aFhFSm9ac1pBNXFURStoQ1Byc2dnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MTE5Njk2CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjQzX3g2NF96aC1DTi5tc2kKM0NNbmFQeDNKNlpFQTIrOXlLODdXM0Vlb2FGTDdWZTVBNTZHYWNaYzBNSHFrQjRkMnRHU0xkZW1pRm5YSU1QQ3c0SWxoLzZETzhqUGFHbW9nL3BNREE9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.43/SmomPublish_0.0.43_x64_zh-CN.msi"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVl3VDEwTWFjbTdoWEl5QS9ZaDZxTjZmREZ4T1FIL3F0RERYTTVyc3NNWjk1NXdtaVE3a1BVcWxSclJhRmp3NHZyWDZiVkF4NVNSVy9XSTBqWnNnTUFnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MTQyNTczCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjQ0X3g2NF96aC1DTi5tc2kKMGVZdW4vZDVYekU1UVk0Y21lQ2phdFNUTnBLMVpzcnRzNTF6M1FvN2JlSmZKL1liU3ZIN2gzMFM5ZndVOHMzU1lsWjI4R0d5Z1hwaE93aWhTT1RIQVE9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.44/SmomPublish_0.0.44_x64_zh-CN.msi"
         }
     }
 }
