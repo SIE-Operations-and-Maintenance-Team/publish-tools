@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.0.44
+
+### 功能
+
+- 无
+
+### 修复
+
+- 修复 MCP 服务 list_tools 缺少 ttl_ms/cache_scope 参数，被严格协议校验的客户端整体拒绝工具列表的问题：手写 list_tools 返回 ttl_ms=0（不缓存）、cache_scope=Private，符合动态数据语义
+- 修复应用配置 WpfClient 选项卡首次勾选服务器不显示发布路径输入项的问题：旧单服务器数据（serverId 为 null）归一化时补齐 serverIds/serverArr 字段，避免切换监听访问 serverArr.length 报错中断
+
 ## v0.0.43
 
 ### 功能
