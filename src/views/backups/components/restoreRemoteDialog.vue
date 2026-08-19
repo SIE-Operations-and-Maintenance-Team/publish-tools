@@ -764,6 +764,10 @@ const openDialog = (backupId: number, row: BackupRemotePublishType) => {
   /* End: 重置表单内容 */
   nextTick(() => {
     state.ruleForm = row;
+    // 存量兼容：旧备份记录 wpfClient 单值对象 → 单元素数组
+    if (state.ruleForm.wpfClient && !Array.isArray(state.ruleForm.wpfClient)) {
+      state.ruleForm.wpfClient = [state.ruleForm.wpfClient];
+    }
     state.dialog.show = true;
   });
 };
