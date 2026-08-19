@@ -394,18 +394,27 @@
               </el-col>
               <el-col :span="24" class="mb15">
                 <el-form-item label-width="135" label="应用服务器">
-                  <el-select filterable v-model="state.ruleForm.configItems.wpfClient.serverId" placeholder="请选择应用服务器"
-                    size="default" @change="onWpfClientServerChange">
+                  <el-select filterable v-model="state.ruleForm.configItems.wpfClient.serverIds" multiple
+                    placeholder="请选择应用服务器" size="default" @change="onWpfClientServerChange">
                     <el-option v-for="server in serverList" :key="server.id" :label="server.name" :value="server.id" />
                   </el-select>
                 </el-form-item>
               </el-col>
-              <el-col :span="24">
-                <el-form-item label-width="135" label="服务发布路径">
-                  <el-input v-model="state.ruleForm.configItems.wpfClient.serverPath" placeholder="请输入服务发布路径"
-                    maxlength="450" clearable></el-input>
-                </el-form-item>
-              </el-col>
+              <fieldset class="form-server-fieldset" v-for="(wpfServer, wpfIndex) in state.ruleForm.configItems.wpfClient
+                .serverArr" :key="wpfIndex">
+                <legend class="form-server-legend">{{ wpfServer.name }}</legend>
+                <el-row>
+                  <el-col :span="24">
+                    <el-form-item label-width="0">
+                      <template v-for="serverVal in wpfServer.serverPathArr[0].value" :key="serverVal.identity">
+                        <el-input v-model="serverVal.path" placeholder="请输入发布路径" maxlength="200" clearable>
+                          <template #prepend>发布路径</template>
+                        </el-input>
+                      </template>
+                    </el-form-item>
+                  </el-col>
+                </el-row>
+              </fieldset>
             </el-row>
           </el-tab-pane>
           <el-tab-pane label="SpcMonitor">
@@ -861,14 +870,65 @@ const onScheduleServerChange = async (val: number[]) => {
 };
 
 // wpf服务器切换
-const onWpfClientServerChange = async (val: number) => {
-  if (!val || val < 1) {
-    state.ruleForm.configItems.wpfClient.serverName = "";
+const onWpfClientServerChange = async (val: number[]) => {
+  if (!val || val.length < 1) {
+    state.ruleForm.configItems.wpfClient.serverArr = [];
     return;
   }
-  let server = serverList.value?.find((x) => x.id === val);
-  if (server) {
-    state.ruleForm.configItems.wpfClient.serverName = server.name;
+  // 移除
+  for (let i = 0; i < state.ruleForm.configItems.wpfClient.serverArr.length; i++) {
+    const wpfServer = state.ruleForm.configItems.wpfClient.serverArr[i];
+    if (val.includes(Number(wpfServer.id))) continue;
+    state.ruleForm.configItems.wpfClient.serverArr.splice(i, 1);
+  }
+  // 新增
+  for (let i = 0; i < val.length; i++) {
+    const wpfServer = state.ruleForm.configItems.wpfClient.serverArr.find(
+      (item: SelectServerType) => item.id === val[i]
+    );
+    if (wpfServer) continue;
+    const wServer = serverList.value?.find(
+      (item: RowServerType) => item.id === val[i]
+    );
+    if (!wServer) continue;
+    state.ruleForm.configItems.wpfClient.serverArr.push({
+      id: wServer.id,
+      name: wServer.name,
+      serverPathArr: [
+        {
+          label: "", // 服务端发布
+          value: [
+            {
+              identity: "",
+              path: "",
+            },
+          ],
+        },
+      ],
+    });
+  }
+};
+
+// 存量兼容：旧单服务器配置归一化为多服务器结构
+const normalizeWpfClientServer = (wpfClient: WpfClientConfigType) => {
+  if (!wpfClient) return;
+  if (
+    (!wpfClient.serverArr || wpfClient.serverArr.length < 1) &&
+    wpfClient.serverId
+  ) {
+    wpfClient.serverIds = [wpfClient.serverId];
+    wpfClient.serverArr = [
+      {
+        id: wpfClient.serverId,
+        name: wpfClient.serverName,
+        serverPathArr: [
+          {
+            label: "",
+            value: [{ identity: "", path: wpfClient.serverPath || "" }],
+          },
+        ],
+      },
+    ];
   }
 };
 
@@ -1194,6 +1254,8 @@ const formReset = () => {
   state.ruleForm.configItems.scheduleServer.serverIds = [];
   state.ruleForm.configItems.scheduleServer.serverArr = [];
   state.ruleForm.configItems.wpfClient.serverId = null;
+  state.ruleForm.configItems.wpfClient.serverIds = [];
+  state.ruleForm.configItems.wpfClient.serverArr = [];
   state.ruleForm.configItems.spcMonitor.serverIds = [];
   state.ruleForm.configItems.spcMonitor.serverArr = [];
   state.ruleForm.configItems.isRebuild = 1;
@@ -1228,6 +1290,7 @@ const openDialog = async (type: string, row: RowAppconfigType | undefined) => {
       state.dialog.type = "edit";
       state.dialog.editId = row?.id;
       Object.assign(state.ruleForm, row);
+      normalizeWpfClientServer(state.ruleForm.configItems.wpfClient);
       if (state.ruleForm.configItems.wpfClient.generateDirJson) {
         generateDirs.value = JSON.parse(
           state.ruleForm.configItems.wpfClient.generateDirJson
