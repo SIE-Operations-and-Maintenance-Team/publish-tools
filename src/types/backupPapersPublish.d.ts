@@ -48,7 +48,7 @@ declare type BackupRemotePublishType = BackupCommonPapersPublishType & {
 	webClient: BackupPublishServerType[] | null;
 	scheduleServer: BackupPublishServerType[] | null;
 	spcMonitor: BackupPublishServerType[] | null;
-	wpfClient: BackupPublishWpfType | null;
+	wpfClient: BackupPublishWpfType[] | null;
 	isNewVersion: boolean | null;
 };
 

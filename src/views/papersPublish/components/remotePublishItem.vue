@@ -233,28 +233,30 @@
     </fieldset>
 
     <!-- WpfClient -->
-    <fieldset
-      class="form-server-fieldset pr10"
-      v-if="props.data.wpfClient && props.data.wpfClient.serverName"
-    >
-      <legend class="form-server-legend">{{ wpfClientName }}</legend>
+    <template v-if="props.data.wpfClient && props.data.wpfClient.length > 0">
+      <fieldset
+        class="form-server-fieldset pr10"
+        v-for="(wpfClientItem, wpfIndex) in props.data.wpfClient"
+        :key="wpfIndex"
+      >
+        <legend class="form-server-legend">{{ wpfClientName }}</legend>
       <div class="card-item-appconfig">
         <table class="table-appconfig" cellpadding="0" cellspacing="0">
           <tr>
             <th>应用服务器</th>
-            <td :title="String(props.data.wpfClient.serverIp)">
-              {{ props.data.wpfClient.serverName }}
+            <td :title="String(wpfClientItem.serverIp)">
+              {{ wpfClientItem.serverName }}
             </td>
             <th>服务环境</th>
             <td>
-              <label v-if="props.data.wpfClient.serverOs">{{
-                displayOs(props.data.wpfClient.serverOs)
+              <label v-if="wpfClientItem.serverOs">{{
+                displayOs(wpfClientItem.serverOs)
               }}</label>
             </td>
           </tr>
           <tr>
             <th>发布路径</th>
-            <td colspan="4">{{ props.data.wpfClient.publishPath }}</td>
+            <td colspan="4">{{ wpfClientItem.publishPath }}</td>
           </tr>
         </table>
       </div>
@@ -265,11 +267,12 @@
           size="small"
           title="移除[WpfClient]模块"
           :disabled="props.loading == true"
-          @click="props.data.wpfClient = null"
+          @click="props.data.wpfClient?.splice(wpfIndex, 1)"
           >移除</el-button
         >
       </div>
-    </fieldset>
+      </fieldset>
+    </template>
   </div>
 </template>
 

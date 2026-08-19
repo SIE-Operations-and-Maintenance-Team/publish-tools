@@ -51,7 +51,7 @@ declare type RemotePublishType = CommonPapersPublishType & {
 	webClient: PublishServerType[] | null;
 	scheduleServer: PublishServerType[] | null;
 	spcMonitor: PublishServerType[] | null;
-	wpfClient: PublishWpfType | null;
+	wpfClient: PublishWpfType[] | null;
 };
 
 // LocalPublish

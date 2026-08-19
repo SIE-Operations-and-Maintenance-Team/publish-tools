@@ -113,7 +113,7 @@ const state = reactive<FormDialogType<BackupRemotePublishType>>({
     webClient: [],
     scheduleServer: [],
     spcMonitor: [],
-    wpfClient: null,
+    wpfClient: [],
     isNewVersion: false,
   },
   dialog: {
@@ -162,11 +162,18 @@ const onRestore = async () => {
 
   // 还原[WpfClient]
   if (restoreResult) {
-    restoreResult = await restoreRemoteWpfServer(
-      "WpfClient",
-      state.ruleForm.wpfClient,
-      state.ruleForm.isNewVersion
-    );
+    for (
+      let wpfIndex = 0;
+      wpfIndex < (state.ruleForm.wpfClient || []).length;
+      wpfIndex++
+    ) {
+      restoreResult = await restoreRemoteWpfServer(
+        "WpfClient",
+        state.ruleForm.wpfClient![wpfIndex],
+        state.ruleForm.isNewVersion
+      );
+      if (!restoreResult) break;
+    }
   }
 
   printInfoLog("");

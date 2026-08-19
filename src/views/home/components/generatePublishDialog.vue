@@ -1224,23 +1224,33 @@ const generateRemotePublish = async () => {
     }
   }
 
-  remotePublishConfig.wpfClient = {} as PublishWpfType;
+  remotePublishConfig.wpfClient = [] as PublishWpfType[];
   if (state.ruleForm.configItems.wpfClient.clientPath) {
-    const wpfClientServerInfo = await getServerDetail(
-      Number(state.ruleForm.configItems.wpfClient.serverId)
-    );
-    if (wpfClientServerInfo) {
-      remotePublishConfig.wpfClient.serverName = wpfClientServerInfo.name;
-      remotePublishConfig.wpfClient.serverOs = wpfClientServerInfo.os;
-      remotePublishConfig.wpfClient.serverIp = wpfClientServerInfo.ip;
-      remotePublishConfig.wpfClient.serverPort = wpfClientServerInfo.port;
-      remotePublishConfig.wpfClient.serverAccount = wpfClientServerInfo.account;
-      remotePublishConfig.wpfClient.serverPwd = await aesEncrypt(wpfClientServerInfo.pwd);
+    const wpfClientItem = state.ruleForm.configItems.wpfClient;
+
+    // 存量兼容：旧单服务器配置归一化（未经过 appconfigDialog 的旧数据）
+    if (
+      (!wpfClientItem.serverArr || wpfClientItem.serverArr.length < 1) &&
+      wpfClientItem.serverId
+    ) {
+      wpfClientItem.serverIds = [wpfClientItem.serverId];
+      wpfClientItem.serverArr = [
+        {
+          id: wpfClientItem.serverId,
+          name: wpfClientItem.serverName,
+          serverPathArr: [
+            {
+              label: "",
+              value: [{ identity: "", path: wpfClientItem.serverPath || "" }],
+            },
+          ],
+        },
+      ];
     }
-    remotePublishConfig.wpfClient.publishPath = String(
-      state.ruleForm.configItems.wpfClient.serverPath
-    );
-    remotePublishConfig.wpfClient.publishFiles = [];
+    const wpfServerArr = wpfClientItem.serverArr || [];
+
+    // 构造 publishFiles（各服务器相同）
+    const wpfPublishFiles: WpfPublishDirType[] = [];
     if (state.ruleForm.configItems.wpfClient.generateDirJson) {
       let generateDirArr = JSON.parse(
         state.ruleForm.configItems.wpfClient.generateDirJson
@@ -1255,11 +1265,26 @@ const generateRemotePublish = async () => {
           const pathFile = removeSlash(wpfFilesFile);
           pFiles.push(pathFile.substring(pathFile.lastIndexOf("/") + 1));
         }
-        remotePublishConfig.wpfClient.publishFiles.push({
-          dirName: generateDir,
-          files: pFiles,
-        });
+        wpfPublishFiles.push({ dirName: generateDir, files: pFiles });
       }
+    }
+    // 遍历服务器构造 PublishWpfType[]
+    for (let i = 0; i < wpfServerArr.length; i++) {
+      const wpfServer = wpfServerArr[i];
+      if (!wpfServer.id) continue;
+      const wpfServerInfo = await getServerDetail(wpfServer.id);
+      const publishPath = wpfServer.serverPathArr?.[0]?.value?.[0]?.path;
+      if (!publishPath) continue;
+      remotePublishConfig.wpfClient.push({
+        serverName: wpfServerInfo?.name || wpfServer.name || "",
+        serverOs: wpfServerInfo?.os ?? null,
+        serverIp: wpfServerInfo?.ip ?? null,
+        serverPort: wpfServerInfo?.port ?? null,
+        serverAccount: wpfServerInfo?.account ?? null,
+        serverPwd: wpfServerInfo ? await aesEncrypt(wpfServerInfo.pwd) : null,
+        publishPath,
+        publishFiles: wpfPublishFiles,
+      });
     }
   }
 

@@ -268,6 +268,13 @@ const onSelectPublishFile = async () => {
   Object.assign(publishConfig, readPublishConfig);
   switch (readPublishConfig.publishMode) {
     case 0: // 远程发布
+      // 兼容旧 .smom 文件：wpfClient 单值对象 → 单元素数组
+      if (
+        readPublishConfig.wpfClient &&
+        !Array.isArray(readPublishConfig.wpfClient)
+      ) {
+        readPublishConfig.wpfClient = [readPublishConfig.wpfClient];
+      }
       remotePublishConfig.value = readPublishConfig as RemotePublishType;
       break;
     case 1: // 本机发布
@@ -1194,20 +1201,27 @@ const remoteServerPublish = async () => {
     remotePublishConfig.value.wpfClient &&
     !_.isEmpty(remotePublishConfig.value.wpfClient)
   ) {
-    let publishWpfResult;
-    if (remotePublishConfig.value.isNewVersion) {
-      publishWpfResult = await newRemotePublishWpfServer(
-        remotePublishConfig.value.wpfClient,
-        "WpfClient"
-      );
-    } else {
-      publishWpfResult = await remotePublishWpfServer(
-        remotePublishConfig.value.wpfClient,
-        "WpfClient"
-      );
-    }
-    if (!publishWpfResult) {
-      return false;
+    for (
+      let wpfIndex = 0;
+      wpfIndex < remotePublishConfig.value.wpfClient.length;
+      wpfIndex++
+    ) {
+      const wpfClientItem = remotePublishConfig.value.wpfClient[wpfIndex];
+      let publishWpfResult;
+      if (remotePublishConfig.value.isNewVersion) {
+        publishWpfResult = await newRemotePublishWpfServer(
+          wpfClientItem,
+          "WpfClient"
+        );
+      } else {
+        publishWpfResult = await remotePublishWpfServer(
+          wpfClientItem,
+          "WpfClient"
+        );
+      }
+      if (!publishWpfResult) {
+        return false;
+      }
     }
   }
 
@@ -1963,25 +1977,32 @@ const remotePublishBeforeBackup = async () => {
     remotePublishConfig.value.wpfClient &&
     !_.isEmpty(remotePublishConfig.value.wpfClient)
   ) {
-    const backupResult = await remotePublishWpfBackup(
-      remotePublishConfig.value.wpfClient,
-      currentDate,
-      "WpfClient",
-      remotePublishConfig.value.isNewVersion,
-      publishConfig.backupBasePath
-    );
-    if (backupResult.code !== 0) {
-      printInfoLog(backupResult.msg, "log-error");
-      return false;
-    }
+    for (
+      let wpfIndex = 0;
+      wpfIndex < remotePublishConfig.value.wpfClient.length;
+      wpfIndex++
+    ) {
+      const wpfClientItem = remotePublishConfig.value.wpfClient[wpfIndex];
+      const backupResult = await remotePublishWpfBackup(
+        wpfClientItem,
+        currentDate,
+        "WpfClient",
+        remotePublishConfig.value.isNewVersion,
+        publishConfig.backupBasePath
+      );
+      if (backupResult.code !== 0) {
+        printInfoLog(backupResult.msg, "log-error");
+        return false;
+      }
 
-    // 备份路径
-    const backupPath = getBackupPath(
-      bRemotePublishConfig.wpfClient.publishPath,
-      currentDate,
-      publishConfig.backupBasePath
-    );
-    bRemotePublishConfig.wpfClient.backupPath = backupPath;
+      // 备份路径
+      const backupPath = getBackupPath(
+        wpfClientItem.publishPath,
+        currentDate,
+        publishConfig.backupBasePath
+      );
+      bRemotePublishConfig.wpfClient[wpfIndex].backupPath = backupPath;
+    }
   }
 
   // 保存备份记录数据
