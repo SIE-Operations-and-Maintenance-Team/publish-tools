@@ -47,7 +47,7 @@ impl McpHandler {
     }
 }
 
-#[tool_router(server_handler)]
+#[tool_router]
 impl McpHandler {
     // ═══════════════════════════════════════════════
     // 文件操作
@@ -613,5 +613,25 @@ impl McpHandler {
         Ok(CallToolResult::success(vec![ContentBlock::text(
             serde_json::json!({"id": params.id}).to_string(),
         )]))
+    }
+}
+
+#[::rmcp::tool_handler(router = Self::tool_router())]
+impl ::rmcp::ServerHandler for McpHandler {
+    /// 手写 list_tools：补上 2026-07-28 协议强制要求的 ttl_ms / cache_scope，
+    /// 否则由 #[tool_handler] 宏生成的默认值 None 会被严格客户端整体拒绝
+    /// （见 rmcp issue #1114）。
+    /// ttl_ms=0 表示“立即失效、不缓存”，cache_scope=Private，
+    /// 符合本服务返回动态数据、不做结果缓存 的语义。
+    async fn list_tools(
+        &self,
+        _request: Option<rmcp::model::PaginatedRequestParams>,
+        _context: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> Result<rmcp::model::ListToolsResult, rmcp::ErrorData> {
+        Ok(rmcp::model::ListToolsResult::with_all_items(
+            Self::tool_router().list_all(),
+        )
+        .with_ttl_ms(0)
+        .with_cache_scope(rmcp::model::CacheScope::Private))
     }
 }
