@@ -912,8 +912,12 @@ const onWpfClientServerChange = async (val: number[]) => {
 // 存量兼容：旧单服务器配置归一化为多服务器结构
 const normalizeWpfClientServer = (wpfClient: WpfClientConfigType) => {
   if (!wpfClient) return;
+  // 旧数据可能没有 serverIds/serverArr 字段（serverId 为 null 时），先补齐为数组，
+  // 避免切换监听中访问 serverArr.length 时报错导致发布路径输入项不显示
+  if (!wpfClient.serverIds) wpfClient.serverIds = [];
+  if (!wpfClient.serverArr) wpfClient.serverArr = [];
   if (
-    (!wpfClient.serverArr || wpfClient.serverArr.length < 1) &&
+    wpfClient.serverArr.length < 1 &&
     wpfClient.serverId
   ) {
     wpfClient.serverIds = [wpfClient.serverId];
