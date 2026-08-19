@@ -19,6 +19,7 @@ function extractServerIds(configItems: ConfigItemsType): number[] {
   pushIfArray(ci.webApiHost?.serverIds);
   pushIfArray(ci.scheduleServer?.serverIds);
   pushIfArray(ci.webClient?.serverIds);
+  pushIfArray(ci.wpfClient?.serverIds);
   pushIfNumber(ci.wpfClient?.serverId);
   pushIfArray(ci.spcMonitor?.serverIds);
 
