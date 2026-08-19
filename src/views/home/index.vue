@@ -474,22 +474,26 @@
                       }}
                     </td>
                   </tr>
-                  <tr>
-                    <th>应用服务器</th>
-                    <td>
-                      {{
-                        state.publishData.appconfigData.configItems.wpfClient.serverName
-                      }}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th>服务端发布路径</th>
-                    <td>
-                      {{
-                        state.publishData.appconfigData.configItems.wpfClient.serverPath
-                      }}
-                    </td>
-                  </tr>
+                  <template v-for="(wpfServer, wpfIndex) in state.publishData.appconfigData
+                    .configItems.wpfClient.serverArr" :key="wpfIndex">
+                    <tr>
+                      <th colspan="2" class="t-align-c">{{ wpfServer.name }}</th>
+                    </tr>
+                    <tr>
+                      <td colspan="2" class="t-align-c">
+                        <template v-for="serverPath in wpfServer.serverPathArr">
+                          <table class="table-appconfig table-appconfig-shadow-none mt10 mb10 t-border-none"
+                            cellpadding="0" cellspacing="0" v-for="(serverVal, valIndex) in serverPath.value"
+                            :key="valIndex">
+                            <tr>
+                              <th>发布路径</th>
+                              <td>{{ serverVal.path }}</td>
+                            </tr>
+                          </table>
+                        </template>
+                      </td>
+                    </tr>
+                  </template>
                   <tr>
                     <td colspan="2" align="center" class="pt5 pb5 t-align-c">
                       <el-button type="danger" plain size="small" title="将该模块移除(让其不参与编译/发布)"
@@ -1475,9 +1479,6 @@ const newPublishWpfClient = async () => {
   if (!wpfClientItem.clientPath) return true;
 
   printInfoLog("");
-  printInfoLog(
-    `发布 ${wpfClientName.value} 服务[${wpfClientItem.serverName}]中，请稍等！`
-  );
 
   // 获取[生成目录]
   let generateDirs = new Array<string>();
@@ -1487,398 +1488,144 @@ const newPublishWpfClient = async () => {
   }
   generateDirs = JSON.parse(wpfClientItem.generateDirJson);
 
-  // 创建一个临时发布目录
-  const tempPublishDir = `${projectAssemblyOutPath.value}/${wpfClientName.value}/tempPublish`;
-  const tempPublishDirExists = await cmdInvoke("exists", {
-    path: tempPublishDir,
-  });
-  if (tempPublishDirExists.code === 0) {
-    await cmdInvoke("delete_paths", {
-      paths: [tempPublishDir],
-    });
+  // 存量兼容：旧单服务器配置归一化为多服务器结构（未经过 appconfigDialog 的旧数据）
+  if (
+    (!wpfClientItem.serverArr || wpfClientItem.serverArr.length < 1) &&
+    wpfClientItem.serverId
+  ) {
+    wpfClientItem.serverIds = [wpfClientItem.serverId];
+    wpfClientItem.serverArr = [
+      {
+        id: wpfClientItem.serverId,
+        name: wpfClientItem.serverName,
+        serverPathArr: [
+          {
+            label: "",
+            value: [{ identity: "", path: wpfClientItem.serverPath || "" }],
+          },
+        ],
+      },
+    ];
   }
-  let createTempPathResult = await createDir(tempPublishDir);
-  if (!createTempPathResult) {
-    printInfoLog(`创建临时发布目录失败：${tempPublishDir}`, "log-error");
-    return false;
-  }
-
-  // 获取[远程服务器]信息
-  const serverId = wpfClientItem.serverId;
-  const serverPath = wpfClientItem.serverPath;
-  const serverName = wpfClientItem.serverName;
-  if (!serverId) {
+  const wpfServerArr = wpfClientItem.serverArr || [];
+  if (wpfServerArr.length < 1) {
     printInfoLog(
       ` ${wpfClientName.value} 未选择服务或该服务器不存在，请检查.`,
       "log-error"
     );
     return false;
   }
-  const serverInfo = await getServerDetail(serverId);
-  if (!serverInfo) {
-    printInfoLog(`服务[${wpfClientName.value}]不存在，请检查.`, "log-error");
-    return false;
-  }
 
-  if (!serverPath) {
-    printInfoLog(`服务[${wpfClientName.value}]未填写服务发布路径，请检查.`, "log-error");
-    return false;
-  }
-  const uName = serverInfo.account;
-  const uPwd = serverInfo.pwd;
-  const serverAddress = `${serverInfo.ip}:${serverInfo.port}`;
-  const logPrefix = formatServiceLog(serverInfo.name, serverInfo.ip, wpfClientName.value, serverName || "");
-
-  // 从远程服务器下载文件到[临时缓存目录]
-  let remoteFiles = [`${removeSlash(serverPath)}/Manifest.xml`];
-  for (let i = 0; i < generateDirs.length; i++) {
-    const generateDir = generateDirs[i];
-    remoteFiles.push(`${removeSlash(serverPath)}/${generateDir}.zip`);
-  }
-  let localFiles = new Array<string>();
-  let remoteFileNames = new Array<string>();
-  for (let i = 0; i < remoteFiles.length; i++) {
-    const remoteFile = remoteFiles[i];
-    const subStartIndex = remoteFile.lastIndexOf("/");
-    const remoteFileName = remoteFile.substring(subStartIndex + 1);
-    remoteFileNames.push(remoteFileName);
-    const localFile = `${tempPublishDir}/${remoteFileName}`;
-    localFiles.push(localFile);
-  }
-  printInfoLog(`正在获取远程服务文件：${remoteFileNames.join("、")}`);
-  const downloadServerFileResult = await cmdInvoke("download_server_files", {
-    username: uName,
-    password: uPwd,
-    server: serverAddress,
-    remotePaths: remoteFiles,
-    localPaths: localFiles,
-  });
-
-  if (downloadServerFileResult.code !== 0) {
-    printInfoLog(
-      `获取远程服务文件失败：[${downloadServerFileResult.data}].`,
-      "log-error"
-    );
-    return false;
-  }
-  printInfoLog(`获取远程服务文件成功.`, "log-success");
-
-  // 处理下载文件
-  for (let i = 0; i < localFiles.length; i++) {
-    const localFile = localFiles[i];
-    const lastIndex = localFile.lastIndexOf("/");
-    // 判断是否为zip文件
-    const fileName = `${localFile.substring(lastIndex + 1)}`;
-    if (!fileName.endsWith(".zip")) continue;
-
-    // 进行解压
-    let unzipPath = removeSlash(`${localFile.substring(0, lastIndex + 1)}`);
-    printInfoLog(`正在解压 ${fileName}.`);
-    const dirName = fileName.replace(".zip", "");
-    if (fileName == "Plugins.zip" || fileName == "Lib.zip") {
-      unzipPath = `${unzipPath}/${dirName}`;
-    }
-
-    const unzipResult = await cmdInvoke("un_zip", {
-      filePaths: [localFile],
-      destination: unzipPath,
-    });
-    if (unzipResult.code !== 0) {
-      printInfoLog(`解压 ${fileName} 失败：${unzipResult.data}.`, "log-error");
-      return false;
-    }
-    printInfoLog(`解压 ${fileName} 成功.`, "log-success");
-
-    // 将压缩文件删除
-    await cmdInvoke("delete_paths", {
-      paths: [localFile],
-    });
-
-    // 将生成的文件复制到[临时发布目录]
-    let sourcePath = `${removeSlash(wpfClientItem.clientPath)}/${dirName}`;
-    let destinationPath = `${removeSlash(tempPublishDir)}/${dirName}`;
-    const copyResult = await cmdInvoke("copy_path", {
-      source: sourcePath,
-      destination: destinationPath,
-      ...getRetryArgs("copy"),
-    });
-    if (copyResult.code !== 0) {
-      printInfoLog(`复制文件目录 ${sourcePath} 失败.`, "log-error");
-      return false;
-    }
-
-    // 重新打包压缩
-    printInfoLog(
-      `${logPrefix} 正在上传 ${dirName}.zip ...`
-    );
-
-    let compresseResult;
-    if (dirName == "Plugins" || dirName == "Lib") {
-      compresseResult = await cmdInvoke("zip_dir", {
-        srcDir: destinationPath,
-        dstFile: `${removeSlash(tempPublishDir)}/${dirName}.zip`,
-      });
-    } else {
-      compresseResult = await cmdInvoke("compress_zip", {
-        filePaths: [destinationPath],
-        dstFile: `${removeSlash(tempPublishDir)}/${dirName}.zip`,
-      });
-    }
-
-    if (compresseResult.code !== 0) {
-      printInfoLog(`压缩[${dirName}.zip]失败：${compresseResult.data}.`, "log-error");
-      return false;
-    }
-
-    // 压缩成功后重新上传到服务器
-    const uploadFileResult = await cmdInvoke("upload_server_files", {
-      localPaths: [`${removeSlash(tempPublishDir)}/${dirName}.zip`],
-      remotePaths: [`${removeSlash(serverPath)}/${dirName}.zip`],
-      username: uName,
-      password: uPwd,
-      server: serverAddress,
-    });
-    if (uploadFileResult.code !== 0) {
-      printInfoLog(`文件 ${dirName}.zip 上传失败.`, "log-error");
-      return false;
-    }
-    printInfoLog(
-      `${logPrefix} ${dirName}.zip 上传完成.`,
-      "log-success"
-    );
-
-    // 升级版本号
-    printInfoLog(`正在更新 ${dirName}.zip 版本号.`);
-    const localManifestFile =
-      removeSlash(localFile.substring(0, lastIndex + 1)) + "/Manifest.xml";
-    const upgradePluginsVersionResult = await cmdInvoke("upgrade_module_version", {
-      filePath: localManifestFile,
-      moduleName: dirName,
-    });
-    if (upgradePluginsVersionResult.code !== 0) {
+  // 遍历多台服务器逐个发布
+  for (let srvIdx = 0; srvIdx < wpfServerArr.length; srvIdx++) {
+    const wpfServer = wpfServerArr[srvIdx];
+    if (!wpfServer.id) {
       printInfoLog(
-        `更新 ${dirName}.zip 版本号失败：${upgradePluginsVersionResult.data}.`,
+        ` ${wpfClientName.value} 未选择服务或该服务器不存在，请检查.`,
         "log-error"
       );
       return false;
     }
-    printInfoLog(
-      `已将 ${dirName}.zip 版本号更新为 ${upgradePluginsVersionResult.data}.`,
-      "log-success"
-    );
+    const serverInfo = await getServerDetail(wpfServer.id);
+    if (!serverInfo) {
+      printInfoLog(`服务[${wpfClientName.value}]不存在，请检查.`, "log-error");
+      return false;
+    }
+    const serverPath = wpfServer.serverPathArr?.[0]?.value?.[0]?.path;
+    if (!serverPath) {
+      printInfoLog(`服务[${wpfClientName.value}]未填写服务发布路径，请检查.`, "log-error");
+      return false;
+    }
+    const serverName = wpfServer.name || "";
+    const uName = serverInfo.account;
+    const uPwd = serverInfo.pwd;
+    const serverAddress = `${serverInfo.ip}:${serverInfo.port}`;
+    const logPrefix = formatServiceLog(serverInfo.name, serverInfo.ip, wpfClientName.value, serverName || "");
 
-    // 将本地 Manifest.xml 上传到服务器
-    const remoteManifestPath = `${removeSlash(serverPath)}/Manifest.xml`;
-    const uploadManifestFileResult = await cmdInvoke("upload_server_files", {
-      localPaths: [localManifestFile],
-      remotePaths: [remoteManifestPath],
+    printInfoLog(`发布 ${wpfClientName.value} 服务[${serverName}]中，请稍等！`);
+
+    // 创建一个临时发布目录（按服务器隔离）
+    const tempPublishDir = `${projectAssemblyOutPath.value}/${wpfClientName.value}/tempPublish_${wpfServer.id}`;
+    const tempPublishDirExists = await cmdInvoke("exists", {
+      path: tempPublishDir,
+    });
+    if (tempPublishDirExists.code === 0) {
+      await cmdInvoke("delete_paths", {
+        paths: [tempPublishDir],
+      });
+    }
+    let createTempPathResult = await createDir(tempPublishDir);
+    if (!createTempPathResult) {
+      printInfoLog(`创建临时发布目录失败：${tempPublishDir}`, "log-error");
+      return false;
+    }
+
+    // 从远程服务器下载文件到[临时缓存目录]
+    let remoteFiles = [`${removeSlash(serverPath)}/Manifest.xml`];
+    for (let i = 0; i < generateDirs.length; i++) {
+      const generateDir = generateDirs[i];
+      remoteFiles.push(`${removeSlash(serverPath)}/${generateDir}.zip`);
+    }
+    let localFiles = new Array<string>();
+    let remoteFileNames = new Array<string>();
+    for (let i = 0; i < remoteFiles.length; i++) {
+      const remoteFile = remoteFiles[i];
+      const subStartIndex = remoteFile.lastIndexOf("/");
+      const remoteFileName = remoteFile.substring(subStartIndex + 1);
+      remoteFileNames.push(remoteFileName);
+      const localFile = `${tempPublishDir}/${remoteFileName}`;
+      localFiles.push(localFile);
+    }
+    printInfoLog(`正在获取远程服务文件：${remoteFileNames.join("、")}`);
+    const downloadServerFileResult = await cmdInvoke("download_server_files", {
       username: uName,
       password: uPwd,
       server: serverAddress,
+      remotePaths: remoteFiles,
+      localPaths: localFiles,
     });
-    if (uploadManifestFileResult.code !== 0) {
+
+    if (downloadServerFileResult.code !== 0) {
       printInfoLog(
-        `文件 ${dirName}.zip 上传失败：${uploadManifestFileResult.data}.`,
+        `获取远程服务文件失败：[${downloadServerFileResult.data}].`,
         "log-error"
       );
       return false;
     }
-    printInfoLog(`已成功更新 ${dirName}.zip 版本号.`, "log-success");
-  }
+    printInfoLog(`获取远程服务文件成功.`, "log-success");
 
-  // 发布成功，删除临时文件
-  await cmdInvoke("delete_paths", {
-    paths: [tempPublishDir],
-  });
-  return true;
-};
+    // 处理下载文件
+    for (let i = 0; i < localFiles.length; i++) {
+      const localFile = localFiles[i];
+      const lastIndex = localFile.lastIndexOf("/");
+      // 判断是否为zip文件
+      const fileName = `${localFile.substring(lastIndex + 1)}`;
+      if (!fileName.endsWith(".zip")) continue;
 
-// 发布[WpfClient]服务
-const publishWpfClient = async () => {
-  const wpfClientItem = state.publishData.appconfigData.configItems.wpfClient;
-  if (!wpfClientItem.clientPath) return true;
-
-  printInfoLog("");
-  printInfoLog(
-    `发布 ${wpfClientName.value} 服务[${wpfClientItem.serverName}]中，请稍等！`
-  );
-
-  // 获取[生成目录]
-  let generateDirs = new Array<string>();
-  if (!wpfClientItem.generateDirJson) {
-    printInfoLog(`服务[${wpfClientName.value}]未配置[生成目录]，请检查.`, "log-error");
-    return false;
-  }
-  generateDirs = JSON.parse(wpfClientItem.generateDirJson);
-
-  // 创建一个临时发布目录
-  const tempPublishDir = `${projectAssemblyOutPath.value}/${wpfClientName.value}/tempPublish`;
-  const tempPublishDirExists = await cmdInvoke("exists", {
-    path: tempPublishDir,
-  });
-  if (tempPublishDirExists.code === 0) {
-    await cmdInvoke("delete_paths", {
-      paths: [tempPublishDir],
-    });
-  }
-  let createTempPathResult = await createDir(tempPublishDir);
-  if (!createTempPathResult) {
-    printInfoLog(`创建临时发布目录失败：${tempPublishDir}`, "log-error");
-    return false;
-  }
-
-  // 获取[远程服务器]信息
-  const serverId = wpfClientItem.serverId;
-  const serverPath = wpfClientItem.serverPath;
-  const serverName = wpfClientItem.serverName;
-  if (!serverId) {
-    printInfoLog(
-      ` ${wpfClientName.value} 未选择服务或该服务器不存在，请检查.`,
-      "log-error"
-    );
-    return false;
-  }
-  const serverInfo = await getServerDetail(serverId);
-  if (!serverInfo) {
-    printInfoLog(`服务[${wpfClientName.value}]不存在，请检查.`, "log-error");
-    return false;
-  }
-
-  if (!serverPath) {
-    printInfoLog(`服务[${wpfClientName.value}]未填写服务发布路径，请检查.`, "log-error");
-    return false;
-  }
-  const uName = serverInfo.account;
-  const uPwd = serverInfo.pwd;
-  const serverAddress = `${serverInfo.ip}:${serverInfo.port}`;
-  const logPrefix = formatServiceLog(serverInfo.name, serverInfo.ip, wpfClientName.value, serverName || "");
-
-  // 从远程服务器下载文件到[临时缓存目录]
-  let remoteFiles = [`${removeSlash(serverPath)}/Manifest.xml`];
-  if (generateDirs.includes("Domain") || generateDirs.includes("UI")) {
-    remoteFiles.push(`${removeSlash(serverPath)}/Plugins.zip`);
-  }
-  for (let i = 0; i < generateDirs.length; i++) {
-    const generateDir = generateDirs[i];
-    if (generateDir == "Domain" || generateDir == "UI") continue;
-    remoteFiles.push(`${removeSlash(serverPath)}/${generateDir}.zip`);
-  }
-  let localFiles = new Array<string>();
-  let remoteFileNames = new Array<string>();
-  for (let i = 0; i < remoteFiles.length; i++) {
-    const remoteFile = remoteFiles[i];
-    const subStartIndex = remoteFile.lastIndexOf("/");
-    const remoteFileName = remoteFile.substring(subStartIndex + 1);
-    remoteFileNames.push(remoteFileName);
-    const localFile = `${tempPublishDir}/${remoteFileName}`;
-    localFiles.push(localFile);
-  }
-  printInfoLog(`正在获取远程服务文件：${remoteFileNames.join("、")}`);
-  const downloadServerFileResult = await cmdInvoke("download_server_files", {
-    username: uName,
-    password: uPwd,
-    server: serverAddress,
-    remotePaths: remoteFiles,
-    localPaths: localFiles,
-  });
-
-  if (downloadServerFileResult.code !== 0) {
-    printInfoLog(
-      `获取远程服务文件失败：[${downloadServerFileResult.data}].`,
-      "log-error"
-    );
-    return false;
-  }
-  printInfoLog(`获取远程服务文件成功.`, "log-success");
-
-  // 处理下载文件
-  for (let i = 0; i < localFiles.length; i++) {
-    const localFile = localFiles[i];
-    const lastIndex = localFile.lastIndexOf("/");
-    // 判断是否为zip文件
-    const fileName = `${localFile.substring(lastIndex + 1)}`;
-    if (!fileName.endsWith(".zip")) continue;
-
-    // 进行解压
-    const unzipPath = removeSlash(`${localFile.substring(0, lastIndex + 1)}`);
-    printInfoLog(`正在解压 ${fileName}.`);
-    const unzipResult = await cmdInvoke("un_zip", {
-      filePaths: [localFile],
-      destination: unzipPath,
-    });
-    if (unzipResult.code !== 0) {
-      printInfoLog(`解压 ${fileName} 失败：${unzipResult.data}.`, "log-error");
-      return false;
-    }
-    printInfoLog(`解压 ${fileName} 成功.`, "log-success");
-
-    // 将压缩文件删除
-    await cmdInvoke("delete_paths", {
-      paths: [localFile],
-    });
-
-    // 将生成的文件复制到[临时发布目录]
-    const dirName = fileName.replace(".zip", "");
-    if (dirName == "Plugins") {
-      // Domain
-      const sourceDomainPath = `${removeSlash(wpfClientItem.clientPath)}/Domain`;
-      const destinationDomainPath = `${removeSlash(tempPublishDir)}/Domain`;
-      const copyDomainResult = await cmdInvoke("copy_path", {
-        source: sourceDomainPath,
-        destination: destinationDomainPath,
-        ...getRetryArgs("copy"),
-      });
-      if (copyDomainResult.code !== 0) {
-        printInfoLog(`复制文件目录 ${sourceDomainPath} 失败.`, "log-error");
-        return false;
+      // 进行解压
+      let unzipPath = removeSlash(`${localFile.substring(0, lastIndex + 1)}`);
+      printInfoLog(`正在解压 ${fileName}.`);
+      const dirName = fileName.replace(".zip", "");
+      if (fileName == "Plugins.zip" || fileName == "Lib.zip") {
+        unzipPath = `${unzipPath}/${dirName}`;
       }
 
-      // UI
-      const sourceUiPath = `${removeSlash(wpfClientItem.clientPath)}/UI`;
-      const destinationUiPath = `${removeSlash(tempPublishDir)}/UI`;
-      const copyUiResult = await cmdInvoke("copy_path", {
-        source: sourceUiPath,
-        destination: destinationUiPath,
-        ...getRetryArgs("copy"),
+      const unzipResult = await cmdInvoke("un_zip", {
+        filePaths: [localFile],
+        destination: unzipPath,
       });
-      if (copyUiResult.code !== 0) {
-        printInfoLog(`复制文件目录 ${sourceUiPath} 失败.`, "log-error");
+      if (unzipResult.code !== 0) {
+        printInfoLog(`解压 ${fileName} 失败：${unzipResult.data}.`, "log-error");
         return false;
       }
+      printInfoLog(`解压 ${fileName} 成功.`, "log-success");
 
-      // 重新打包压缩
-      const compressePluginsResult = await cmdInvoke("compress_zip", {
-        filePaths: [destinationDomainPath, destinationUiPath],
-        dstFile: `${removeSlash(tempPublishDir)}/Plugins.zip`,
+      // 将压缩文件删除
+      await cmdInvoke("delete_paths", {
+        paths: [localFile],
       });
-      if (compressePluginsResult.code !== 0) {
-        printInfoLog(
-          `压缩[Plugins.zip]失败：${compressePluginsResult.data}.`,
-          "log-error"
-        );
-        return false;
-      }
 
-      // 压缩成功后重新上传到服务器
-      printInfoLog(
-        `${logPrefix} 正在上传 Plugins.zip ...`
-      );
-      const uploadPluginsFileResult = await cmdInvoke("upload_server_files", {
-        localPaths: [`${removeSlash(tempPublishDir)}/Plugins.zip`],
-        remotePaths: [`${removeSlash(serverPath)}/Plugins.zip`],
-        username: uName,
-        password: uPwd,
-        server: serverAddress,
-      });
-      if (uploadPluginsFileResult.code !== 0) {
-        printInfoLog(`文件 Plugins.zip 上传失败.`, "log-error");
-        return false;
-      }
-      printInfoLog(
-        `${logPrefix} Plugins.zip 上传完成.`,
-        "log-success"
-      );
-    } else {
+      // 将生成的文件复制到[临时发布目录]
       let sourcePath = `${removeSlash(wpfClientItem.clientPath)}/${dirName}`;
       let destinationPath = `${removeSlash(tempPublishDir)}/${dirName}`;
       const copyResult = await cmdInvoke("copy_path", {
@@ -1895,10 +1642,20 @@ const publishWpfClient = async () => {
       printInfoLog(
         `${logPrefix} 正在上传 ${dirName}.zip ...`
       );
-      const compresseResult = await cmdInvoke("compress_zip", {
-        filePaths: [destinationPath],
-        dstFile: `${removeSlash(tempPublishDir)}/${dirName}.zip`,
-      });
+
+      let compresseResult;
+      if (dirName == "Plugins" || dirName == "Lib") {
+        compresseResult = await cmdInvoke("zip_dir", {
+          srcDir: destinationPath,
+          dstFile: `${removeSlash(tempPublishDir)}/${dirName}.zip`,
+        });
+      } else {
+        compresseResult = await cmdInvoke("compress_zip", {
+          filePaths: [destinationPath],
+          dstFile: `${removeSlash(tempPublishDir)}/${dirName}.zip`,
+        });
+      }
+
       if (compresseResult.code !== 0) {
         printInfoLog(`压缩[${dirName}.zip]失败：${compresseResult.data}.`, "log-error");
         return false;
@@ -1920,51 +1677,354 @@ const publishWpfClient = async () => {
         `${logPrefix} ${dirName}.zip 上传完成.`,
         "log-success"
       );
+
+      // 升级版本号
+      printInfoLog(`正在更新 ${dirName}.zip 版本号.`);
+      const localManifestFile =
+        removeSlash(localFile.substring(0, lastIndex + 1)) + "/Manifest.xml";
+      const upgradePluginsVersionResult = await cmdInvoke("upgrade_module_version", {
+        filePath: localManifestFile,
+        moduleName: dirName,
+      });
+      if (upgradePluginsVersionResult.code !== 0) {
+        printInfoLog(
+          `更新 ${dirName}.zip 版本号失败：${upgradePluginsVersionResult.data}.`,
+          "log-error"
+        );
+        return false;
+      }
+      printInfoLog(
+        `已将 ${dirName}.zip 版本号更新为 ${upgradePluginsVersionResult.data}.`,
+        "log-success"
+      );
+
+      // 将本地 Manifest.xml 上传到服务器
+      const remoteManifestPath = `${removeSlash(serverPath)}/Manifest.xml`;
+      const uploadManifestFileResult = await cmdInvoke("upload_server_files", {
+        localPaths: [localManifestFile],
+        remotePaths: [remoteManifestPath],
+        username: uName,
+        password: uPwd,
+        server: serverAddress,
+      });
+      if (uploadManifestFileResult.code !== 0) {
+        printInfoLog(
+          `文件 ${dirName}.zip 上传失败：${uploadManifestFileResult.data}.`,
+          "log-error"
+        );
+        return false;
+      }
+      printInfoLog(`已成功更新 ${dirName}.zip 版本号.`, "log-success");
     }
 
-    // 升级版本号
-    printInfoLog(`正在更新 ${dirName}.zip 版本号.`);
-    const localManifestFile =
-      removeSlash(localFile.substring(0, lastIndex + 1)) + "/Manifest.xml";
-    const upgradePluginsVersionResult = await cmdInvoke("upgrade_module_version", {
-      filePath: localManifestFile,
-      moduleName: dirName,
+    // 发布成功，删除临时文件
+    await cmdInvoke("delete_paths", {
+      paths: [tempPublishDir],
     });
-    if (upgradePluginsVersionResult.code !== 0) {
+  }
+  return true;
+};
+
+// 发布[WpfClient]服务
+const publishWpfClient = async () => {
+  const wpfClientItem = state.publishData.appconfigData.configItems.wpfClient;
+  if (!wpfClientItem.clientPath) return true;
+
+  printInfoLog("");
+
+  // 获取[生成目录]
+  let generateDirs = new Array<string>();
+  if (!wpfClientItem.generateDirJson) {
+    printInfoLog(`服务[${wpfClientName.value}]未配置[生成目录]，请检查.`, "log-error");
+    return false;
+  }
+  generateDirs = JSON.parse(wpfClientItem.generateDirJson);
+
+  // 存量兼容：旧单服务器配置归一化为多服务器结构（未经过 appconfigDialog 的旧数据）
+  if (
+    (!wpfClientItem.serverArr || wpfClientItem.serverArr.length < 1) &&
+    wpfClientItem.serverId
+  ) {
+    wpfClientItem.serverIds = [wpfClientItem.serverId];
+    wpfClientItem.serverArr = [
+      {
+        id: wpfClientItem.serverId,
+        name: wpfClientItem.serverName,
+        serverPathArr: [
+          {
+            label: "",
+            value: [{ identity: "", path: wpfClientItem.serverPath || "" }],
+          },
+        ],
+      },
+    ];
+  }
+  const wpfServerArr = wpfClientItem.serverArr || [];
+  if (wpfServerArr.length < 1) {
+    printInfoLog(
+      ` ${wpfClientName.value} 未选择服务或该服务器不存在，请检查.`,
+      "log-error"
+    );
+    return false;
+  }
+
+  // 遍历多台服务器逐个发布
+  for (let srvIdx = 0; srvIdx < wpfServerArr.length; srvIdx++) {
+    const wpfServer = wpfServerArr[srvIdx];
+    if (!wpfServer.id) {
       printInfoLog(
-        `更新 ${dirName}.zip 版本号失败：${upgradePluginsVersionResult.data}.`,
+        ` ${wpfClientName.value} 未选择服务或该服务器不存在，请检查.`,
         "log-error"
       );
       return false;
     }
-    printInfoLog(
-      `已将 ${dirName}.zip 版本号更新为 ${upgradePluginsVersionResult.data}.`,
-      "log-success"
-    );
+    const serverInfo = await getServerDetail(wpfServer.id);
+    if (!serverInfo) {
+      printInfoLog(`服务[${wpfClientName.value}]不存在，请检查.`, "log-error");
+      return false;
+    }
+    const serverPath = wpfServer.serverPathArr?.[0]?.value?.[0]?.path;
+    if (!serverPath) {
+      printInfoLog(`服务[${wpfClientName.value}]未填写服务发布路径，请检查.`, "log-error");
+      return false;
+    }
+    const serverName = wpfServer.name || "";
+    const uName = serverInfo.account;
+    const uPwd = serverInfo.pwd;
+    const serverAddress = `${serverInfo.ip}:${serverInfo.port}`;
+    const logPrefix = formatServiceLog(serverInfo.name, serverInfo.ip, wpfClientName.value, serverName || "");
 
-    // 将本地 Manifest.xml 上传到服务器
-    const remoteManifestPath = `${removeSlash(serverPath)}/Manifest.xml`;
-    const uploadManifestFileResult = await cmdInvoke("upload_server_files", {
-      localPaths: [localManifestFile],
-      remotePaths: [remoteManifestPath],
+    printInfoLog(`发布 ${wpfClientName.value} 服务[${serverName}]中，请稍等！`);
+
+    // 创建一个临时发布目录（按服务器隔离）
+    const tempPublishDir = `${projectAssemblyOutPath.value}/${wpfClientName.value}/tempPublish_${wpfServer.id}`;
+    const tempPublishDirExists = await cmdInvoke("exists", {
+      path: tempPublishDir,
+    });
+    if (tempPublishDirExists.code === 0) {
+      await cmdInvoke("delete_paths", {
+        paths: [tempPublishDir],
+      });
+    }
+    let createTempPathResult = await createDir(tempPublishDir);
+    if (!createTempPathResult) {
+      printInfoLog(`创建临时发布目录失败：${tempPublishDir}`, "log-error");
+      return false;
+    }
+
+    // 从远程服务器下载文件到[临时缓存目录]
+    let remoteFiles = [`${removeSlash(serverPath)}/Manifest.xml`];
+    if (generateDirs.includes("Domain") || generateDirs.includes("UI")) {
+      remoteFiles.push(`${removeSlash(serverPath)}/Plugins.zip`);
+    }
+    for (let i = 0; i < generateDirs.length; i++) {
+      const generateDir = generateDirs[i];
+      if (generateDir == "Domain" || generateDir == "UI") continue;
+      remoteFiles.push(`${removeSlash(serverPath)}/${generateDir}.zip`);
+    }
+    let localFiles = new Array<string>();
+    let remoteFileNames = new Array<string>();
+    for (let i = 0; i < remoteFiles.length; i++) {
+      const remoteFile = remoteFiles[i];
+      const subStartIndex = remoteFile.lastIndexOf("/");
+      const remoteFileName = remoteFile.substring(subStartIndex + 1);
+      remoteFileNames.push(remoteFileName);
+      const localFile = `${tempPublishDir}/${remoteFileName}`;
+      localFiles.push(localFile);
+    }
+    printInfoLog(`正在获取远程服务文件：${remoteFileNames.join("、")}`);
+    const downloadServerFileResult = await cmdInvoke("download_server_files", {
       username: uName,
       password: uPwd,
       server: serverAddress,
+      remotePaths: remoteFiles,
+      localPaths: localFiles,
     });
-    if (uploadManifestFileResult.code !== 0) {
+
+    if (downloadServerFileResult.code !== 0) {
       printInfoLog(
-        `文件 ${dirName}.zip 上传失败：${uploadManifestFileResult.data}.`,
+        `获取远程服务文件失败：[${downloadServerFileResult.data}].`,
         "log-error"
       );
       return false;
     }
-    printInfoLog(`已成功更新 ${dirName}.zip 版本号.`, "log-success");
-  }
+    printInfoLog(`获取远程服务文件成功.`, "log-success");
 
-  // 发布成功，删除临时文件
-  await cmdInvoke("delete_paths", {
-    paths: [tempPublishDir],
-  });
+    // 处理下载文件
+    for (let i = 0; i < localFiles.length; i++) {
+      const localFile = localFiles[i];
+      const lastIndex = localFile.lastIndexOf("/");
+      // 判断是否为zip文件
+      const fileName = `${localFile.substring(lastIndex + 1)}`;
+      if (!fileName.endsWith(".zip")) continue;
+
+      // 进行解压
+      const unzipPath = removeSlash(`${localFile.substring(0, lastIndex + 1)}`);
+      printInfoLog(`正在解压 ${fileName}.`);
+      const unzipResult = await cmdInvoke("un_zip", {
+        filePaths: [localFile],
+        destination: unzipPath,
+      });
+      if (unzipResult.code !== 0) {
+        printInfoLog(`解压 ${fileName} 失败：${unzipResult.data}.`, "log-error");
+        return false;
+      }
+      printInfoLog(`解压 ${fileName} 成功.`, "log-success");
+
+      // 将压缩文件删除
+      await cmdInvoke("delete_paths", {
+        paths: [localFile],
+      });
+
+      // 将生成的文件复制到[临时发布目录]
+      const dirName = fileName.replace(".zip", "");
+      if (dirName == "Plugins") {
+        // Domain
+        const sourceDomainPath = `${removeSlash(wpfClientItem.clientPath)}/Domain`;
+        const destinationDomainPath = `${removeSlash(tempPublishDir)}/Domain`;
+        const copyDomainResult = await cmdInvoke("copy_path", {
+          source: sourceDomainPath,
+          destination: destinationDomainPath,
+          ...getRetryArgs("copy"),
+        });
+        if (copyDomainResult.code !== 0) {
+          printInfoLog(`复制文件目录 ${sourceDomainPath} 失败.`, "log-error");
+          return false;
+        }
+
+        // UI
+        const sourceUiPath = `${removeSlash(wpfClientItem.clientPath)}/UI`;
+        const destinationUiPath = `${removeSlash(tempPublishDir)}/UI`;
+        const copyUiResult = await cmdInvoke("copy_path", {
+          source: sourceUiPath,
+          destination: destinationUiPath,
+          ...getRetryArgs("copy"),
+        });
+        if (copyUiResult.code !== 0) {
+          printInfoLog(`复制文件目录 ${sourceUiPath} 失败.`, "log-error");
+          return false;
+        }
+
+        // 重新打包压缩
+        const compressePluginsResult = await cmdInvoke("compress_zip", {
+          filePaths: [destinationDomainPath, destinationUiPath],
+          dstFile: `${removeSlash(tempPublishDir)}/Plugins.zip`,
+        });
+        if (compressePluginsResult.code !== 0) {
+          printInfoLog(
+            `压缩[Plugins.zip]失败：${compressePluginsResult.data}.`,
+            "log-error"
+          );
+          return false;
+        }
+
+        // 压缩成功后重新上传到服务器
+        printInfoLog(
+          `${logPrefix} 正在上传 Plugins.zip ...`
+        );
+        const uploadPluginsFileResult = await cmdInvoke("upload_server_files", {
+          localPaths: [`${removeSlash(tempPublishDir)}/Plugins.zip`],
+          remotePaths: [`${removeSlash(serverPath)}/Plugins.zip`],
+          username: uName,
+          password: uPwd,
+          server: serverAddress,
+        });
+        if (uploadPluginsFileResult.code !== 0) {
+          printInfoLog(`文件 Plugins.zip 上传失败.`, "log-error");
+          return false;
+        }
+        printInfoLog(
+          `${logPrefix} Plugins.zip 上传完成.`,
+          "log-success"
+        );
+      } else {
+        let sourcePath = `${removeSlash(wpfClientItem.clientPath)}/${dirName}`;
+        let destinationPath = `${removeSlash(tempPublishDir)}/${dirName}`;
+        const copyResult = await cmdInvoke("copy_path", {
+          source: sourcePath,
+          destination: destinationPath,
+          ...getRetryArgs("copy"),
+        });
+        if (copyResult.code !== 0) {
+          printInfoLog(`复制文件目录 ${sourcePath} 失败.`, "log-error");
+          return false;
+        }
+
+        // 重新打包压缩
+        printInfoLog(
+          `${logPrefix} 正在上传 ${dirName}.zip ...`
+        );
+        const compresseResult = await cmdInvoke("compress_zip", {
+          filePaths: [destinationPath],
+          dstFile: `${removeSlash(tempPublishDir)}/${dirName}.zip`,
+        });
+        if (compresseResult.code !== 0) {
+          printInfoLog(`压缩[${dirName}.zip]失败：${compresseResult.data}.`, "log-error");
+          return false;
+        }
+
+        // 压缩成功后重新上传到服务器
+        const uploadFileResult = await cmdInvoke("upload_server_files", {
+          localPaths: [`${removeSlash(tempPublishDir)}/${dirName}.zip`],
+          remotePaths: [`${removeSlash(serverPath)}/${dirName}.zip`],
+          username: uName,
+          password: uPwd,
+          server: serverAddress,
+        });
+        if (uploadFileResult.code !== 0) {
+          printInfoLog(`文件 ${dirName}.zip 上传失败.`, "log-error");
+          return false;
+        }
+        printInfoLog(
+          `${logPrefix} ${dirName}.zip 上传完成.`,
+          "log-success"
+        );
+      }
+
+      // 升级版本号
+      printInfoLog(`正在更新 ${dirName}.zip 版本号.`);
+      const localManifestFile =
+        removeSlash(localFile.substring(0, lastIndex + 1)) + "/Manifest.xml";
+      const upgradePluginsVersionResult = await cmdInvoke("upgrade_module_version", {
+        filePath: localManifestFile,
+        moduleName: dirName,
+      });
+      if (upgradePluginsVersionResult.code !== 0) {
+        printInfoLog(
+          `更新 ${dirName}.zip 版本号失败：${upgradePluginsVersionResult.data}.`,
+          "log-error"
+        );
+        return false;
+      }
+      printInfoLog(
+        `已将 ${dirName}.zip 版本号更新为 ${upgradePluginsVersionResult.data}.`,
+        "log-success"
+      );
+
+      // 将本地 Manifest.xml 上传到服务器
+      const remoteManifestPath = `${removeSlash(serverPath)}/Manifest.xml`;
+      const uploadManifestFileResult = await cmdInvoke("upload_server_files", {
+        localPaths: [localManifestFile],
+        remotePaths: [remoteManifestPath],
+        username: uName,
+        password: uPwd,
+        server: serverAddress,
+      });
+      if (uploadManifestFileResult.code !== 0) {
+        printInfoLog(
+          `文件 ${dirName}.zip 上传失败：${uploadManifestFileResult.data}.`,
+          "log-error"
+        );
+        return false;
+      }
+      printInfoLog(`已成功更新 ${dirName}.zip 版本号.`, "log-success");
+    }
+
+    // 发布成功，删除临时文件
+    await cmdInvoke("delete_paths", {
+      paths: [tempPublishDir],
+    });
+  }
   return true;
 };
 
