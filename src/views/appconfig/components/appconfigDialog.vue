@@ -601,6 +601,8 @@ const state = reactive<FormDialogType<RowAppconfigType>>({
         serverId: null,
         serverName: null,
         serverPath: "",
+        serverIds: [],
+        serverArr: [],
         isCompress: 1,
         generateDirJson: "",
         compressFileJson: "",

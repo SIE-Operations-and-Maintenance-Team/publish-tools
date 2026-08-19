@@ -33,6 +33,10 @@ declare type WebClientConfigType = CommonAppconfigType & {
 
 // wpfClientConfig
 declare type WpfClientConfigType = CommonAppconfigType & {
+	// 多服务器（与 WebApiHost 等一致）
+	serverIds: number[];
+	serverArr: SelectServerType[];
+	// 存量兼容 + 本地发布（保留）
 	serverId: number | null;
 	serverName: string | null;
 	isCompress: number | null;
