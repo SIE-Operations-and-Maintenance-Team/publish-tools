@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.0.43
+
+### 功能
+
+- WpfClient 发布支持同时发布到多台不同服务器（与 WebApiHost/WebClient/ScheduleServer/SpcMonitor 一致），覆盖应用配置多选、主页一键/手动发布、生成发布、文件手动发布、发布前备份、备份还原与导入导出
+
 ## v0.0.42
 
 ### 功能
