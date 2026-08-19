@@ -163,9 +163,9 @@
                 <legend class="form-server-legend">{{ wpfClientName }}</legend>
                 <el-select class="mb10 mr10" placeholder="请选择发布服务器" size="default"
                   v-model="publishLocalServer.wpfClient.serverId">
-                  <el-option :key="state.ruleForm.configItems.wpfClient.serverId"
-                    :label="state.ruleForm.configItems.wpfClient.serverName"
-                    :value="state.ruleForm.configItems.wpfClient.serverId" />
+                  <el-option v-for="wpfServer in state.ruleForm.configItems.wpfClient.serverArr"
+                    :key="wpfServer.id" :label="wpfServer.name"
+                    :value="wpfServer.id" />
                 </el-select>
                 <template v-if="publishLocalServer.wpfClient.serverId">
                   <el-col :span="24">
@@ -177,7 +177,9 @@
                       <template #prepend>生成目录</template>
                     </el-input>
                     <el-input placeholder="请输入发布路径" maxlength="200"
-                      :value="state.ruleForm.configItems.wpfClient.serverPath" :readonly="true">
+                      :value="state.ruleForm.configItems.wpfClient.serverArr.find(
+                        (s: SelectServerType) => s.id === publishLocalServer.wpfClient.serverId
+                      )?.serverPathArr?.[0]?.value?.[0]?.path || ''" :readonly="true">
                       <template #prepend>发布路径</template>
                     </el-input>
                   </el-col>
@@ -332,6 +334,8 @@ const clearWpfClient = () => {
   state.ruleForm.configItems.wpfClient.serverId = null;
   state.ruleForm.configItems.wpfClient.serverName = null;
   state.ruleForm.configItems.wpfClient.serverPath = null;
+  state.ruleForm.configItems.wpfClient.serverIds = [];
+  state.ruleForm.configItems.wpfClient.serverArr = [];
   state.ruleForm.configItems.wpfClient.isCompress = 1;
   state.ruleForm.configItems.wpfClient.generateDirJson = "";
   state.ruleForm.configItems.wpfClient.compressFileJson = "";
@@ -491,6 +495,7 @@ const openDialog = async (type: string, row: RowAppconfigType | undefined) => {
   nextTick(() => {
     state.dialog.editId = row?.id;
     Object.assign(state.ruleForm, row);
+    normalizeWpfClientServer(state.ruleForm.configItems.wpfClient);
     initPublishLocalServer();
     state.dialog.title = "生成发布文件";
     state.dialog.submitTxt = "生 成";
@@ -498,6 +503,29 @@ const openDialog = async (type: string, row: RowAppconfigType | undefined) => {
     console.log("应用配置数据：", state.ruleForm);
   });
   console.log(type);
+};
+
+// 存量兼容：旧单服务器配置归一化为多服务器结构
+const normalizeWpfClientServer = (wpfClient: WpfClientConfigType) => {
+  if (!wpfClient) return;
+  if (
+    (!wpfClient.serverArr || wpfClient.serverArr.length < 1) &&
+    wpfClient.serverId
+  ) {
+    wpfClient.serverIds = [wpfClient.serverId];
+    wpfClient.serverArr = [
+      {
+        id: wpfClient.serverId,
+        name: wpfClient.serverName,
+        serverPathArr: [
+          {
+            label: "",
+            value: [{ identity: "", path: wpfClient.serverPath || "" }],
+          },
+        ],
+      },
+    ];
+  }
 };
 
 // 本机发布初始数据
@@ -532,9 +560,13 @@ const initPublishLocalServer = () => {
     onSpcMonitorChange(state.ruleForm.configItems.spcMonitor.serverArr[0].id);
   }
 
-  if (state.ruleForm.configItems.wpfClient.serverId) {
+  if (
+    state.ruleForm.configItems.wpfClient.serverArr &&
+    state.ruleForm.configItems.wpfClient.serverArr.length > 0
+  ) {
+    if (!state.ruleForm.configItems.wpfClient.serverArr[0].id) return;
     publishLocalServer.value.wpfClient.serverId =
-      state.ruleForm.configItems.wpfClient.serverId;
+      state.ruleForm.configItems.wpfClient.serverArr[0].id;
   }
 
   if (
@@ -858,9 +890,11 @@ const generateLocalPublish = async () => {
       localPublishConfig.wpfClient.serverPwd = await aesEncrypt(wpfServerInfo.pwd);
       */
     }
-    localPublishConfig.wpfClient.publishPath = String(
-      state.ruleForm.configItems.wpfClient.serverPath
+    const selectedWpfServer = state.ruleForm.configItems.wpfClient.serverArr.find(
+      (item: SelectServerType) => item.id === publishLocalServer.value.wpfClient.serverId
     );
+    localPublishConfig.wpfClient.publishPath =
+      selectedWpfServer?.serverPathArr?.[0]?.value?.[0]?.path || "";
     localPublishConfig.wpfClient.publishFiles = [];
     if (state.ruleForm.configItems.wpfClient.generateDirJson) {
       let generateDirArr = JSON.parse(
