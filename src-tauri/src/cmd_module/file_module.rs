@@ -511,11 +511,11 @@ pub async fn open_dir(path: &str) -> Result<bool, String> {
     let result = match os_type {
         "windows" => {
             // 优先 Directory Opus：dopusrt.exe /acmd 会在 DOpus 未运行时先拉起主程序，
-            // 再执行 Go 命令；NEWTAB 在最近活动窗口新开标签而非导航当前标签，
-            // 避免覆盖用户正在浏览的目录
+            // 再执行 Go 命令；NEWTAB=tofront 在最近活动窗口新开标签（不覆盖用户当前
+            // 浏览的目录），并把窗口恢复/置前，保证打开结果对用户可见
             match find_directory_opus_rt() {
                 Some(rt) => match Command::new(&rt)
-                    .args(["/acmd", "Go", path_str, "NEWTAB"])
+                    .args(["/acmd", "Go", path_str, "NEWTAB=tofront"])
                     .creation_flags(0x08000000) // CREATE_NO_WINDOW
                     .spawn()
                 {
