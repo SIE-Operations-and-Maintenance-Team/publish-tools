@@ -29,8 +29,8 @@
             </div>
           </template>
 
-          <!-- 动态步骤组件：Task 8 将替换为真实 Step* 组件，当前为占位 -->
-          <component :is="stepComp" />
+          <!-- 动态步骤组件：Task 8 真实 Step* 组件 -->
+          <component :is="stepComp" ref="stepRef" />
 
           <!-- 步骤导航 -->
           <div class="workstation-step-actions">
@@ -40,13 +40,13 @@
         </el-card>
       </el-col>
 
-      <!-- 右侧：预览 / 日志 -->
+      <!-- 右侧：预览 / 日志（复用 StepPreview 只读聚合） -->
       <el-col :span="8">
         <el-card shadow="hover" class="workstation-preview-card">
           <template #header>
             <span>预览与日志</span>
           </template>
-          <StepPreview />
+          <RightPreview />
           <el-empty v-if="!hasPreviewContent" description="完成左侧步骤后此处展示待发布清单与日志" :image-size="80" />
         </el-card>
       </el-col>
@@ -66,65 +66,43 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, onMounted } from "vue";
+import { computed, defineComponent, h, onMounted, ref, defineAsyncComponent } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { useWorkstationStore } from "@/stores/workstation";
 
-// 占位步骤组件：Task 8 将替换为 src/views/workstation/components/Step*.vue
-// 此处以轻量 defineComponent 占位，保证构建通过且不引入不存在文件
-const StepProjectPlaceholder = defineComponent({
-  name: "StepProjectPlaceholder",
+const store = useWorkstationStore();
+const router = useRouter();
+
+// 真实步骤组件（异步加载，复用既有 Dialog）
+const StepProject = defineAsyncComponent(() => import("./components/StepProject.vue"));
+const StepSource = defineAsyncComponent(() => import("./components/StepSource.vue"));
+const StepServers = defineAsyncComponent(() => import("./components/StepServers.vue"));
+const StepAppconfig = defineAsyncComponent(() => import("./components/StepAppconfig.vue"));
+const StepPreview = defineAsyncComponent(() => import("./components/StepPreview.vue"));
+
+// 欢迎占位：保留轻量占位，仅 Step 0 使用
+const WelcomePlaceholder = defineComponent({
+  name: "WelcomePlaceholder",
   setup() {
-    return () => h("div", { class: "workstation-placeholder" }, "步骤 1：项目选择（占位，Task 8 实现）");
+    return () => h("div", { class: "workstation-placeholder" }, "欢迎使用 SMOM 发布工作台 — 点击“下一步”开始");
   },
 });
 
-const StepSourcePlaceholder = defineComponent({
-  name: "StepSourcePlaceholder",
+// 右侧预览（只读聚合）：复用 StepPreview 组件的只读展示，右侧保持常驻
+const RightPreview = defineComponent({
+  name: "RightPreview",
   setup() {
-    return () => h("div", { class: "workstation-placeholder" }, "步骤 2：代码源 Git/TFS 二选一（占位，Task 8 实现）");
-  },
-});
-
-const StepServersPlaceholder = defineComponent({
-  name: "StepServersPlaceholder",
-  setup() {
-    return () => h("div", { class: "workstation-placeholder" }, "步骤 3：服务器多选与发现（占位，Task 8 实现）");
-  },
-});
-
-const StepAppconfigPlaceholder = defineComponent({
-  name: "StepAppconfigPlaceholder",
-  setup() {
-    return () => h("div", { class: "workstation-placeholder" }, "步骤 4：应用配置（占位，Task 8 实现）");
-  },
-});
-
-const StepPreviewPlaceholder = defineComponent({
-  name: "StepPreviewPlaceholder",
-  setup() {
-    return () => h("div", { class: "workstation-placeholder" }, "步骤 5：聚合预览（占位，Task 8 实现）");
-  },
-});
-
-// 右侧预览/日志占位：后续 Task 8 抽为独立 components/StepPreview.vue
-const StepPreview = defineComponent({
-  name: "StepPreview",
-  setup() {
-    const store = useWorkstationStore();
+    const s = useWorkstationStore();
     return () =>
       h("div", { class: "workstation-preview" }, [
-        h("div", { class: "workstation-preview-row" }, `项目: ${store.draft.projectId ?? "未选择"}`),
-        h("div", { class: "workstation-preview-row" }, `代码源: ${store.draft.tfsId ?? store.draft.gitId ?? "未选择"}`),
-        h("div", { class: "workstation-preview-row" }, `服务器: ${store.draft.serverIds.length ? store.draft.serverIds.join(", ") : "未选择"}`),
-        h("div", { class: "workstation-preview-row" }, `应用配置: ${Object.keys(store.draft.appconfigDraft || {}).length ? "已配置" : "未配置"}`),
+        h("div", { class: "workstation-preview-row" }, `项目: ${s.draft.projectId ?? "未选择"}`),
+        h("div", { class: "workstation-preview-row" }, `代码源: ${s.draft.tfsId ?? s.draft.gitId ?? "未选择"}`),
+        h("div", { class: "workstation-preview-row" }, `服务器: ${s.draft.serverIds.length ? s.draft.serverIds.join(", ") : "未选择"}`),
+        h("div", { class: "workstation-preview-row" }, `应用配置: ${Object.keys(s.draft.appconfigDraft || {}).length ? "已配置" : "未配置"}`),
       ]);
   },
 });
-
-const store = useWorkstationStore();
-const router = useRouter();
 
 // 6 步对应 WorkstationStep 0|1|2|3|4|5，与 store.currentStep 逐一映射
 const stepTitles = [
@@ -137,17 +115,19 @@ const stepTitles = [
 ] as const;
 
 const stepMap = [
-  StepProjectPlaceholder,
-  StepProjectPlaceholder,
-  StepSourcePlaceholder,
-  StepServersPlaceholder,
-  StepAppconfigPlaceholder,
-  StepPreviewPlaceholder,
+  WelcomePlaceholder,
+  StepProject,
+  StepSource,
+  StepServers,
+  StepAppconfig,
+  StepPreview,
 ] as const;
+
+const stepRef = ref<any>(null);
 
 const stepComp = computed(() => {
   const idx = store.currentStep;
-  return stepMap[idx] ?? StepPreviewPlaceholder;
+  return stepMap[idx] ?? StepPreview;
 });
 
 const hasPreviewContent = computed(() => {
@@ -171,8 +151,12 @@ const onPrev = () => {
   }
 };
 
-const onNext = () => {
-  if (!store.canNext) {
+const onNext = async () => {
+  // 优先调用当前步骤的 validate()，成功后才允许下一步（并已在子组件内 persist）
+  if (stepRef.value?.validate) {
+    const ok = await stepRef.value.validate();
+    if (!ok) return;
+  } else if (!store.canNext) {
     ElMessage.warning("请先完成当前步骤必填项");
     return;
   }
@@ -182,12 +166,17 @@ const onNext = () => {
   }
 };
 
-const onPrecheck = () => {
+const onPrecheck = async () => {
   if (!store.canPublish) {
     ElMessage.warning(`预检前请先完成：${missingItems.value.join("、")}`);
     return;
   }
-  ElMessage.info("预检（占位）：Task 9 将聚合 draft 并复用既有链路");
+  // 若当前在预览步，委托其 dry-run
+  if (store.currentStep === 5 && stepRef.value?.onPrecheck) {
+    await stepRef.value.onPrecheck();
+    return;
+  }
+  ElMessage.info("预检：请进入“预览发布”步骤执行预检");
 };
 
 const onPublish = () => {
