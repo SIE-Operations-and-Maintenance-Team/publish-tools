@@ -9,3 +9,9 @@ declare type WorkstationDraft = {
 };
 
 declare type WorkstationStep = 0 | 1 | 2 | 3 | 4 | 5;
+
+declare type OnboardingState = {
+  completed: boolean;
+  currentStep: number;
+  skippedSteps: number[];
+};
