@@ -52,13 +52,55 @@
         </el-form-item>
       </el-form>
     </el-card>
+
+    <!-- 服务发现前缀管理 -->
+    <el-card shadow="never" v-loading="prefixLoading" style="margin-top: 15px">
+      <template #header>
+        <span>服务发现前缀</span>
+        <span class="settings-tip" style="margin-left: 8px">用于扫描本机/远端服务时匹配服务名前缀</span>
+      </template>
+      <div class="prefix-tags" style="margin-bottom: 16px">
+        <div v-for="item in prefixList" :key="item.id ?? item.prefix" class="prefix-tag-row">
+          <el-tag
+            :type="item.isDefault === 1 ? 'info' : undefined"
+            :closable="item.isDefault !== 1"
+            size="default"
+            @close="onDeletePrefix(item)"
+          >
+            {{ item.prefix }}
+            <span v-if="item.isDefault === 1" style="margin-left: 4px; font-size: 11px; opacity: 0.7">(默认)</span>
+          </el-tag>
+          <el-switch
+            v-model="item.enabled"
+            :active-value="1"
+            :inactive-value="0"
+            size="small"
+            style="margin-left: 8px"
+            @change="onTogglePrefixEnabled(item)"
+          />
+          <span class="settings-tip" style="margin-left: 6px">{{ item.enabled === 1 ? '启用' : '禁用' }}</span>
+        </div>
+        <el-empty v-if="!prefixList.length && !prefixLoading" description="暂无前缀" :image-size="56" />
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px">
+        <el-input
+          v-model="newPrefix"
+          placeholder="新增前缀，如 SIE."
+          clearable
+          style="width: 260px"
+          @keyup.enter="onAddPrefix"
+        />
+        <el-button type="primary" :loading="prefixAdding" @click="onAddPrefix">新增</el-button>
+      </div>
+    </el-card>
   </div>
 </template>
 
 <script setup lang="ts" name="settings">
 import { reactive, ref, onMounted, onUnmounted, computed } from "vue";
-import { ElMessage, type FormInstance } from "element-plus";
+import { ElMessage, ElMessageBox, type FormInstance } from "element-plus";
 import { useSettingsDb } from "@/database/settings/index";
+import { useDiscoveryPrefixDb } from "@/database/discoveryPrefix/index";
 import { defaultSettings } from "@/utils/publishSettings";
 import { cmdInvoke } from "@/utils/command";
 import mittBus from "@/utils/mitt";
@@ -90,9 +132,97 @@ let mcpPollToken = 0;
 
 let unlisten: (() => void) | null = null;
 
+// 服务发现前缀管理
+const discoveryPrefixDb = useDiscoveryPrefixDb();
+const prefixList = ref<DiscoveryPrefix[]>([]);
+const newPrefix = ref("");
+const prefixLoading = ref(false);
+const prefixAdding = ref(false);
+
+const loadPrefixes = async () => {
+  prefixLoading.value = true;
+  try {
+    await discoveryPrefixDb.seedDefaults();
+    const r = await discoveryPrefixDb.getPrefixes();
+    if (r.code === 0 && r.data) prefixList.value = r.data as DiscoveryPrefix[];
+  } catch (e) {
+    console.warn("加载发现前缀失败:", e);
+  } finally {
+    prefixLoading.value = false;
+  }
+};
+
+const onAddPrefix = async () => {
+  const val = newPrefix.value.trim();
+  if (!val) {
+    ElMessage.warning("请输入前缀");
+    return;
+  }
+  if (prefixList.value.some((p) => p.prefix === val)) {
+    ElMessage.warning("该前缀已存在");
+    return;
+  }
+  prefixAdding.value = true;
+  try {
+    const r = await discoveryPrefixDb.upsertPrefix({ id: null, prefix: val, enabled: 1, isDefault: 0 });
+    if (r.code === 0) {
+      ElMessage.success("新增前缀成功");
+      newPrefix.value = "";
+      await loadPrefixes();
+    } else {
+      ElMessage.error(r.msg || "新增前缀失败");
+    }
+  } catch (e: any) {
+    ElMessage.error("新增前缀失败: " + (e?.message || e));
+  } finally {
+    prefixAdding.value = false;
+  }
+};
+
+const onTogglePrefixEnabled = async (row: DiscoveryPrefix) => {
+  try {
+    const r = await discoveryPrefixDb.upsertPrefix(row);
+    if (r.code !== 0) {
+      ElMessage.error(r.msg || "更新失败");
+      await loadPrefixes();
+    }
+  } catch (e: any) {
+    ElMessage.error("更新失败: " + (e?.message || e));
+    await loadPrefixes();
+  }
+};
+
+const onDeletePrefix = async (row: DiscoveryPrefix) => {
+  if (row.isDefault === 1) {
+    ElMessage.warning("默认前缀不可删除，可禁用");
+    return;
+  }
+  try {
+    await ElMessageBox.confirm(`确认删除前缀 “${row.prefix}”？`, "提示", {
+      confirmButtonText: "确认",
+      cancelButtonText: "取消",
+      type: "warning",
+    });
+  } catch {
+    return;
+  }
+  try {
+    const r = await discoveryPrefixDb.deletePrefix(row.id as number);
+    if (r.code === 0) {
+      ElMessage.success("删除成功");
+      await loadPrefixes();
+    } else {
+      ElMessage.error(r.msg || "删除失败");
+    }
+  } catch (e: any) {
+    ElMessage.error("删除失败: " + (e?.message || e));
+  }
+};
+
 // 监听 MCP 状态事件
 onMounted(async () => {
   load();
+  loadPrefixes();
   try {
     unlisten = await listen<{ status: string; message?: string; port?: number }>("mcp-status", (event) => {
       mcpStatus.value = event.payload.status;
@@ -286,6 +416,20 @@ const load = async () => {
     margin-left: 10px;
     color: var(--el-text-color-secondary);
     font-size: 12px;
+  }
+  .prefix-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .prefix-tag-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 6px;
+    border: 1px solid var(--el-border-color-lighter);
+    border-radius: 6px;
+    background: var(--el-fill-color-light);
   }
 }
 </style>
