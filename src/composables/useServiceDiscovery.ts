@@ -58,6 +58,8 @@ export function useServiceDiscovery() {
       if (w.code !== 0 && d.code !== 0) error.value = w.msg || d.msg;
       else if (merged.length === 0) error.value = null; // 零匹配由 UI 引导改前缀
       results.value = merged;
+    } catch (e: any) {
+      error.value = e?.message ?? String(e);
     } finally {
       scanning.value = false;
     }

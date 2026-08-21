@@ -317,10 +317,10 @@ const onScanRemote = async () => {
   if (!target) {
     // 首次点击且多台服务器时：打开抽屉让用户选择
     selectedDiscoveryKeys.value = [];
+    discoveryResults.value = [];
+    discoveryError.value = null;
     discoveryDrawerVisible.value = true;
     await loadDiscoveryPrefixes();
-    // 不立即扫描，等待用户选择
-    if (discoveryResults.value.length === 0) discoveryError.value = null;
     return;
   }
   selectedDiscoveryKeys.value = [];
@@ -336,7 +336,8 @@ const onConfirmImport = async () => {
   }
   importing.value = true;
   let success = 0;
-  let failMsg = "";
+  const failedItems: string[] = [];
+  const failMessages: string[] = [];
   for (const idx of selectedDiscoveryKeys.value) {
     const item = discoveryResults.value[idx];
     if (!item) continue;
@@ -356,17 +357,45 @@ const onConfirmImport = async () => {
     } as RowServerType;
     const r = await serverDb.insertServer(row);
     if (r.code === 0) success++;
-    else failMsg = r.msg;
+    else {
+      failedItems.push(item.serviceName);
+      failMessages.push(r.msg || "导入失败");
+    }
   }
   importing.value = false;
-  if (success > 0) {
+  const distinctMsgs = [...new Set(failMessages)];
+  const failSummary = distinctMsgs.join("；");
+  if (success > 0 && failedItems.length === 0) {
     ElMessage.success(`已导入 ${success} 条`);
     discoveryDrawerVisible.value = false;
     selectedDiscoveryKeys.value = [];
     await getTableData();
+    try {
+      await ElMessageBox.confirm(
+        `已导入 ${success} 条服务器，IP/账号/端口为空，暂不可连接。请在列表中编辑补录连接信息后再测试连接。`,
+        "导入完成",
+        { confirmButtonText: "知道了", cancelButtonText: "关闭", type: "warning", distinguishCancelAndClose: true }
+      );
+    } catch {
+      // 用户关闭弹窗，无需处理
+    }
+  } else if (success > 0 && failedItems.length > 0) {
+    ElMessage.warning(`已导入 ${success} 条，失败 ${failedItems.length} 条：${failedItems.join("、")}（${failSummary}）`);
+    discoveryDrawerVisible.value = false;
+    selectedDiscoveryKeys.value = [];
+    await getTableData();
+    try {
+      await ElMessageBox.confirm(
+        `已导入 ${success} 条，另有 ${failedItems.length} 条失败（${failedItems.join("、")}）。成功导入的服务器 IP/账号仍为空，请编辑补录后再测试连接。`,
+        "部分导入成功",
+        { confirmButtonText: "知道了", cancelButtonText: "关闭", type: "warning", distinguishCancelAndClose: true }
+      );
+    } catch {
+      // 用户关闭弹窗，无需处理
+    }
+  } else if (failedItems.length > 0) {
+    ElMessage.error(`导入失败 ${failedItems.length} 条：${failedItems.join("、")}（${failSummary}）`);
   }
-  if (failMsg) ElMessage.warning(failMsg);
-  if (success === 0 && failMsg) ElMessage.error(failMsg || "导入失败");
 };
 
 // 测试连接
