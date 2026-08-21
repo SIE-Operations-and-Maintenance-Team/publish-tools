@@ -57,7 +57,7 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 					isKeepAlive: true,
 					isAffix: true,
 					isIframe: false,
-					icon: 'smom-icon smom-icon-fabu'
+					icon: 'smom-icon smom-icon-pingtai'
 				},
 				redirect: "",
 				children: []
