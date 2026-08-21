@@ -171,20 +171,30 @@ const onPrecheck = async () => {
     ElMessage.warning(`预检前请先完成：${missingItems.value.join("、")}`);
     return;
   }
-  // 若当前在预览步，委托其 dry-run
+  // 若当前在预览步，委托其 dry-run 聚合校验
   if (store.currentStep === 5 && stepRef.value?.onPrecheck) {
     await stepRef.value.onPrecheck();
     return;
   }
   ElMessage.info("预检：请进入“预览发布”步骤执行预检");
+  store.currentStep = 5 as WorkstationStep;
+  store.persist();
 };
 
-const onPublish = () => {
+const onPublish = async () => {
   if (!store.canPublish) {
     ElMessage.warning(`发布前请先完成：${missingItems.value.join("、")}`);
     return;
   }
-  ElMessage.info("发布（占位）：Task 9 将聚合 draft 并复用既有发布引擎");
+  // 预览步直接聚合 draft → RemotePublishType 并复用既有 papersPublish 链路
+  if (store.currentStep === 5 && stepRef.value?.onPublish) {
+    await stepRef.value.onPublish();
+    return;
+  }
+  // 非预览步则先切到预览步，再由用户触发发布（避免越级发布）
+  ElMessage.info("请先进入“预览发布”步骤确认清单后发布");
+  store.currentStep = 5 as WorkstationStep;
+  store.persist();
 };
 
 // 高级设置跳转：每步右上角快捷入口，保留旧页能力
