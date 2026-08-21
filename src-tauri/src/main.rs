@@ -53,10 +53,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_notification::init())
-        .plugin(
-            tauri_plugin_sql::Builder::default()
-                .build(),
-        )
+        .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
             if let Some(window) = app.get_webview_window("main") {
                 // 如果窗口最小化了，先恢复
@@ -72,7 +69,9 @@ fn main() {
             // 窗口标题动态带版本：标题文本取自 tauri.conf.json，版本取自 Cargo.toml（均派生自 package.json 单一事实源）
             // 注意：webview 内 document.title 不会同步到原生窗口标题，必须在 Rust 侧设置
             if let Some(window) = app.get_webview_window("main") {
-                let base = window.title().unwrap_or_else(|_| "SMOM平台发布工具".to_string());
+                let base = window
+                    .title()
+                    .unwrap_or_else(|_| "SMOM平台发布工具".to_string());
                 let _ = window.set_title(&format!("{} v{}", base, app.package_info().version));
             }
 
@@ -141,11 +140,13 @@ fn main() {
             parse_sln_module::find_assembly_name,
         ])
         // 保持前端在后台运行
-        .on_window_event(|window, event| if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-            if let Err(e) = window.hide() {
-                eprintln!("隐藏窗口失败: {:?}", e);
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if let Err(e) = window.hide() {
+                    eprintln!("隐藏窗口失败: {:?}", e);
+                }
+                api.prevent_close();
             }
-            api.prevent_close();
         })
         .run(tauri::generate_context!())
         .expect("运行Tauri应用程序出错，请检查！");

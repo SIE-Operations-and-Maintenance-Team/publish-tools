@@ -2,8 +2,17 @@
   <div class="workstation-container layout-padding">
     <!-- 顶部 Steps -->
     <el-card shadow="hover" class="mb15">
-      <el-steps :active="store.currentStep" finish-status="success" align-center>
-        <el-step v-for="item in stepTitles" :key="item.key" :title="item.title" :description="item.desc" />
+      <el-steps
+        :active="store.currentStep"
+        finish-status="success"
+        align-center
+      >
+        <el-step
+          v-for="item in stepTitles"
+          :key="item.key"
+          :title="$t(item.title)"
+          :description="item.desc ? $t(item.desc) : ''"
+        />
       </el-steps>
     </el-card>
 
@@ -14,7 +23,9 @@
       :closable="false"
       show-icon
       class="mb15"
-      :title="`尚有 ${missingItems.length} 项未完成，无法预检/发布`"
+      :title="
+        $t('message.workstation.missingHint', { count: missingItems.length })
+      "
       :description="missingItems.join('、')"
     />
 
@@ -24,8 +35,18 @@
         <el-card shadow="hover">
           <template #header>
             <div class="workstation-step-header">
-              <span>{{ stepTitles[store.currentStep]?.title || stepTitles[0].title }}</span>
-              <el-button link type="primary" size="small" @click="onGoAdvanced">高级设置 →</el-button>
+              <span>{{
+                stepTitles[store.currentStep]?.title
+                  ? $t(stepTitles[store.currentStep].title as string)
+                  : $t(stepTitles[0].title as string)
+              }}</span>
+              <el-button
+                link
+                type="primary"
+                size="small"
+                @click="onGoAdvanced"
+                >{{ $t("message.workstation.advanced") }}</el-button
+              >
             </div>
           </template>
 
@@ -34,8 +55,15 @@
 
           <!-- 步骤导航 -->
           <div class="workstation-step-actions">
-            <el-button :disabled="store.currentStep === 0" @click="onPrev">上一步</el-button>
-            <el-button type="primary" :disabled="!store.canNext" @click="onNext">下一步</el-button>
+            <el-button :disabled="store.currentStep === 0" @click="onPrev">{{
+              $t("message.workstation.prev")
+            }}</el-button>
+            <el-button
+              type="primary"
+              :disabled="!store.canNext"
+              @click="onNext"
+              >{{ $t("message.workstation.next") }}</el-button
+            >
           </div>
         </el-card>
       </el-col>
@@ -44,10 +72,14 @@
       <el-col :span="8">
         <el-card shadow="hover" class="workstation-preview-card">
           <template #header>
-            <span>预览与日志</span>
+            <span>{{ $t("message.workstation.previewTitle") }}</span>
           </template>
           <RightPreview />
-          <el-empty v-if="!hasPreviewContent" description="完成左侧步骤后，此处将展示待发布清单与实时日志 — 预检/发布前请在此确认" :image-size="80" />
+          <el-empty
+            v-if="!hasPreviewContent"
+            :description="$t('message.workstation.previewEmpty')"
+            :image-size="80"
+          />
         </el-card>
       </el-col>
     </el-row>
@@ -56,9 +88,18 @@
     <el-affix position="bottom" :offset="12">
       <el-card shadow="hover" class="workstation-bottom-bar">
         <div class="workstation-bottom-actions">
-          <el-button :disabled="!store.canPublish" @click="onPrecheck">预检</el-button>
-          <el-button type="primary" :disabled="!store.canPublish" @click="onPublish">发布</el-button>
-          <span v-if="!store.canPublish" class="workstation-bottom-hint">请先完成必选步骤</span>
+          <el-button :disabled="!store.canPublish" @click="onPrecheck">{{
+            $t("message.workstation.precheck")
+          }}</el-button>
+          <el-button
+            type="primary"
+            :disabled="!store.canPublish"
+            @click="onPublish"
+            >{{ $t("message.workstation.publish") }}</el-button
+          >
+          <span v-if="!store.canPublish" class="workstation-bottom-hint">{{
+            $t("message.workstation.bottomHint")
+          }}</span>
         </div>
       </el-card>
     </el-affix>
@@ -69,32 +110,59 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, onMounted, onUnmounted, ref, defineAsyncComponent } from "vue";
+import {
+  computed,
+  defineComponent,
+  h,
+  onMounted,
+  onUnmounted,
+  ref,
+  defineAsyncComponent,
+} from "vue";
 import { useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import { ElMessage } from "element-plus";
 import { useWorkstationStore } from "@/stores/workstation";
 import { useOnboardingStore } from "@/stores/onboarding";
 import mittBus from "@/utils/mitt";
 
+const { t } = useI18n();
 const store = useWorkstationStore();
 const router = useRouter();
 const onboarding = useOnboardingStore();
 const onboardingVisible = ref(false);
 
-const OnboardingWizard = defineAsyncComponent(() => import("./components/OnboardingWizard.vue"));
+const OnboardingWizard = defineAsyncComponent(
+  () => import("./components/OnboardingWizard.vue")
+);
 
 // 真实步骤组件（异步加载，复用既有 Dialog）
-const StepProject = defineAsyncComponent(() => import("./components/StepProject.vue"));
-const StepSource = defineAsyncComponent(() => import("./components/StepSource.vue"));
-const StepServers = defineAsyncComponent(() => import("./components/StepServers.vue"));
-const StepAppconfig = defineAsyncComponent(() => import("./components/StepAppconfig.vue"));
-const StepPreview = defineAsyncComponent(() => import("./components/StepPreview.vue"));
+const StepProject = defineAsyncComponent(
+  () => import("./components/StepProject.vue")
+);
+const StepSource = defineAsyncComponent(
+  () => import("./components/StepSource.vue")
+);
+const StepServers = defineAsyncComponent(
+  () => import("./components/StepServers.vue")
+);
+const StepAppconfig = defineAsyncComponent(
+  () => import("./components/StepAppconfig.vue")
+);
+const StepPreview = defineAsyncComponent(
+  () => import("./components/StepPreview.vue")
+);
 
 // 欢迎占位：保留轻量占位，仅 Step 0 使用
 const WelcomePlaceholder = defineComponent({
   name: "WelcomePlaceholder",
   setup() {
-    return () => h("div", { class: "workstation-placeholder" }, "欢迎使用 SMOM 发布工作台 — 点击“下一步”开始");
+    return () =>
+      h(
+        "div",
+        { class: "workstation-placeholder" },
+        t("message.workstation.welcomePlaceholder")
+      );
   },
 });
 
@@ -105,22 +173,56 @@ const RightPreview = defineComponent({
     const s = useWorkstationStore();
     return () =>
       h("div", { class: "workstation-preview" }, [
-        h("div", { class: "workstation-preview-row" }, `项目: ${s.draft.projectId ?? "未选择"}`),
-        h("div", { class: "workstation-preview-row" }, `代码源: ${s.draft.tfsId ?? s.draft.gitId ?? "未选择"}`),
-        h("div", { class: "workstation-preview-row" }, `服务器: ${s.draft.serverIds.length ? s.draft.serverIds.join(", ") : "未选择"}`),
-        h("div", { class: "workstation-preview-row" }, `应用配置: ${Object.keys(s.draft.appconfigDraft || {}).length ? "已配置" : "未配置"}`),
+        h(
+          "div",
+          { class: "workstation-preview-row" },
+          `${t("message.workstation.previewProject")}: ${
+            s.draft.projectId ?? t("message.workstation.previewUnselected")
+          }`
+        ),
+        h(
+          "div",
+          { class: "workstation-preview-row" },
+          `${t("message.workstation.previewSource")}: ${
+            s.draft.tfsId ??
+            s.draft.gitId ??
+            t("message.workstation.previewUnselected")
+          }`
+        ),
+        h(
+          "div",
+          { class: "workstation-preview-row" },
+          `${t("message.workstation.previewServers")}: ${
+            s.draft.serverIds.length
+              ? s.draft.serverIds.join(", ")
+              : t("message.workstation.previewUnselected")
+          }`
+        ),
+        h(
+          "div",
+          { class: "workstation-preview-row" },
+          `${t("message.workstation.previewAppconfig")}: ${
+            Object.keys(s.draft.appconfigDraft || {}).length
+              ? t("message.workstation.previewConfigured")
+              : t("message.workstation.previewUnconfigured")
+          }`
+        ),
       ]);
   },
 });
 
 // 6 步对应 WorkstationStep 0|1|2|3|4|5，与 store.currentStep 逐一映射
 const stepTitles = [
-  { key: "welcome", title: "欢迎", desc: "" },
-  { key: "project", title: "选择项目", desc: "" },
-  { key: "source", title: "代码源", desc: "Git / TFS" },
-  { key: "servers", title: "服务器", desc: "" },
-  { key: "appconfig", title: "应用配置", desc: "" },
-  { key: "preview", title: "预览发布", desc: "" },
+  { key: "welcome", title: "message.workstation.steps.welcome", desc: "" },
+  { key: "project", title: "message.workstation.steps.project", desc: "" },
+  {
+    key: "source",
+    title: "message.workstation.steps.source",
+    desc: "message.workstation.steps.sourceDesc",
+  },
+  { key: "servers", title: "message.workstation.steps.servers", desc: "" },
+  { key: "appconfig", title: "message.workstation.steps.appconfig", desc: "" },
+  { key: "preview", title: "message.workstation.steps.preview", desc: "" },
 ] as const;
 
 const stepMap = [
@@ -140,22 +242,34 @@ const stepComp = computed(() => {
 });
 
 const hasPreviewContent = computed(() => {
-  return !!(store.draft.projectId || store.draft.tfsId || store.draft.gitId || store.draft.serverIds.length);
+  return !!(
+    store.draft.projectId ||
+    store.draft.tfsId ||
+    store.draft.gitId ||
+    store.draft.serverIds.length
+  );
 });
 
 // 缺失项：用于 el-alert 与底部禁用态的文案
 const missingItems = computed(() => {
   const items: string[] = [];
-  if (!store.draft.projectId) items.push("未选择项目");
-  if (!store.draft.tfsId && !store.draft.gitId) items.push("未选择代码源（Git/TFS）");
-  if (!store.draft.serverIds.length) items.push("未选择服务器");
-  if (!store.draft.appconfigDraft || Object.keys(store.draft.appconfigDraft).length === 0) items.push("未配置应用配置");
+  if (!store.draft.projectId)
+    items.push(t("message.workstation.missingProject"));
+  if (!store.draft.tfsId && !store.draft.gitId)
+    items.push(t("message.workstation.missingSource"));
+  if (!store.draft.serverIds.length)
+    items.push(t("message.workstation.missingServers"));
+  if (
+    !store.draft.appconfigDraft ||
+    Object.keys(store.draft.appconfigDraft).length === 0
+  )
+    items.push(t("message.workstation.missingAppconfig"));
   return items;
 });
 
 const onPrev = () => {
   if (store.currentStep > 0) {
-    store.currentStep = ((store.currentStep - 1) as WorkstationStep);
+    store.currentStep = (store.currentStep - 1) as WorkstationStep;
     store.persist();
   }
 };
@@ -170,7 +284,7 @@ const onNext = async () => {
     return;
   }
   if (store.currentStep < 5) {
-    store.currentStep = ((store.currentStep + 1) as WorkstationStep);
+    store.currentStep = (store.currentStep + 1) as WorkstationStep;
     store.persist();
   }
 };

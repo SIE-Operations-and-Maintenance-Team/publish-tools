@@ -1,5 +1,3 @@
-use std::path::Path;
-
 /// Docker 挂载点映射，对应 `docker inspect` 的 `Mounts` 元素
 ///
 /// 前端 TS 类型为 `DiscoveryMount { Source, Destination }`，此处通过
@@ -35,7 +33,9 @@ pub struct DiscoveryItem {
 /// 若 `prefixes` 中任一项是 `name` 的前缀（忽略大小写），返回 true。
 pub fn matches_prefix(name: &str, prefixes: &[String]) -> bool {
     let lower = name.to_lowercase();
-    prefixes.iter().any(|p| lower.starts_with(&p.to_lowercase()))
+    prefixes
+        .iter()
+        .any(|p| lower.starts_with(&p.to_lowercase()))
 }
 
 /// 清洗 Windows 服务 PathName，提取真实可发布目录
@@ -68,11 +68,11 @@ pub fn extract_real_path(path_name: &str) -> String {
     if exe_path.is_empty() {
         return "".into();
     }
-    // 4) 取 parent 目录，返回原生分隔符（Windows 为 \）
-    let p = Path::new(&exe_path);
-    p.parent()
-        .map(|d| d.to_string_lossy().to_string())
-        .unwrap_or_default()
+    // 4) 取 parent 目录 — 分隔符无关（同时处理 / 与 \），避免 Linux 宿主上 Path::parent 对 Windows 路径失效
+    if let Some(idx) = exe_path.rfind(|c| c == '/' || c == '\\') {
+        return exe_path[..idx].to_string();
+    }
+    "".into()
 }
 
 /// 解析 `docker inspect` 的 `.Mounts` JSON 数组字符串
@@ -112,9 +112,9 @@ fn discover_local_services_blocking(prefixes: &[String]) -> Result<Vec<Discovery
     use windows::core::PCWSTR;
     use windows::Win32::System::Services::{
         CloseServiceHandle, EnumServicesStatusExW, OpenSCManagerW, OpenServiceW,
-        QueryServiceConfigW, ENUM_SERVICE_STATUS_PROCESSW, QUERY_SERVICE_CONFIGW, SC_HANDLE,
-        SC_ENUM_PROCESS_INFO, SC_MANAGER_ENUMERATE_SERVICE, SERVICE_QUERY_CONFIG, SERVICE_STATE_ALL,
-        SERVICE_WIN32,
+        QueryServiceConfigW, ENUM_SERVICE_STATUS_PROCESSW, QUERY_SERVICE_CONFIGW,
+        SC_ENUM_PROCESS_INFO, SC_HANDLE, SC_MANAGER_ENUMERATE_SERVICE, SERVICE_QUERY_CONFIG,
+        SERVICE_STATE_ALL, SERVICE_WIN32,
     };
 
     unsafe {
@@ -131,7 +131,9 @@ fn discover_local_services_blocking(prefixes: &[String]) -> Result<Vec<Discovery
         struct ScmGuard(SC_HANDLE);
         impl Drop for ScmGuard {
             fn drop(&mut self) {
-                unsafe { let _ = CloseServiceHandle(self.0); }
+                unsafe {
+                    let _ = CloseServiceHandle(self.0);
+                }
             }
         }
         let _scm_guard = ScmGuard(scm);
@@ -243,9 +245,10 @@ pub async fn discover_local_services(prefixes: Vec<String>) -> Result<Vec<Discov
     }
     #[cfg(windows)]
     {
-        let items = tokio::task::spawn_blocking(move || discover_local_services_blocking(&prefixes))
-            .await
-            .map_err(|e| e.to_string())??;
+        let items =
+            tokio::task::spawn_blocking(move || discover_local_services_blocking(&prefixes))
+                .await
+                .map_err(|e| e.to_string())??;
         Ok(items)
     }
 }
@@ -377,7 +380,12 @@ pub async fn discover_remote_docker_containers(
             id
         );
         let inspect_out = crate::cmd_module::file_module::execute_remote_command(
-            &username, &password, &server, &inspect_cmd, None, None,
+            &username,
+            &password,
+            &server,
+            &inspect_cmd,
+            None,
+            None,
         )
         .await
         .unwrap_or_default();
@@ -461,7 +469,8 @@ mod tests {
     }
     #[test]
     fn parse_mounts_empty_source_filtered() {
-        let j = r#"[{"Source":"","Destination":"/app"},{"Source":"/data/ok","Destination":"/app2"}]"#;
+        let j =
+            r#"[{"Source":"","Destination":"/app"},{"Source":"/data/ok","Destination":"/app2"}]"#;
         let m = parse_docker_inspect_mounts(j);
         assert_eq!(m.len(), 1);
         assert_eq!(m[0].source, "/data/ok");
@@ -492,5 +501,13 @@ mod tests {
         let j = serde_json::to_string(&m).unwrap();
         assert!(j.contains("\"Source\""));
         assert!(j.contains("\"Destination\""));
+    }
+    #[test]
+    fn extract_windows_path_on_linux_host() {
+        // Windows 路径在 Linux 宿主上亦能正确提取 parent（M-02 分隔符无关回归）
+        let s = r"C:\SIE\WebApiHost\WebApiHost.exe";
+        assert_eq!(extract_real_path(s), r"C:\SIE\WebApiHost");
+        let s2 = "C:/SIE/WebApiHost/WebApiHost.exe";
+        assert_eq!(extract_real_path(s2), "C:/SIE/WebApiHost");
     }
 }

@@ -4,13 +4,11 @@ pub mod handler;
 pub mod manager;
 pub mod types;
 
+use crate::config;
 use crate::mcp::audit::AuditLogger;
 use crate::mcp::handler::McpHandler;
-use crate::config;
 use rmcp::transport::streamable_http_server::{
-    session::local::LocalSessionManager,
-    StreamableHttpServerConfig,
-    StreamableHttpService,
+    session::local::LocalSessionManager, StreamableHttpServerConfig, StreamableHttpService,
 };
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -28,10 +26,13 @@ pub async fn serve(app_handle: tauri::AppHandle, port: u16) -> Result<(), String
     // 绑定成功后通知前端，与 main.rs 的 error/panic 路径互斥
     eprintln!("[mcp] MCP Server 启动成功，监听 http://127.0.0.1:{port}/mcp");
     config::set_mcp_status("ok");
-    let _ = app_handle.emit("mcp-status", serde_json::json!({
-        "status": "ok",
-        "port": port
-    }));
+    let _ = app_handle.emit(
+        "mcp-status",
+        serde_json::json!({
+            "status": "ok",
+            "port": port
+        }),
+    );
 
     // 初始化审计日志记录器
     let audit_logger = match AuditLogger::new(&app_handle) {

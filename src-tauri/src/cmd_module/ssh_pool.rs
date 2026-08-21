@@ -47,11 +47,7 @@ fn pool_key(username: &str, server: &str) -> String {
 /// - 调用方使用前先 `lock()` 取得独占访问；
 /// - 任何后续 channel / sftp 操作必须在锁内完成；
 /// - 操作完成后建议更新 `last_used`。
-pub fn get_session(
-    username: &str,
-    password: &str,
-    server: &str,
-) -> Result<SharedSession, String> {
+pub fn get_session(username: &str, password: &str, server: &str) -> Result<SharedSession, String> {
     let key = pool_key(username, server);
 
     // 1. 先尝试取池中已有条目
@@ -61,9 +57,7 @@ pub fn get_session(
     };
     if let Some(shared) = existing {
         let healthy = {
-            let mut entry = shared
-                .lock()
-                .map_err(|_| "SSH 会话锁中毒".to_string())?;
+            let mut entry = shared.lock().map_err(|_| "SSH 会话锁中毒".to_string())?;
             if entry.last_used.elapsed() < IDLE_TIMEOUT
                 && entry.session.authenticated()
                 && entry.session.keepalive_send().is_ok()

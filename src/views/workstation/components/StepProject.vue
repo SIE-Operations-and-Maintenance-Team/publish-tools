@@ -18,44 +18,66 @@
               :value="p.id"
             />
           </el-select>
-          <el-button type="primary" plain @click="onOpenNew">新建项目</el-button>
+          <el-button type="primary" plain @click="onOpenNew"
+            >新建项目</el-button
+          >
         </div>
       </el-form-item>
       <el-form-item v-if="selectedProject" label="项目编码">
         <el-input :model-value="selectedProject.code" disabled />
       </el-form-item>
       <el-form-item v-if="selectedProject" label="描述">
-        <el-input :model-value="selectedProject.description || '—'" type="textarea" :rows="2" disabled />
+        <el-input
+          :model-value="selectedProject.description || '—'"
+          type="textarea"
+          :rows="2"
+          disabled
+        />
       </el-form-item>
     </el-form>
-    <el-alert v-if="!selectedId" type="info" :closable="false" show-icon title="请选择一个项目后进入下一步" style="margin-top: 8px" />
+    <el-alert
+      v-if="!selectedId"
+      type="info"
+      :closable="false"
+      show-icon
+      title="请选择一个项目后进入下一步"
+      style="margin-top: 8px"
+    />
     <!-- 复用既有 Dialog：异步加载，不复制表单 -->
-    <component :is="ProjectDialogComp" ref="projectDialogRef" @refresh="onRefreshAfterAdd" />
+    <component
+      :is="ProjectDialogComp"
+      ref="projectDialogRef"
+      @refresh="onRefreshAfterAdd"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, defineAsyncComponent, watch } from 'vue';
-import { ElMessage } from 'element-plus';
-import { useProjectDb } from '@/database/project/index';
-import { useWorkstationStore } from '@/stores/workstation';
+import { ref, computed, onMounted, defineAsyncComponent, watch } from "vue";
+import { ElMessage } from "element-plus";
+import { useProjectDb } from "@/database/project/index";
+import { useWorkstationStore } from "@/stores/workstation";
 
 const store = useWorkstationStore();
 const projectDb = useProjectDb();
 
-const ProjectDialogComp = defineAsyncComponent(() => import('@/views/project/components/projectDialog.vue'));
+const ProjectDialogComp = defineAsyncComponent(
+  () => import("@/views/project/components/projectDialog.vue")
+);
 
 const projectDialogRef = ref<any>(null);
 const projectList = ref<RowProjectType[]>([]);
 const selectedId = ref<number | null>(store.draft.projectId as number | null);
 
-const selectedProject = computed(() => projectList.value.find((p) => p.id === selectedId.value) || null);
+const selectedProject = computed(
+  () => projectList.value.find((p) => p.id === selectedId.value) || null
+);
 
 const loadProjects = async () => {
   const r = await projectDb.getProjectList({
     code: null,
     name: null,
-    sorting: 'id DESC',
+    sorting: "id DESC",
     skipCount: 0,
     maxResultCount: 1000,
   });
@@ -78,7 +100,9 @@ const onRefreshAfterAdd = async () => {
   await loadProjects();
   // 取 id 最大的一条作为新建结果（t_project 自增）
   if (projectList.value.length > 0) {
-    const latest = [...projectList.value].sort((a, b) => (b.id as number) - (a.id as number))[0];
+    const latest = [...projectList.value].sort(
+      (a, b) => (b.id as number) - (a.id as number)
+    )[0];
     // 仅当当前无选中时自动回填，避免覆盖用户已选
     if (!selectedId.value) {
       selectedId.value = latest.id as number;
@@ -89,12 +113,12 @@ const onRefreshAfterAdd = async () => {
 };
 
 const onOpenNew = () => {
-  projectDialogRef.value?.openDialog('add', null);
+  projectDialogRef.value?.openDialog("add", null);
 };
 
 const validate = (): boolean => {
   if (!selectedId.value) {
-    ElMessage.warning('请选择项目');
+    ElMessage.warning("请选择项目");
     return false;
   }
   store.draft.projectId = selectedId.value as number;
@@ -113,9 +137,12 @@ watch(
 onMounted(async () => {
   await loadProjects();
   // 若 draft 已有值且列表中存在，则回显
-  if (store.draft.projectId && !projectList.value.find((p) => p.id === store.draft.projectId)) {
+  if (
+    store.draft.projectId &&
+    !projectList.value.find((p) => p.id === store.draft.projectId)
+  ) {
     // 已删除的项目保持显示提示
-    ElMessage.warning('已选项目不存在，请重新选择');
+    ElMessage.warning("已选项目不存在，请重新选择");
   }
 });
 

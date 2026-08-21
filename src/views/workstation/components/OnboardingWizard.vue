@@ -12,21 +12,39 @@
   >
     <template #header>
       <div class="wizard-header">
-        <span>新手指引 · 发布工作台</span>
-        <span v-if="hasExistingConfig" class="wizard-header-hint">检测到已有配置</span>
+        <span>{{ $t("message.onboarding.title") }}</span>
+        <span v-if="hasExistingConfig" class="wizard-header-hint">{{
+          $t("message.onboarding.headerHint")
+        }}</span>
       </div>
     </template>
 
-    <el-steps :active="active" finish-status="success" align-center style="margin-bottom: 20px">
-      <el-step v-for="s in steps" :key="s.key" :title="s.title" :description="s.desc" />
+    <el-steps
+      :active="active"
+      finish-status="success"
+      align-center
+      style="margin-bottom: 20px"
+    >
+      <el-step
+        v-for="s in steps"
+        :key="s.key"
+        :title="s.title"
+        :description="s.desc"
+      />
     </el-steps>
 
     <div class="wizard-body">
       <!-- Step 0: 欢迎 + 环境检测 -->
       <div v-if="active === 0" class="wizard-welcome">
-        <el-result icon="success" title="欢迎使用 SMOM 发布工作台" sub-title="5 步完成最小闭环，快速完成首次发布配置">
+        <el-result
+          icon="success"
+          :title="$t('message.onboarding.welcomeTitle')"
+          :sub-title="$t('message.onboarding.welcomeSubTitle')"
+        >
           <template #extra>
-            <p class="welcome-desc">按顺序完成：项目 → 代码源(Git/TFS) → 服务器 → 应用配置，随后可在工作台预检并发布。</p>
+            <p class="welcome-desc">
+              {{ $t("message.onboarding.welcomeDesc") }}
+            </p>
           </template>
         </el-result>
 
@@ -36,8 +54,8 @@
             type="success"
             :closable="false"
             show-icon
-            title="检测到已有配置，可直接进入工作台"
-            description="t_project 与 t_server 已有数据，无需重复配置。点击下方“直接进入工作台”可跳过向导。"
+            :title="$t('message.onboarding.hasConfigTitle')"
+            :description="$t('message.onboarding.hasConfigDesc')"
             style="margin-top: 12px"
           />
           <el-alert
@@ -45,15 +63,25 @@
             type="info"
             :closable="false"
             show-icon
-            title="未检测到已有配置"
-            description="按“开始配置”进入第 1 步，完成 5 步后即可预检发布。"
+            :title="$t('message.onboarding.noConfigTitle')"
+            :description="$t('message.onboarding.noConfigDesc')"
             style="margin-top: 12px"
           />
-          <div v-if="hasExistingConfig" style="text-align: center; margin-top: 16px">
-            <el-button type="success" @click="onEnterWorkstation">直接进入工作台</el-button>
+          <div
+            v-if="hasExistingConfig"
+            style="text-align: center; margin-top: 16px"
+          >
+            <el-button type="success" @click="onEnterWorkstation">{{
+              $t("message.onboarding.goWorkstation")
+            }}</el-button>
           </div>
           <div v-if="detectError" style="margin-top: 12px">
-            <el-alert type="warning" :closable="false" show-icon :title="detectError" />
+            <el-alert
+              type="warning"
+              :closable="false"
+              show-icon
+              :title="detectError"
+            />
           </div>
         </div>
       </div>
@@ -75,46 +103,66 @@
 
     <template #footer>
       <div class="wizard-footer">
-        <el-button :disabled="active === 0" @click="onPrev">上一步</el-button>
-        <el-button v-if="active > 0 && active < 4" @click="onSkip">跳过</el-button>
+        <el-button :disabled="active === 0" @click="onPrev">{{
+          $t("message.onboarding.prev")
+        }}</el-button>
+        <el-button v-if="active > 0 && active < 4" @click="onSkip">{{
+          $t("message.onboarding.skip")
+        }}</el-button>
         <span style="flex: 1" />
-        <el-button v-if="active < 4" type="primary" @click="onNext">{{ active === 0 ? '开始配置' : '下一步' }}</el-button>
-        <el-button v-if="active === 4" type="primary" :loading="finishing" @click="onFinish">完成并预检</el-button>
-        <el-button @click="onClose">关闭</el-button>
+        <el-button v-if="active < 4" type="primary" @click="onNext">{{
+          active === 0
+            ? $t("message.onboarding.startConfig")
+            : $t("message.onboarding.next")
+        }}</el-button>
+        <el-button
+          v-if="active === 4"
+          type="primary"
+          :loading="finishing"
+          @click="onFinish"
+          >{{ $t("message.onboarding.finish") }}</el-button
+        >
+        <el-button @click="onClose">{{
+          $t("message.onboarding.close")
+        }}</el-button>
       </div>
     </template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
-import { ElMessage } from 'element-plus';
-import { useOnboardingStore } from '@/stores/onboarding';
-import { useProjectDb } from '@/database/project/index';
-import { useServerDb } from '@/database/servers/index';
-import StepProject from './StepProject.vue';
-import StepSource from './StepSource.vue';
-import StepServers from './StepServers.vue';
-import StepAppconfig from './StepAppconfig.vue';
+import { ref, computed, watch } from "vue";
+import { ElMessage } from "element-plus";
+import { useI18n } from "vue-i18n";
+import { useOnboardingStore } from "@/stores/onboarding";
+import { useWorkstationStore } from "@/stores/workstation";
+import { useProjectDb } from "@/database/project/index";
+import { useServerDb } from "@/database/servers/index";
+import StepProject from "./StepProject.vue";
+import StepSource from "./StepSource.vue";
+import StepServers from "./StepServers.vue";
+import StepAppconfig from "./StepAppconfig.vue";
 
 const props = defineProps<{ modelValue: boolean }>();
-const emit = defineEmits<{ 'update:modelValue': [val: boolean] }>();
+const emit = defineEmits<{ "update:modelValue": [val: boolean] }>();
 
+const { t } = useI18n();
 const onboarding = useOnboardingStore();
+const workstation = useWorkstationStore();
 const projectDb = useProjectDb();
 const serverDb = useServerDb();
 
 const visible = computed({
   get: () => props.modelValue,
-  set: (v: boolean) => emit('update:modelValue', v),
+  set: (v: boolean) => emit("update:modelValue", v),
 });
 
 const steps = [
-  { key: 'welcome', title: '欢迎', desc: '' },
-  { key: 'project', title: '选择项目', desc: '' },
-  { key: 'source', title: '代码源', desc: 'Git / TFS' },
-  { key: 'servers', title: '服务器', desc: '' },
-  { key: 'appconfig', title: '应用配置', desc: '' },
+  { key: "welcome", title: "欢迎", desc: "" },
+  { key: "project", title: "选择项目", desc: "" },
+  { key: "source", title: "代码源", desc: "Git / TFS" },
+  { key: "servers", title: "服务器", desc: "" },
+  { key: "appconfig", title: "应用配置", desc: "" },
 ] as const;
 
 const active = ref(0);
@@ -126,12 +174,13 @@ const hasServers = ref(false);
 
 const hasExistingConfig = computed(() => hasProjects.value && hasServers.value);
 
-const stepProjectRef = ref<any>(null);
-const stepSourceRef = ref<any>(null);
-const stepServersRef = ref<any>(null);
-const stepAppconfigRef = ref<any>(null);
+type StepValidateRef = { validate: () => boolean | Promise<boolean> };
+const stepProjectRef = ref<StepValidateRef | null>(null);
+const stepSourceRef = ref<StepValidateRef | null>(null);
+const stepServersRef = ref<StepValidateRef | null>(null);
+const stepAppconfigRef = ref<StepValidateRef | null>(null);
 
-const getCurrentRef = (): any => {
+const getCurrentRef = (): StepValidateRef | null => {
   if (active.value === 1) return stepProjectRef.value;
   if (active.value === 2) return stepSourceRef.value;
   if (active.value === 3) return stepServersRef.value;
@@ -144,13 +193,30 @@ const detectEnv = async () => {
   detectError.value = null;
   try {
     const [pr, sr] = await Promise.all([
-      projectDb.getProjectList({ code: null, name: null, sorting: 'id DESC', skipCount: 0, maxResultCount: 1 }),
-      serverDb.getServerList({ projectId: null, name: null, sorting: 'ts.id DESC', skipCount: 0, maxResultCount: 1 } as any),
+      projectDb.getProjectList({
+        code: null,
+        name: null,
+        sorting: "id DESC",
+        skipCount: 0,
+        maxResultCount: 1,
+      }),
+      serverDb.getServerList({
+        projectId: null,
+        name: null,
+        sorting: "ts.id DESC",
+        skipCount: 0,
+        maxResultCount: 1,
+      }),
     ]);
-    hasProjects.value = (pr as any)?.data?.total > 0 || (pr as any)?.data?.data?.length > 0;
-    hasServers.value = (sr as any)?.data?.total > 0 || (sr as any)?.data?.data?.length > 0;
-  } catch (e: any) {
-    detectError.value = e?.message || String(e);
+    hasProjects.value =
+      Number(pr.data?.total ?? pr.data?.data?.length ?? 0) > 0 ||
+      (Array.isArray(pr.data?.data) && pr.data.data.length > 0);
+    hasServers.value =
+      Number(sr.data?.total ?? sr.data?.data?.length ?? 0) > 0 ||
+      (Array.isArray(sr.data?.data) && sr.data.data.length > 0);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    detectError.value = msg;
   } finally {
     detecting.value = false;
   }
@@ -174,11 +240,11 @@ watch(
 );
 
 const onVisibleChange = (v: boolean) => {
-  emit('update:modelValue', v);
+  emit("update:modelValue", v);
 };
 
 const onClose = () => {
-  emit('update:modelValue', false);
+  emit("update:modelValue", false);
 };
 
 const onPrev = () => {
@@ -219,8 +285,11 @@ const onSkip = () => {
 
 const onEnterWorkstation = () => {
   onboarding.markCompleted();
-  ElMessage.success('已进入工作台');
-  emit('update:modelValue', false);
+  ElMessage.success(t("message.onboarding.doneHint"));
+  emit("update:modelValue", false);
+  // 切到工作台预览步，提示去预检
+  workstation.currentStep = 5 as WorkstationStep;
+  workstation.persist();
 };
 
 const onFinish = async () => {
@@ -230,15 +299,47 @@ const onFinish = async () => {
     try {
       const ok = await Promise.resolve(cur.validate());
       if (!ok) return;
+      // 真实闭环校验：canPublish 不满足则不 markCompleted，提示缺失项并阻止关闭
+      if (!workstation.canPublish) {
+        const missing: string[] = [];
+        if (!workstation.draft.projectId)
+          missing.push(t("message.workstation.missingProject"));
+        if (!workstation.draft.tfsId && !workstation.draft.gitId)
+          missing.push(t("message.workstation.missingSource"));
+        if (!workstation.draft.serverIds.length)
+          missing.push(t("message.workstation.missingServers"));
+        if (
+          !workstation.draft.appconfigDraft ||
+          Object.keys(workstation.draft.appconfigDraft as object).length === 0
+        )
+          missing.push(t("message.workstation.missingAppconfig"));
+        ElMessage.warning(
+          missing.join("、") || t("message.workstation.bottomHint")
+        );
+        return;
+      }
       onboarding.markCompleted();
-      ElMessage.success('配置完成，已进入工作台');
-      emit('update:modelValue', false);
+      ElMessage.success(t("message.onboarding.doneHint"));
+      workstation.currentStep = 5 as WorkstationStep;
+      workstation.persist();
+      ElMessage.info(
+        t("message.workstation.precheckDryRun") +
+          " — " +
+          t("message.workstation.previewTitle")
+      );
+      emit("update:modelValue", false);
     } finally {
       finishing.value = false;
     }
   } else {
+    if (!workstation.canPublish) {
+      ElMessage.warning(t("message.workstation.bottomHint"));
+      return;
+    }
     onboarding.markCompleted();
-    emit('update:modelValue', false);
+    workstation.currentStep = 5 as WorkstationStep;
+    workstation.persist();
+    emit("update:modelValue", false);
   }
 };
 

@@ -16,7 +16,12 @@ use std::path::Path;
 /// # Returns
 /// * `Result<String, String>` - 执行结果和错误信息
 #[tauri::command]
-pub async fn parse_sln_project(module_name: &str, sln_file_path: &str, is_new_version: bool, build_mode: &str) -> Result<String, String> {
+pub async fn parse_sln_project(
+    module_name: &str,
+    sln_file_path: &str,
+    is_new_version: bool,
+    build_mode: &str,
+) -> Result<String, String> {
     // sln文件目录
     let sln_dir_path = Path::new(sln_file_path).parent().unwrap().to_str().unwrap();
 

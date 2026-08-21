@@ -1,4 +1,4 @@
-use rusqlite::{Connection, params};
+use rusqlite::{params, Connection};
 use serde_json::Value;
 use std::path::PathBuf;
 use tauri::Manager;
@@ -11,8 +11,7 @@ pub fn open_db(app_handle: &tauri::AppHandle) -> Result<Connection, String> {
         .map_err(|e| format!("获取 app_data_dir 失败: {e}"))?;
     path.push("smom.db");
 
-    let conn = Connection::open(&path)
-        .map_err(|e| format!("打开数据库失败: {e}"))?;
+    let conn = Connection::open(&path).map_err(|e| format!("打开数据库失败: {e}"))?;
 
     // 设置 busy_timeout = 5000ms，避免与 tauri-plugin-sql 的写操作产生 SQLITE_BUSY
     conn.execute_batch("PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL;")
@@ -22,23 +21,30 @@ pub fn open_db(app_handle: &tauri::AppHandle) -> Result<Connection, String> {
 }
 
 /// 查询行并返回 Vec<Value>（每行一个 JSON 对象）
-fn rows_to_json(conn: &Connection, sql: &str, params: &[&dyn rusqlite::types::ToSql]) -> Result<Vec<Value>, String> {
-    let mut stmt = conn.prepare(sql)
+fn rows_to_json(
+    conn: &Connection,
+    sql: &str,
+    params: &[&dyn rusqlite::types::ToSql],
+) -> Result<Vec<Value>, String> {
+    let mut stmt = conn
+        .prepare(sql)
         .map_err(|e| format!("SQL 准备失败: {e}"))?;
     let col_count = stmt.column_count();
     let col_names: Vec<String> = (0..col_count)
         .map(|i| stmt.column_name(i).unwrap_or("?").to_string())
         .collect();
 
-    let rows = stmt.query_map(params, |row| {
-        let mut map = serde_json::Map::new();
-        for (i, name) in col_names.iter().enumerate() {
-            let val: rusqlite::types::Value = row.get_unwrap(i);
-            let json_val = sqlite_val_to_json(val);
-            map.insert(name.clone(), json_val);
-        }
-        Ok(Value::Object(map))
-    }).map_err(|e| format!("SQL 查询失败: {e}"))?;
+    let rows = stmt
+        .query_map(params, |row| {
+            let mut map = serde_json::Map::new();
+            for (i, name) in col_names.iter().enumerate() {
+                let val: rusqlite::types::Value = row.get_unwrap(i);
+                let json_val = sqlite_val_to_json(val);
+                map.insert(name.clone(), json_val);
+            }
+            Ok(Value::Object(map))
+        })
+        .map_err(|e| format!("SQL 查询失败: {e}"))?;
 
     let mut result = Vec::new();
     for row in rows {
@@ -52,11 +58,9 @@ fn sqlite_val_to_json(val: rusqlite::types::Value) -> Value {
     match val {
         rusqlite::types::Value::Null => Value::Null,
         rusqlite::types::Value::Integer(i) => Value::Number(i.into()),
-        rusqlite::types::Value::Real(f) => {
-            serde_json::Number::from_f64(f)
-                .map(Value::Number)
-                .unwrap_or(Value::Null)
-        }
+        rusqlite::types::Value::Real(f) => serde_json::Number::from_f64(f)
+            .map(Value::Number)
+            .unwrap_or(Value::Null),
         rusqlite::types::Value::Text(s) => Value::String(s),
         rusqlite::types::Value::Blob(b) => Value::String(format!("<blob {} bytes>", b.len())),
     }
@@ -83,7 +87,11 @@ pub fn query_projects(conn: &Connection, keyword: Option<&str>) -> Result<Vec<Va
 }
 
 /// 查询服务器列表（t_server）
-pub fn query_servers(conn: &Connection, project_id: Option<i64>, name: Option<&str>) -> Result<Vec<Value>, String> {
+pub fn query_servers(
+    conn: &Connection,
+    project_id: Option<i64>,
+    name: Option<&str>,
+) -> Result<Vec<Value>, String> {
     let mut conditions = Vec::new();
     let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
     if let Some(pid) = project_id {
@@ -106,7 +114,9 @@ pub fn query_servers(conn: &Connection, project_id: Option<i64>, name: Option<&s
 
 /// 查询应用配置列表（t_app_config）
 pub fn query_app_configs(conn: &Connection, project_id: Option<i64>) -> Result<Vec<Value>, String> {
-    let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = if let Some(pid) = project_id {
+    let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = if let Some(pid) =
+        project_id
+    {
         (
             "SELECT id, project_id, environment, ms_build_path, dll_mode, dll_mode_value, config_items_json, build_mode FROM t_app_config WHERE project_id = ?1 ORDER BY id".into(),
             vec![Box::new(pid)],
@@ -209,12 +219,18 @@ pub fn query_tfs_configs(conn: &Connection) -> Result<Vec<Value>, String> {
 
 /// 查询 Git 配置列表（t_git）
 pub fn query_git_configs(conn: &Connection) -> Result<Vec<Value>, String> {
-    rows_to_json(conn, "SELECT id, git_name, git_repository, git_path, branch_name, remark FROM t_git ORDER BY id", &[])
+    rows_to_json(
+        conn,
+        "SELECT id, git_name, git_repository, git_path, branch_name, remark FROM t_git ORDER BY id",
+        &[],
+    )
 }
 
 /// 查询备份记录列表（t_backup）
 pub fn query_backups(conn: &Connection, project_id: Option<i64>) -> Result<Vec<Value>, String> {
-    let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = if let Some(pid) = project_id {
+    let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = if let Some(pid) =
+        project_id
+    {
         (
             "SELECT id, project_id, project_name, environment, backup_date, remark, backup_items_json FROM t_backup WHERE project_id = ?1 ORDER BY id DESC".into(),
             vec![Box::new(pid)],
@@ -248,7 +264,8 @@ pub fn create_backup(
 
 /// 查询还原记录列表（t_restore）
 pub fn query_restores(conn: &Connection, backup_id: Option<i64>) -> Result<Vec<Value>, String> {
-    let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = if let Some(bid) = backup_id {
+    let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = if let Some(bid) = backup_id
+    {
         (
             "SELECT id, backup_id, restore_date, result, log_content FROM t_restore WHERE backup_id = ?1 ORDER BY id DESC".into(),
             vec![Box::new(bid)],
@@ -380,7 +397,11 @@ pub fn cancel_schedule(conn: &Connection, id: i64) -> Result<(), String> {
 }
 
 /// 更新定时任务的计划执行时间
-pub fn update_schedule_time(conn: &Connection, id: i64, scheduled_time: &str) -> Result<(), String> {
+pub fn update_schedule_time(
+    conn: &Connection,
+    id: i64,
+    scheduled_time: &str,
+) -> Result<(), String> {
     let affected = conn
         .execute(
             "UPDATE t_publish_schedule SET scheduled_time = ?1 WHERE id = ?2",

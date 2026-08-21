@@ -21,8 +21,7 @@ impl AuditLogger {
 
         // 确保父目录存在
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| format!("创建审计日志目录失败: {}", e))?;
+            std::fs::create_dir_all(parent).map_err(|e| format!("创建审计日志目录失败: {}", e))?;
         }
 
         let file = OpenOptions::new()
@@ -42,16 +41,18 @@ impl AuditLogger {
 
     /// 记录一条审计日志（JSON 行格式）
     pub fn log(&self, entry: &AuditEntry) -> Result<(), String> {
-        let json = serde_json::to_string(entry)
-            .map_err(|e| format!("审计日志序列化失败: {}", e))?;
+        let json =
+            serde_json::to_string(entry).map_err(|e| format!("审计日志序列化失败: {}", e))?;
 
-        let mut writer = self.writer.lock()
+        let mut writer = self
+            .writer
+            .lock()
             .map_err(|e| format!("审计日志锁获取失败: {}", e))?;
 
-        writeln!(writer, "{}", json)
-            .map_err(|e| format!("审计日志写入失败: {}", e))?;
+        writeln!(writer, "{}", json).map_err(|e| format!("审计日志写入失败: {}", e))?;
 
-        writer.flush()
+        writer
+            .flush()
             .map_err(|e| format!("审计日志 flush 失败: {}", e))?;
 
         Ok(())
