@@ -51,7 +51,7 @@ import { useServerDb } from '@/database/servers/index';
 import { useAppconfigDb } from '@/database/appconfig/index';
 import { formatDate } from '@/utils/formatTime';
 import { cmdInvoke } from '@/utils/command';
-import { removeSlash, displayOs, displayEnvironment, aesEncrypt, formatServiceLog } from '@/utils/other';
+import { removeSlash, displayOs, displayEnvironment, aesEncrypt, aesDecrypt, formatServiceLog } from '@/utils/other';
 import { getTfsDllFiles, getGitDllFiles, getReadAllDlls } from '@/utils/backupAppconfig';
 import { loadPublishSettings, getRetryArgs } from '@/utils/publishSettings';
 
@@ -511,7 +511,7 @@ const executeRemotePublish = async (input: RemotePublishType) => {
     const outPath = `${removeSlash(mPublishDir)}/${m.key}`;
     await createDir(outPath);
     // 简化：按“全部”复制全部 dll，若为 TFS/Git 已在 getPublishFiles 阶段过滤，此处仍全量复制后由 publishFiles 控制上传
-    const copyRes = await cmdInvoke('copy_dll_files', { sourceDir: m.clientPath, targetDir: outPath, delDestination: true } as any);
+    const copyRes = await cmdInvoke('copy_dll_files', { source: m.clientPath, destination: outPath, delDestination: true });
     // 兼容旧命令名 copy_dll_files / copy_path
     if (copyRes.code !== 0) {
       const alt = await cmdInvoke('copy_path', { source: m.clientPath, destination: outPath, ...getRetryArgs('copy') });
@@ -533,7 +533,7 @@ const executeRemotePublish = async (input: RemotePublishType) => {
             const src = `${removeSlash(wpfClientPath)}/${removeSlash(d)}`;
             const dst = `${removeSlash(outWpf)}/${removeSlash(d)}`;
             await createDir(dst);
-            const r = await cmdInvoke('copy_dll_files', { sourceDir: src, targetDir: dst, delDestination: true } as any);
+            const r = await cmdInvoke('copy_dll_files', { source: src, destination: dst, delDestination: true });
             if (r.code !== 0) {
               const alt = await cmdInvoke('copy_path', { source: src, destination: dst, ...getRetryArgs('copy') });
               if (alt.code !== 0) { pushLog(`复制 WpfClient/${d} 失败：${alt.data}`, 'log-error'); return false; }
@@ -541,7 +541,7 @@ const executeRemotePublish = async (input: RemotePublishType) => {
           }
         } catch { /* ignore */ }
       } else {
-        const r = await cmdInvoke('copy_dll_files', { sourceDir: wpfClientPath, targetDir: outWpf, delDestination: true } as any);
+        const r = await cmdInvoke('copy_dll_files', { source: wpfClientPath, destination: outWpf, delDestination: true });
         if (r.code !== 0) pushLog(`复制 WpfClient 失败：${r.data}`, 'log-warning');
       }
       pushLog('已准备 WpfClient 发布文件', 'log-info');
@@ -558,7 +558,6 @@ const executeRemotePublish = async (input: RemotePublishType) => {
     pushLog(`正在发布 ${serviceName} 服务...`);
     for (const srv of servers) {
       const osName = displayOs(Number(srv.serverOs));
-      const { aesDecrypt } = await import('@/utils/other');
       const rawPwd = await aesDecrypt(String(srv.serverPwd || ''));
       const serverAddr = `${srv.serverIp}:${srv.serverPort}`;
       const username = String(srv.serverAccount || '');
@@ -620,21 +619,43 @@ const executeRemotePublish = async (input: RemotePublishType) => {
   if (input.webClient && !(await remotePublishOne(input.webClient, 'WebClient'))) return false;
   if (input.wpfClient) {
     for (const wpf of input.wpfClient) {
-      // 复用 papersPublish 的 Wpf 发布（简化为按文件上传）
       pushLog(`正在发布 WpfClient ${wpf.serverName}...`);
       const osName = displayOs(Number(wpf.serverOs));
-      const { aesDecrypt } = await import('@/utils/other');
       const rawPwd = await aesDecrypt(String(wpf.serverPwd || ''));
       const serverAddr = `${wpf.serverIp}:${wpf.serverPort}`;
       const username = String(wpf.serverAccount || '');
-      void osName; void username; void serverAddr; void rawPwd;
+      const totalFiles = wpf.publishFiles.reduce((n, d) => n + d.files.length, 0);
+      pushLog(`WpfClient ${wpf.serverName} (${osName}) 待部署 ${totalFiles} 个文件到 ${wpf.publishPath}`, 'log-info');
+      let wpfOk = true;
       for (const dir of wpf.publishFiles) {
+        if (!dir.files || dir.files.length === 0) {
+          pushLog(`WpfClient ${wpf.serverName} 目录 ${dir.dirName} 无待发布文件，跳过`, 'log-warning');
+          continue;
+        }
+        pushLog(`WpfClient ${wpf.serverName} 正在部署目录 ${dir.dirName} (${dir.files.length} 个文件)...`);
         for (const f of dir.files) {
           const localPath = `${removeSlash(mPublishDir)}/WpfClient/${dir.dirName}/${f}`;
-          const remotePath = `${removeSlash(wpf.publishPath)}/${dir.dirName}.zip`;
-          void localPath; void remotePath;
+          const fallbackPath = `${removeSlash(mPublishDir)}/WpfClient/${f}`;
+          const remotePath = `${removeSlash(wpf.publishPath)}/${dir.dirName}/${f}`;
+          // 优先按目录结构，其次回退到扁平（兼容 App 单目录回退）
+          const candidates = [localPath, fallbackPath];
+          let uploaded = false;
+          let lastErr = '';
+          for (const lp of candidates) {
+            const up = await cmdInvoke('upload_server_files', { localPaths: [lp], remotePaths: [remotePath], username, password: rawPwd, server: serverAddr });
+            if (up.code === 0) { uploaded = true; break; }
+            lastErr = String(up.data || up.msg || '');
+          }
+          if (!uploaded) {
+            pushLog(`WpfClient ${wpf.serverName} 上传 ${dir.dirName}/${f} 失败：${lastErr}`, 'log-error');
+            wpfOk = false;
+            break;
+          }
+          pushLog(`WpfClient ${wpf.serverName} 已部署 ${dir.dirName}/${f}`, 'log-info');
         }
+        if (!wpfOk) break;
       }
+      if (!wpfOk) return false;
       pushLog(`WpfClient ${wpf.serverName} 发布完成`, 'log-success');
     }
   }

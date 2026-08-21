@@ -21,7 +21,7 @@ export const useWorkstationStore = defineStore('workstation', {
       if (s.currentStep === 4) return !!s.draft.appconfigDraft && Object.keys(s.draft.appconfigDraft).length > 0;
       return true;
     },
-    canPublish: (s) => !!(s.draft.projectId && (s.draft.tfsId || s.draft.gitId) && s.draft.serverIds.length > 0),
+    canPublish: (s) => !!(s.draft.projectId && (s.draft.tfsId || s.draft.gitId) && s.draft.serverIds.length > 0 && s.draft.appconfigDraft && Object.keys(s.draft.appconfigDraft as any).length > 0),
   },
   actions: {
     validateStep(_n: number) {
