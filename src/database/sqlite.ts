@@ -108,6 +108,13 @@ async function ensureSchema(database: Database) {
         update_time TEXT
     )`);
 
+    await database.execute(`CREATE TABLE IF NOT EXISTS t_discovery_prefix (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  prefix TEXT UNIQUE NOT NULL,
+  enabled INTEGER DEFAULT 1,
+  is_default INTEGER DEFAULT 0
+)`);
+
     // ========== 改表（已有表加字段，先检查是否存在） ==========
     const columns = await database.select<{ name: string }[]>("PRAGMA table_info(t_app_config)");
     const hasBuildMode = columns.some((column) => column.name === "build_mode");
