@@ -62,17 +62,26 @@
         </div>
       </el-card>
     </el-affix>
+
+    <!-- 新手指引向导：首启自弹 + Header 常驻入口重播 -->
+    <OnboardingWizard v-model="onboardingVisible" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, onMounted, ref, defineAsyncComponent } from "vue";
+import { computed, defineComponent, h, onMounted, onUnmounted, ref, defineAsyncComponent } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { useWorkstationStore } from "@/stores/workstation";
+import { useOnboardingStore } from "@/stores/onboarding";
+import mittBus from "@/utils/mitt";
 
 const store = useWorkstationStore();
 const router = useRouter();
+const onboarding = useOnboardingStore();
+const onboardingVisible = ref(false);
+
+const OnboardingWizard = defineAsyncComponent(() => import("./components/OnboardingWizard.vue"));
 
 // 真实步骤组件（异步加载，复用既有 Dialog）
 const StepProject = defineAsyncComponent(() => import("./components/StepProject.vue"));
@@ -212,8 +221,19 @@ const onGoAdvanced = () => {
   router.push(target);
 };
 
+const onOpenOnboarding = () => {
+  onboardingVisible.value = true;
+};
+
 onMounted(() => {
   store.restore();
+  onboarding.restore();
+  if (onboarding.shouldAutoOpen()) onboardingVisible.value = true;
+  mittBus.on("openOnboarding", onOpenOnboarding);
+});
+
+onUnmounted(() => {
+  mittBus.off("openOnboarding", onOpenOnboarding);
 });
 </script>
 
