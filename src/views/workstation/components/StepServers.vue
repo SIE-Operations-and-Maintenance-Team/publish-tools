@@ -8,7 +8,7 @@
       <span style="margin-left: auto; font-size: 12px; color: var(--el-text-color-secondary); align-self: center">已选 {{ selectedIds.length }} / {{ serverList.length }}</span>
     </div>
 
-    <el-empty v-if="serverList.length === 0" description="暂无服务器，请新增或扫描发现" :image-size="56" />
+    <el-empty v-if="serverList.length === 0" description="暂无服务器 — 点击“新增服务器”创建，或使用“扫描本机/远端”自动发现" :image-size="56" />
     <div v-else class="server-cards">
       <el-card
         v-for="srv in serverList"
@@ -47,9 +47,9 @@
       <div v-loading="scanning">
         <el-alert v-if="discoveryError" :title="discoveryError" type="error" show-icon :closable="false" style="margin-bottom: 12px" />
         <template v-if="!scanning && discoveryResults.length === 0">
-          <el-empty description="未发现匹配的服务" />
+          <el-empty description="未发现匹配的服务 — 尝试修改前缀后重扫，或检查服务是否已安装" />
           <div style="text-align: center; margin-top: 8px">
-            <el-button type="primary" size="small" @click="onGoSettings">去设置前缀</el-button>
+            <el-button type="primary" size="small" @click="onGoSettings">去设置前缀并重扫</el-button>
           </div>
         </template>
         <div v-else class="discovery-cards">

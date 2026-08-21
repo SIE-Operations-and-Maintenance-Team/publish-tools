@@ -47,7 +47,7 @@
             <span>预览与日志</span>
           </template>
           <RightPreview />
-          <el-empty v-if="!hasPreviewContent" description="完成左侧步骤后此处展示待发布清单与日志" :image-size="80" />
+          <el-empty v-if="!hasPreviewContent" description="完成左侧步骤后，此处将展示待发布清单与实时日志 — 预检/发布前请在此确认" :image-size="80" />
         </el-card>
       </el-col>
     </el-row>

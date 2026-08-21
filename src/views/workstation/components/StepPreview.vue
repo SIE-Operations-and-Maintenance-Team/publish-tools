@@ -34,7 +34,7 @@
       <p v-for="(log, idx) in logs" :key="idx" :class="log.type" style="margin: 0; line-height: 22px; font-family: monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all">
         {{ log.text }}
       </p>
-      <el-empty v-if="logs.length === 0" description="预检/发布日志将在此处展示" :image-size="56" />
+      <el-empty v-if="logs.length === 0" description="执行预检或发布后，详细日志将在此处实时回显" :image-size="56" />
     </div>
   </div>
 </template>

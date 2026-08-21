@@ -8,7 +8,7 @@ export const useWorkstationStore = defineStore('workstation', {
       tfsId: null,
       gitId: null,
       serverIds: [],
-      appconfigDraft: { publishMode: 0 } as any,
+      appconfigDraft: {} as any,
       publishOptions: { isBackup: 1, isNewVersion: null },
     } as WorkstationDraft,
     currentStep: 0 as WorkstationStep,
@@ -41,7 +41,7 @@ export const useWorkstationStore = defineStore('workstation', {
         tfsId: null,
         gitId: null,
         serverIds: [],
-        appconfigDraft: { publishMode: 0 } as any,
+        appconfigDraft: {} as any,
         publishOptions: { isBackup: 1, isNewVersion: null },
       } as WorkstationDraft;
       this.currentStep = 0;

@@ -80,7 +80,7 @@
           />
           <span class="settings-tip" style="margin-left: 6px">{{ item.enabled === 1 ? '启用' : '禁用' }}</span>
         </div>
-        <el-empty v-if="!prefixList.length && !prefixLoading" description="暂无前缀" :image-size="56" />
+        <el-empty v-if="!prefixList.length && !prefixLoading" description="暂无前缀 — 试试输入如 SIE. 后点击新增" :image-size="56" />
       </div>
       <div style="display: flex; align-items: center; gap: 8px">
         <el-input
