@@ -75,16 +75,16 @@
 
 - **工作台复用策略**：不复制表单，工作台内通过抽屉/对话框**直接复用**现有 `projectDialog / tfsDialog / gitDialog / serverDialog / appconfigDialog`，发布执行复用 `papersPublish` 既有链路。
 - **向导复用策略**：向导的每一步复用与工作台相同的表单组件与校验；向导本质是“带强制顺序与首启持久化”的工作台子集。
-- **发现结果策略**：所有发现结果为**建议**，以卡片列表呈现，用户勾选后“确认导入”才写 `t_server` 或回填 `appconfig.publishPath`。
+- **发现结果策略**：所有发现结果为**建议**，以卡片列表呈现，用户勾选后“确认导入”才写 `t_server`（仅 `name/ip` 等基础列）或回填 `t_app_config.config_items_json` 的 `ConfigItemsType.*.serverPathArr`（见 `src/types/appconfig.d.ts`）。
 
 ---
 
 ## 3. 信息架构与路由
 
-- **新增路由**：`/workstation`（`src/views/workstation/index.vue`），`meta: { title: 'message.router.workstation', isAffix: true, isKeepAlive: true, icon: 'smom-icon-fabu' }`，挂在 `dynamicRoutes` 顶级 `children`。
-- **默认落地**：`/` 重定向改为 `/workstation`；原 `/home` 保留（可作公告/快捷入口），不再是默认页。
+- **新增路由**：`/workstation`（`src/views/workstation/index.vue`），`meta: { title: 'message.router.workstation', isLink:'', isHide:false, isKeepAlive:true, isAffix:true, isIframe:false, icon:'smom-icon-fabu' }`，挂在 `dynamicRoutes` 顶级 `children`。
+- **默认落地**：`/` 重定向改为 `/workstation`；原 `/home` 保留（可作公告/快捷入口），但需将 `/home` 的 `isAffix` 改为 `false`（避免与工作台双 Affix 冲突导致 tagsView 常驻两个固定标签），不再是默认页。
 - **保留旧页**：`project / tfs / git / servers / appconfig / papersPublish` 完整保留，侧边栏文案补充“高级”角标或分组，工作台每步提供“高级设置 →”快捷跳转。
-- **帮助入口**：`src/layout/component/header.vue` 增 `？` 按钮（`ele-QuestionFilled`），行为：`hasCompletedOnboarding ? 重播引导 : 打开向导`。
+- **帮助入口**：`src/layout/navBars/topBar/user.vue` 的用户下拉区旁增 `？` 按钮（`ele-QuestionFilled`，与现有 `smom-icon-database` 同排），行为：`hasCompletedOnboarding ? 重播引导 : 打开向导`。
 
 ---
 
@@ -94,12 +94,13 @@
 
 - **形态**：全屏 Modal（`el-dialog fullscreen`）+ 顶部 `el-steps`（5 步）+ 中部真实表单 + 底部 `上一步 / 跳过此步 / 下一步 / 完成并预检`。
 - **触发**：
-  - 首次启动：`App.vue` 或 `workstation/index.vue` 的 `onMounted` 检查 `localStorage.getItem('hasCompletedOnboarding') !== 'true'` 且 `workstationStore` 为空 → 自动打开向导。
+  - 首次启动：`App.vue` 或 `workstation/index.vue` 的 `onMounted` 检查 `Local.get('hasCompletedOnboarding') !== 'true'`（`src/utils/storage.ts:Local`，带 `__NEXT_NAME__:` 前缀）且 `workstationStore` 为空 → 自动打开向导。
   - 手动重播：Header `？` 常驻；已完成用户点击再次打开，自动跳过已有数据的步骤（可覆盖）。
   - 可跳过：每步支持“跳过此步”，跳过记录写入 `onboardingState.skippedSteps`；但“预检/发布”前做最终校验（见 4.3）。
 - **持久化**：
-  - `localStorage.onboardingState = { completed: boolean, currentStep: number, skippedSteps: number[] }`
-  - 可选 SQLite `t_onboarding_progress(id, current_step, skipped_json, updated_at)` 若需跨重装记忆；首期用 `localStorage` 即可，表结构预留。
+  - `Local`（`localStorage` 封装，见 `src/utils/storage.ts`）：`onboardingState = { completed: boolean, currentStep: number, skippedSteps: number[] }` 与 `hasCompletedOnboarding`
+  - 工作台草稿用 `Session`（`sessionStorage` 封装）存 `workstationDraft`
+  - 可选 SQLite `t_onboarding_progress(id, current_step, skipped_json, updated_at)` 若需跨重装记忆；首期用 `Local/Session` 即可，表结构预留。
 
 ### 4.2 步骤定义（最小闭环）
 
@@ -187,7 +188,7 @@ type DiscoveryItem = {
   serviceName: string;          // 服务名 / 容器名
   displayName: string;
   rawPath: string;              // 原始 PathName / Mounts JSON
-  suggestedPublishPath: string; // 建议发布目录（宿主机）
+  suggestedPublishPath: string; // 建议发布目录（宿主机；Docker 场景取 Mounts[].Source，无挂载时为空）
   source: 'win32' | 'docker';
   containerId?: string;
   mounts?: { Source: string; Destination: string }[];
@@ -199,12 +200,15 @@ function useServiceDiscovery() {
   const scanning = ref(false);
   const results = ref<DiscoveryItem[]>([]);
   async function scanLocal(): Promise<DiscoveryItem[]> { /* cmdInvoke('discover_local_services') */ }
-  async function scanRemote(serverId: number): Promise<DiscoveryItem[]> { /* cmdInvoke('discover_remote_windows_services' | 'discover_remote_docker_containers') */ }
+  async function scanRemote(server: { ip: string; account: string; pwd: string }): Promise<DiscoveryItem[]> { /* 内部并行调 discover_remote_windows_services + discover_remote_docker_containers 并合并 */ }
   return { prefixes, scanning, results, scanLocal, scanRemote };
 }
 ```
 
-- **交互**：发现结果以 `el-card` 列表呈现，每项展示 `服务/容器名 → 建议目录`，支持单选/多选；底部“确认导入”才写库或回填表单；零结果时 `el-empty` + “去设置修改前缀”按钮（跳转 `/settings` 的前缀管理）。
+- **交互与数据落点**：发现结果以 `el-card` 列表呈现，每项展示 `服务/容器名 → 建议目录`，支持单选/多选；底部“确认导入”**不直接写 `t_server.publishPath`（该表无此列）**，而是：
+  - 若在“服务器步骤”内：勾选结果用于**新建 `t_server` 记录**（`name=serviceName`、`ip`保持当前输入的 IP，`description`可附建议路径作备注），真正发布路径仍由下一步的**应用配置**决定；
+  - 若在“应用配置步骤”内：`suggestedPublishPath` **回填 `configItemsJson.webApiHost/serverPath` 等字段**（见 `src/types/appconfig.d.ts:ConfigItemsType`），用户确认后随工作台 `draft.appconfigDraft` 一并写入 `t_app_config`；
+  - 零结果时 `el-empty` + “去设置修改前缀”按钮（跳转 `/settings` 的前缀管理）；Docker 无 `Source` 时展示 `WorkingDir` 并提示“容器未挂载宿主机目录，请手动填写”。
 
 ### 6.3 后端 Rust
 
@@ -227,11 +231,12 @@ pub async fn discover_remote_docker_containers(
 // 纯函数，供单测
 pub fn extract_real_path(path_name: &str) -> String;
 pub fn parse_docker_inspect_mounts(inspect_json: &str) -> Vec<Mount>;
+pub fn matches_prefix(name: &str, prefixes: &[String]) -> bool;
 ```
 
-- **本机 Windows**：`#[cfg(windows)]` 下调用 `windows` crate 的 `OpenSCManagerW / EnumServicesStatusExW / QueryServiceConfigW`，逻辑与 Qt 旧版一致；非 Windows 直接返回 `Err("仅 Windows 支持本机扫描")`。
-- **远端 Windows**：`ssh_pool::get_session` 复用 `file_module.rs` 的连接池，执行 `powershell -Command "Get-CimInstance Win32_Service | Where-Object { $_.Name -like 'SIE*' } | Select-Object Name,PathName | ConvertTo-Json"`，解析后过滤前缀、调用 `extract_real_path`。
-- **远端 Docker**：执行 `docker ps --format '{{.ID}}|{{.Names}}|{{.Image}}'` 列容器，过滤前缀命中者，再对命中者批量 `docker inspect --format '{{json .Mounts}}|{{.Config.WorkingDir}}' <id>`，解析 `Mounts[].Source` 作为建议目录。
+- **本机 Windows**：`#[cfg(windows)]` 下调用 `windows` crate 的 `OpenSCManagerW / EnumServicesStatusExW / QueryServiceConfigW`，逻辑与 Qt 旧版一致；非 Windows 直接返回 `Err("仅 Windows 支持本机扫描")`，并在 `tokio::task::spawn_blocking` 中执行以避免阻塞 Tokio。
+- **远端 Windows**：**复用 `file_module::execute_remote_command`**（已封装重试与 GBK/UTF-8 智能解码），执行 `powershell -NoProfile -Command "Get-CimInstance Win32_Service | Select-Object Name,PathName | ConvertTo-Json -Compress"`，解析后过滤前缀、调用 `extract_real_path`。执行策略受限时回退 `sc qc`（二期）。
+- **远端 Docker**：同样经 `file_module::execute_remote_command` 执行 `docker ps --format '{{.ID}}|{{.Names}}|{{.Image}}'` 列容器，过滤前缀命中者，再对命中者批量 `docker inspect --format '{{json .Mounts}}|{{.Config.WorkingDir}}' <id>`，解析 `Mounts[].Source` 作为建议目录；`Source` 为空时 `suggestedPublishPath` 置空，前端展示 `WorkingDir` 并提示手动填写。
 - **路径清洗**：`extract_real_path` 完整复刻 Qt 逻辑——去引号 → 找 `-instance` 前截断 → 若含 `dotnet.exe` 取其后 → `Path::parent` 取目录 → 统一为 `/` 或 `\`（前端展示用 `/`，Windows 远端执行时保留 `\`）。
 
 ### 6.4 前缀配置
@@ -246,8 +251,8 @@ pub fn parse_docker_inspect_mounts(inspect_json: &str) -> Vec<Mount>;
 ## 7. 数据与持久化
 
 - **复用表**：`t_project / t_server / t_app_config / t_team_foundation_server / t_git / t_backup` 结构不变。
-- **新增表**：`t_discovery_prefix`（必选），`t_onboarding_progress`（可选，首期可用 `localStorage` 替代，表结构预留）。
-- **前端持久化**：`localStorage.hasCompletedOnboarding / localStorage.onboardingState / sessionStorage.workstationDraft`；发现前缀缓存 `localStorage.discoveryPrefixes`（与 DB 同步）。
+- **新增表**：`t_discovery_prefix`（必选），`t_onboarding_progress`（可选，首期可用 `Local` 替代，表结构预留）。
+- **前端持久化**：`Local.hasCompletedOnboarding / Local.onboardingState` 与 `Session.workstationDraft`（均经 `src/utils/storage.ts` 封装，带前缀）；发现前缀缓存 `Local.discoveryPrefixes`（与 DB 同步）。
 
 ---
 

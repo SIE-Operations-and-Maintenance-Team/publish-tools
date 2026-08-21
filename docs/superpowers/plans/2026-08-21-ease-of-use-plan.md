@@ -56,8 +56,8 @@
 | `src-tauri/src/main.rs` | 注册 3 个 discovery 命令 |
 | `src-tauri/Cargo.toml` | 增 `windows` crate（`cfg(windows)`）与 `serde_json` 已有则复用 |
 | `src/database/sqlite.ts` | `ensureSchema()` 增 `t_discovery_prefix` 幂等建表 |
-| `src/router/route.ts` | 新增 `/workstation` 顶级路由，`/` 重定向改为 `/workstation` |
-| `src/layout/navBars/topBar/user.vue` 或 `src/layout/navBars/topBar/index.vue` | 增 `？` 帮助按钮→重播引导 |
+| `src/router/route.ts` | 新增 `/workstation` 顶级路由，`/` 重定向改为 `/workstation`，并将 `src/router/route.ts:dynamicRoutes[0].children[home].meta.isAffix` 改为 `false`（避免双 Affix） |
+| `src/layout/navBars/topBar/user.vue` 或 `src/layout/navBars/topBar/index.vue` | 增 `？` 帮助按钮→重播引导（确定落 `src/layout/navBars/topBar/user.vue` 的用户下拉区旁，与 `smom-icon-database` 同排） |
 | `src/views/servers/index.vue` | 增“扫描本机 / 扫描远端”按钮与发现卡片抽屉 |
 | `src/views/settings/index.vue` | 新增“服务发现前缀”管理区块 |
 | `src/i18n/lang/zh-cn.ts` / `en.ts` / `zh-tw.ts` | 增 `message.router.workstation / message.workstation.* / message.discovery.* / message.onboarding.*` |
@@ -316,11 +316,11 @@ git commit -m "feat(discovery): 纯函数 extract_real_path 与 docker mounts �
 **Files:**
 - Modify: `src-tauri/src/cmd_module/discovery_module.rs`
 - Modify: `src-tauri/src/main.rs:90-150`
-- Modify: `src-tauri/Cargo.toml`（可选增 windows crate）
+- Modify: `src-tauri/Cargo.toml`（可选增 windows crate，`[target.'cfg(windows)'.dependencies] windows = { version = "0.52", features = ["Win32_System_Services"] }`）
 - Modify: `src-tauri/src/cmd_module/mod.rs`
 
 **Interfaces:**
-- Consumes: `crate::cmd_module::ssh_pool::get_session`、`extract_real_path`、`parse_docker_inspect_mounts`、`matches_prefix`
+- Consumes: `crate::cmd_module::file_module::execute_remote_command`（已封装重试与 GBK/UTF-8 解码，勿直接调 `ssh_pool::get_session`）、`extract_real_path`、`parse_docker_inspect_mounts`、`matches_prefix`
 - Produces (Tauri commands):
   - `#[tauri::command] async fn discover_local_services(prefixes: Vec<String>) -> Result<Vec<DiscoveryItem>, String>`
   - `#[tauri::command] async fn discover_remote_windows_services(username: String, password: String, server: String, prefixes: Vec<String>) -> Result<Vec<DiscoveryItem>, String>`
@@ -416,7 +416,8 @@ git commit -m "feat(discovery): 三链路发现命令及 Tauri 注册"
 **Interfaces:**
 - Consumes: `cmdInvoke`、`useDiscoveryPrefixDb`
 - Produces:
-  - `useServiceDiscovery() => { prefixes: Ref<DiscoveryPrefix[]>, scanning: Ref<boolean>, results: Ref<DiscoveryItem[]>, error: Ref<string|null>, loadPrefixes(), scanLocal(), scanRemote(server:{ip,account,pwd}) }`
+  - `useServiceDiscovery() => { prefixes: Ref<DiscoveryPrefix[]>, scanning: Ref<boolean>, results: Ref<DiscoveryItem[]>, error: Ref<string|null>, loadPrefixes(), scanLocal(), scanRemote(server:{ip:string,account:string,pwd:string}) }`
+  - `scanRemote` 内部并行调 `discover_remote_windows_services` + `discover_remote_docker_containers` 再合并，`suggestedPublishPath` 为空时由 UI 展示 `WorkingDir` 并提示手动填写
 
 - [ ] **Step 1: 写 composable 单测（Vitest 若无则用手工断言，先以类型检查代替）**
 
@@ -531,8 +532,11 @@ git commit -m "feat(discovery): 前端 composable 与 i18n"
 
 在 `servers/index.vue` 的工具栏追加两个按钮（`scanLocal / scanRemote`），结果以 `el-drawer` + `el-card` 列表呈现，每项显示 `serviceName → suggestedPublishPath`，`el-checkbox` 多选，底部“确认导入”：
 
-- 若当前在“新增服务器”弹窗内：回填当前表单的 `publishPath` / `name` 字段；
-- 若在列表页：批量插入 `t_server`（`name = serviceName`，`ip` 保持当前选中服务器的 ip，`publishPath` 写入描述或扩展字段，若 `t_server` 无该列则写入 `description` 并在应用配置步骤回填）— 具体以 `t_server` 实际列为准，不新增列，仅复用 `description` 承载建议路径的展示，真正发布路径仍由应用配置决定。
+- **数据落点纠正（`t_server` 无 `publishPath` 列）**：`t_server` 仅含 `project_id/name/os/ip/port/account/pwd/description`（见 `src-tauri/src/cmd_module/sqlite_module.rs:t_server` 与 `src/database/servers/index.ts`），**不直接写发布路径**。
+  - 若在“新增/编辑服务器”弹窗内：勾选结果用于**填充服务器表单的 `name` 字段**（`serviceName`），`ip` 保持用户已填值，`suggestedPublishPath` 暂存至抽屉的待回填缓冲区；
+  - 真正发布路径回填至 **应用配置的 `configItemsJson`**（`ConfigItemsType.webApiHost.serverPath / scheduleServer.serverPath / webClient.serverPath` 等，见 `src/types/appconfig.d.ts`），随工作台 `draft.appconfigDraft.configItems` 一并写入 `t_app_config`；
+  - 若在列表页批量导入：批量 `INSERT INTO t_server (project_id, name, ip, account, pwd, description)`，其中 `description` 可附 `suggestedPublishPath` 作备注，但不作为发布依据。
+- Docker `suggestedPublishPath` 为空（无 `Mounts[].Source`）时，卡片展示 `WorkingDir` 并提示“容器未挂载宿主机目录，请手动填写”。
 
 零结果时展示 `el-empty` + 按钮“去修改前缀并重扫”→ `router.push('/settings')`。
 
@@ -589,6 +593,7 @@ declare type WorkstationStep = 0|1|2|3|4|5;
 ```ts
 // src/stores/workstation.ts
 import { defineStore } from 'pinia';
+import { Session } from '@/utils/storage';
 export const useWorkstationStore = defineStore('workstation', {
   state: () => ({
     draft: { projectId:null, tfsId:null, gitId:null, serverIds:[], appconfigDraft:{publishMode:0} as any, publishOptions:{isBackup:1,isNewVersion:null} } as WorkstationDraft,
@@ -606,9 +611,9 @@ export const useWorkstationStore = defineStore('workstation', {
   },
   actions: {
     validateStep(n: number) { /* 复用各 Dialog 的 formRules 思路，首期仅判空 */ },
-    persist() { sessionStorage.setItem('workstationDraft', JSON.stringify(this.$state)); },
-    restore() { const raw=sessionStorage.getItem('workstationDraft'); if(raw) Object.assign(this, JSON.parse(raw)); },
-    reset() { this.draft={projectId:null,tfsId:null,gitId:null,serverIds:[],appconfigDraft:{publishMode:0} as any,publishOptions:{isBackup:1,isNewVersion:null}}; this.currentStep=0; },
+    persist() { Session.set('workstationDraft', JSON.stringify(this.$state)); },
+    restore() { const raw=Session.get('workstationDraft'); if(raw) Object.assign(this, JSON.parse(raw as string)); },
+    reset() { this.draft={projectId:null,tfsId:null,gitId:null,serverIds:[],appconfigDraft:{publishMode:0} as any,publishOptions:{isBackup:1,isNewVersion:null}}; this.currentStep=0; Session.remove('workstationDraft'); },
   },
 });
 ```
@@ -623,8 +628,8 @@ export const useWorkstationStore = defineStore('workstation', {
   component: () => import('@/views/workstation/index.vue'),
   meta: { title: 'message.router.workstation', isLink:'', isHide:false, isKeepAlive:true, isAffix:true, isIframe:false, icon:'smom-icon smom-icon-fabu' },
 },
-// 将顶级 redirect 由 '/home' 改为 '/workstation'
-{ path:'/', redirect:'/workstation', ... }
+// 将顶级 redirect 由 '/home' 改为 '/workstation'，同时将既有 /home 的 meta.isAffix 改为 false（避免双 Affix，常驻标签仅工作台）
+{ path:'/', redirect:'/workstation', ... } // 并在 children 中找到 home 项改 isAffix:false
 ```
 
 - [ ] **Step 4: 自检与 Commit**
@@ -754,16 +759,19 @@ git commit -m "feat(workstation): 聚合 draft 并复用既有发布链路"
 ```ts
 // src/stores/onboarding.ts
 import { defineStore } from 'pinia';
+import { Local } from '@/utils/storage';
 export const useOnboardingStore = defineStore('onboarding', {
-  state: () => ({ completed: localStorage.getItem('hasCompletedOnboarding')==='true', currentStep:0, skippedSteps:[] as number[] }),
+  state: () => ({ completed: Local.get('hasCompletedOnboarding')==='true', currentStep:0, skippedSteps:[] as number[] }),
   actions: {
     shouldAutoOpen() { return !this.completed; },
-    markCompleted() { this.completed=true; localStorage.setItem('hasCompletedOnboarding','true'); },
-    skipStep(n:number){ if(!this.skippedSteps.includes(n)) this.skippedSteps.push(n); },
-    persist(){ localStorage.setItem('onboardingState', JSON.stringify(this.$state)); },
+    markCompleted() { this.completed=true; Local.set('hasCompletedOnboarding','true'); Local.set('onboardingState', JSON.stringify(this.$state)); },
+    skipStep(n:number){ if(!this.skippedSteps.includes(n)) this.skippedSteps.push(n); this.persist(); },
+    persist(){ Local.set('onboardingState', JSON.stringify(this.$state)); },
+    restore(){ const raw=Local.get('onboardingState'); if(raw) Object.assign(this, JSON.parse(raw as string)); },
   },
 });
 ```
+> 注：必须使用 `src/utils/storage.ts` 的 `Local`（带 `__NEXT_NAME__:` 前缀）而非裸 `localStorage`，否则与 `themeConfig` 等既有持久化不一致；`workstation` Store 同理用 `Session` 替代裸 `sessionStorage`。
 
 - [ ] **Step 2: Commit**
 
