@@ -4,6 +4,7 @@
 use std::process;
 use tauri::Manager;
 use SmomPublish::cmd_module::auto_start_module;
+use SmomPublish::cmd_module::discovery_module;
 use SmomPublish::cmd_module::file_module;
 use SmomPublish::cmd_module::parse_sln_module;
 use SmomPublish::cmd_module::wpf_upgrade_module;
@@ -132,6 +133,9 @@ fn main() {
             file_module::copy_dll_files_by_name,
             file_module::read_dlls_by_name,
             file_module::invalidate_ssh_session,
+            discovery_module::discover_local_services,
+            discovery_module::discover_remote_windows_services,
+            discovery_module::discover_remote_docker_containers,
             wpf_upgrade_module::upgrade_module_version,
             parse_sln_module::parse_sln_project,
             parse_sln_module::find_assembly_name,
