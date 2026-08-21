@@ -14,6 +14,7 @@ export default {
 		tfs: 'TFS',
 		papersPublish: '文件发布',
 		git: 'Git',
+		workstation: '发布工作台',
 	},
 	staticRoutes: {
 		signIn: '登录',
@@ -160,5 +161,13 @@ export default {
 		btnOne: '稍后更新',
 		btnTwo: '马上更新',
 		btnTwoLoading: '更新中',
+	},
+	discovery: {
+		scanLocal: '扫描本机',
+		scanRemote: '扫描远端',
+		noResult: '未发现符合前缀的服务/容器',
+		goSetting: '去修改前缀并重扫',
+		suggestedPath: '建议发布目录',
+		confirmImport: '确认导入',
 	},
 };

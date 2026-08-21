@@ -14,6 +14,7 @@ export default {
 		tfs: 'TFS',
 		papersPublish: '文件發佈',
 		git: 'Git',
+		workstation: '發佈工作臺',
 	},
 	staticRoutes: {
 		signIn: '登入',
@@ -160,5 +161,13 @@ export default {
 		btnOne: '殘忍拒絕',
 		btnTwo: '馬上更新',
 		btnTwoLoading: '更新中',
+	},
+	discovery: {
+		scanLocal: '掃描本機',
+		scanRemote: '掃描遠端',
+		noResult: '未發現符合前綴的服務/容器',
+		goSetting: '去修改前綴並重掃',
+		suggestedPath: '建議發佈目錄',
+		confirmImport: '確認匯入',
 	},
 };

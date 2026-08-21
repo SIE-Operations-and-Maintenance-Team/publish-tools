@@ -14,6 +14,7 @@ export default {
 		tfs: 'TFS',
 		papersPublish: 'file publish',
     git: 'Git Management',
+		workstation: 'Workstation',
 	},
 	staticRoutes: {
 		signIn: 'signIn',
@@ -160,5 +161,13 @@ export default {
 		btnOne: 'Cruel refusal',
 		btnTwo: 'Update now',
 		btnTwoLoading: 'Updating',
+	},
+	discovery: {
+		scanLocal: 'Scan Local',
+		scanRemote: 'Scan Remote',
+		noResult: 'No matching services/containers found',
+		goSetting: 'Update prefixes and rescan',
+		suggestedPath: 'Suggested publish path',
+		confirmImport: 'Confirm Import',
 	},
 };
