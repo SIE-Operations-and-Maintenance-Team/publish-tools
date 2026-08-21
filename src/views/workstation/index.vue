@@ -84,8 +84,8 @@
       </el-col>
     </el-row>
 
-    <!-- 底部常驻：预检 / 发布，canPublish 控制禁用 -->
-    <el-affix position="bottom" :offset="12">
+    <!-- 底部常驻：预检 / 发布，canPublish 控制禁用（sticky 随页面滚动，不用 el-affix 避免与外层 el-scrollbar 冲突） -->
+    <div class="workstation-bottom-sticky">
       <el-card shadow="hover" class="workstation-bottom-bar">
         <div class="workstation-bottom-actions">
           <el-button :disabled="!store.canPublish" @click="onPrecheck">{{
@@ -102,7 +102,7 @@
           }}</span>
         </div>
       </el-card>
-    </el-affix>
+    </div>
 
     <!-- 新手指引向导：首启自弹 + Header 常驻入口重播 -->
     <OnboardingWizard v-model="onboardingVisible" />
@@ -353,7 +353,9 @@ onUnmounted(() => {
 
 <style scoped>
 .workstation-container {
-  padding: 0;
+  padding-bottom: 24px;
+  /* 让外层 layout 的 el-scrollbar 负责滚动，本容器不截断 */
+  min-height: 0;
 }
 
 .workstation-step-header {
@@ -388,6 +390,13 @@ onUnmounted(() => {
 
 .workstation-bottom-bar {
   border: 1px solid var(--el-border-color-lighter);
+}
+
+.workstation-bottom-sticky {
+  position: sticky;
+  bottom: 12px;
+  z-index: 10;
+  margin-top: 16px;
 }
 
 .workstation-bottom-actions {
