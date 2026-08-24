@@ -1570,41 +1570,48 @@ const syncFromWorkstation = async () => {
       }
     }
 
-    // 3) 无任何草稿时自动带出该项目已存的应用配置，否则保存时会撞“已存在应用配置”
-    if (!restored && pid) {
+    // 3) 检查该项目+环境是否已有应用配置：有则转为编辑模式，避免保存时撞”已存在”
+    if (pid) {
       const hit = await findDbAppconfig(pid, state.ruleForm.environment, true);
       if (hit) {
-        fillFormFromRow(hit);
-        state.ruleForm.projectId = pid;
-        syncValidatedDraft();
-        ElMessage.info(
-          `已带出${displayEnvironment(Number(state.ruleForm.environment))}环境的应用配置，可直接修改后进入下一步`
-        );
+        // 始终绑定已有记录 id，确保 validate 走 update 而非 insert
+        state.ruleForm.id = hit.id;
+        if (!restored) {
+          // 无缓存/草稿时才用 DB 数据填充表单
+          fillFormFromRow(hit);
+          state.ruleForm.projectId = pid;
+          ElMessage.info(
+            `已带出${displayEnvironment(Number(state.ruleForm.environment))}环境的应用配置，可直接修改后进入下一步`
+          );
+        }
+      } else if (!restored) {
+        // 无已存配置且无缓存：确保 id 为 null（新增模式）
+        state.ruleForm.id = null;
       }
     }
 
-    // 4) 首次填写（未带出任何配置）且第 2 步已选 TFS/Git：默认回填对应 dllMode，允许用户后续切回“全部”
-    if (!restored && !state.ruleForm.id) {
-      if (tfsId && !gitId) {
-        state.ruleForm.dllMode = 'TFS';
-        selectTfsItem.value.id = tfsId;
-        try {
-          const r: any = await tfsDb.getTfsList({ tfsName: null, tfsSourcePath: null, sorting: 'id DESC', skipCount: 0, maxResultCount: 1000 });
-          const found = (r?.data?.data || []).find((x: any) => x.id === tfsId);
-          if (found) selectTfsItem.value.tfsName = found.tfsName;
-        } catch {}
-      } else if (gitId) {
-        // 含 gitId 时优先 Git（双选时亦然，与原对话框单选一致）
-        state.ruleForm.dllMode = 'Git';
-        selectGitItem.value.id = gitId;
-        try {
-          const r: any = await gitDb.getGitList({ gitName: null, gitRepository: null, sorting: 'id DESC', skipCount: 0, maxResultCount: 1000 });
-          const found = (r?.data?.data || []).find((x: any) => x.id === gitId);
-          if (found) selectGitItem.value.gitName = found.gitName;
-        } catch {}
-      } else {
-        // 无 TFS/Git 时保持“全部”作为可跳过默认
-        if (!state.ruleForm.dllMode) state.ruleForm.dllMode = '全部';
+    // 4) 第 2 步已选 TFS/Git：自动回填 dllMode，优先于缓存/DB 恢复的值
+    if (tfsId && !gitId) {
+      state.ruleForm.dllMode = 'TFS';
+      selectTfsItem.value.id = tfsId;
+      try {
+        const r: any = await tfsDb.getTfsList({ tfsName: null, tfsSourcePath: null, sorting: 'id DESC', skipCount: 0, maxResultCount: 1000 });
+        const found = (r?.data?.data || []).find((x: any) => x.id === tfsId);
+        if (found) selectTfsItem.value.tfsName = found.tfsName;
+      } catch {}
+    } else if (gitId) {
+      // 含 gitId 时优先 Git（双选时亦然，与原对话框单选一致）
+      state.ruleForm.dllMode = 'Git';
+      selectGitItem.value.id = gitId;
+      try {
+        const r: any = await gitDb.getGitList({ gitName: null, gitRepository: null, sorting: 'id DESC', skipCount: 0, maxResultCount: 1000 });
+        const found = (r?.data?.data || []).find((x: any) => x.id === gitId);
+        if (found) selectGitItem.value.gitName = found.gitName;
+      } catch {}
+    } else {
+      // 无 TFS/Git 时，将缓存/DB 中残留的 TFS/Git 模式重置为”全部”，避免误判缺失代码源
+      if (!state.ruleForm.dllMode || state.ruleForm.dllMode === 'TFS' || state.ruleForm.dllMode === 'Git') {
+        state.ruleForm.dllMode = '全部';
       }
     }
 

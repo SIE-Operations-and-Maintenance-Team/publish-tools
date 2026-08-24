@@ -59,11 +59,28 @@
               $t("message.workstation.prev")
             }}</el-button>
             <el-button
+              v-if="store.currentStep < 5"
               type="primary"
               :disabled="!store.canNext"
               @click="onNext"
               >{{ $t("message.workstation.next") }}</el-button
             >
+          </div>
+
+          <!-- 预检 / 发布 -->
+          <div class="workstation-publish-actions">
+            <el-button :disabled="!store.canPublish" @click="onPrecheck">{{
+              $t("message.workstation.precheck")
+            }}</el-button>
+            <el-button
+              type="primary"
+              :disabled="!store.canPublish"
+              @click="onPublish"
+              >{{ $t("message.workstation.publish") }}</el-button
+            >
+            <span v-if="!store.canPublish" class="workstation-bottom-hint">{{
+              $t("message.workstation.bottomHint")
+            }}</span>
           </div>
         </el-card>
       </el-col>
@@ -84,26 +101,6 @@
       </el-col>
     </el-row>
 
-    <!-- 底部常驻：预检 / 发布，canPublish 控制禁用（sticky 随页面滚动，不用 el-affix 避免与外层 el-scrollbar 冲突） -->
-    <div class="workstation-bottom-sticky">
-      <el-card shadow="hover" class="workstation-bottom-bar">
-        <div class="workstation-bottom-actions">
-          <el-button :disabled="!store.canPublish" @click="onPrecheck">{{
-            $t("message.workstation.precheck")
-          }}</el-button>
-          <el-button
-            type="primary"
-            :disabled="!store.canPublish"
-            @click="onPublish"
-            >{{ $t("message.workstation.publish") }}</el-button
-          >
-          <span v-if="!store.canPublish" class="workstation-bottom-hint">{{
-            $t("message.workstation.bottomHint")
-          }}</span>
-        </div>
-      </el-card>
-    </div>
-
     <!-- 新手指引向导：首启自弹 + Header 常驻入口重播 -->
     <OnboardingWizard v-model="onboardingVisible" />
   </div>
@@ -117,6 +114,7 @@ import {
   onMounted,
   onUnmounted,
   ref,
+  watch,
   defineAsyncComponent,
 } from "vue";
 import { useRouter } from "vue-router";
@@ -124,6 +122,10 @@ import { useI18n } from "vue-i18n";
 import { ElMessage } from "element-plus";
 import { useWorkstationStore } from "@/stores/workstation";
 import { useOnboardingStore } from "@/stores/onboarding";
+import { useProjectDb } from "@/database/project/index";
+import { useGitDb } from "@/database/git/index";
+import { useTfsDb } from "@/database/teamFoundationServer/index";
+import { useServerDb } from "@/database/servers/index";
 import mittBus from "@/utils/mitt";
 
 const { t } = useI18n();
@@ -167,35 +169,115 @@ const WelcomePlaceholder = defineComponent({
 });
 
 // 右侧预览（只读聚合）：复用 StepPreview 组件的只读展示，右侧保持常驻
+// 与 StepPreview.vue 的 loadAll 一致：把 draft 中的 ID 解析成可读名称，而非显示数字
 const RightPreview = defineComponent({
   name: "RightPreview",
   setup() {
     const s = useWorkstationStore();
+    const projectDb = useProjectDb();
+    const gitDb = useGitDb();
+    const tfsDb = useTfsDb();
+    const serverDb = useServerDb();
+    const projectName = ref("");
+    const gitName = ref("");
+    const tfsName = ref("");
+    const serverNames = ref<string[]>([]);
+
+    // 解析 draft 中的 ID 为名称（取值方式与 StepPreview.loadAll 完全一致）
+    const loadAll = async () => {
+      projectName.value = "";
+      gitName.value = "";
+      tfsName.value = "";
+      serverNames.value = [];
+      if (s.draft.projectId) {
+        try {
+          const r = await projectDb.getProjectById(s.draft.projectId as number);
+          const data = (r as any)?.data?.data;
+          if (data?.name) projectName.value = data.name;
+        } catch {
+          /* ignore */
+        }
+      }
+      if (s.draft.gitId) {
+        try {
+          const r = await gitDb.getGitById(s.draft.gitId as number);
+          const d = (r as any)?.data?.data;
+          if (d?.gitName) gitName.value = d.gitName;
+        } catch {
+          /* ignore */
+        }
+      }
+      if (s.draft.tfsId) {
+        try {
+          const r = await tfsDb.getTfsById(s.draft.tfsId as number);
+          const d = (r as any)?.data?.data;
+          if (d?.tfsName) tfsName.value = d.tfsName;
+        } catch {
+          /* ignore */
+        }
+      }
+      if (s.draft.serverIds?.length) {
+        const ids = [...s.draft.serverIds];
+        const results = await Promise.all(
+          ids.map(async (id) => {
+            try {
+              const r = await serverDb.getServerById(id as number);
+              const d = (r as any)?.data?.data;
+              if (d?.name) return d.name as string;
+              return `#${id}`;
+            } catch {
+              return `#${id}`;
+            }
+          })
+        );
+        serverNames.value = results;
+      }
+    };
+
+    onMounted(() => loadAll());
+    watch(
+      () => [
+        s.draft.projectId,
+        s.draft.gitId,
+        s.draft.tfsId,
+        s.draft.serverIds,
+      ],
+      () => loadAll(),
+      { deep: true }
+    );
+
+    // 代码源标签：与 StepPreview.sourceLabel 一致
+    const sourceLabel = computed(() => {
+      const parts: string[] = [];
+      if (gitName.value) parts.push(`Git: ${gitName.value}`);
+      if (tfsName.value) parts.push(`TFS: ${tfsName.value}`);
+      return parts.join(" + ");
+    });
+
+    const unselected = t("message.workstation.previewUnselected");
     return () =>
       h("div", { class: "workstation-preview" }, [
         h(
           "div",
           { class: "workstation-preview-row" },
           `${t("message.workstation.previewProject")}: ${
-            s.draft.projectId ?? t("message.workstation.previewUnselected")
+            projectName.value || unselected
           }`
         ),
         h(
           "div",
           { class: "workstation-preview-row" },
           `${t("message.workstation.previewSource")}: ${
-            s.draft.tfsId ??
-            s.draft.gitId ??
-            t("message.workstation.previewUnselected")
+            sourceLabel.value || unselected
           }`
         ),
         h(
           "div",
           { class: "workstation-preview-row" },
           `${t("message.workstation.previewServers")}: ${
-            s.draft.serverIds.length
-              ? s.draft.serverIds.join(", ")
-              : t("message.workstation.previewUnselected")
+            serverNames.value.length
+              ? serverNames.value.join("、")
+              : unselected
           }`
         ),
         h(
@@ -255,8 +337,12 @@ const missingItems = computed(() => {
   const items: string[] = [];
   if (!store.draft.projectId)
     items.push(t("message.workstation.missingProject"));
-  if (!store.draft.tfsId && !store.draft.gitId)
-    items.push(t("message.workstation.missingSource"));
+  if (!store.draft.tfsId && !store.draft.gitId) {
+    // 仅当应用配置的 dllMode 需要代码源时才提示缺失，否则代码源可跳过
+    const ac: any = store.draft.appconfigDraft;
+    const needSource = ac?.dllMode === 'TFS' || ac?.dllMode === 'Git';
+    if (needSource) items.push(t("message.workstation.missingSource"));
+  }
   if (!store.draft.serverIds.length)
     items.push(t("message.workstation.missingServers"));
   if (
@@ -353,9 +439,13 @@ onUnmounted(() => {
 
 <style scoped>
 .workstation-container {
-  padding-bottom: 24px;
-  /* 让外层 layout 的 el-scrollbar 负责滚动，本容器不截断 */
+  overflow-y: auto !important;
   min-height: 0;
+}
+
+/* 主内容区（el-row）：让长表单不被 flex 压缩，撑开容器滚动高度 */
+.workstation-container > .el-row {
+  flex-shrink: 0 !important;
 }
 
 .workstation-step-header {
@@ -388,21 +478,13 @@ onUnmounted(() => {
   text-align: center;
 }
 
-.workstation-bottom-bar {
-  border: 1px solid var(--el-border-color-lighter);
-}
-
-.workstation-bottom-sticky {
-  position: sticky;
-  bottom: 12px;
-  z-index: 10;
-  margin-top: 16px;
-}
-
-.workstation-bottom-actions {
+.workstation-publish-actions {
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--el-border-color-lighter);
 }
 
 .workstation-bottom-hint {
@@ -412,5 +494,6 @@ onUnmounted(() => {
 
 .mb15 {
   margin-bottom: 15px;
+  flex-shrink: 0;
 }
 </style>
