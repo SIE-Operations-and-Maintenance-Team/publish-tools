@@ -127,6 +127,9 @@ impl AuditEntry {
         self
     }
 
+    // with_server 仅被已停用的 SSH 操作工具（remote_exec/file_upload/file_download）使用，
+    // 工具在 handler.rs 注释停用（服务器相关接口收归 ssh-mcp-server），保留便于恢复
+    #[allow(dead_code)]
     pub fn with_server(mut self, server: &str) -> Self {
         self.server = Some(server.to_string());
         self

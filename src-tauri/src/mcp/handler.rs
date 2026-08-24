@@ -137,99 +137,79 @@ impl McpHandler {
     }
 
     // ═══════════════════════════════════════════════
-    // SSH 远程操作
+    // SSH 远程操作 —— 已停用（2026-08-22）
+    //
+    // 服务器相关入口（配置管理 + 操作）统一收归 ssh-mcp-server
+    // （其 MCP 提供 list-servers / execute-command / upload / download 等工具），
+    // 本工具不再直接暴露任何服务器相关接口。
+    // 本区块 4 个操作工具（server_connect / remote_exec / file_upload / file_download）
+    // 与下方 server_list（查询服务器列表）整体注释停用、未删除；
+    // 需要恢复时取消相应注释即可（types.rs / db.rs / audit.rs 中对应
+    // #[allow(dead_code)] 保留不影响）。
     // ═══════════════════════════════════════════════
 
-    /// 测试 SSH 连接到远程服务器
-    #[tool(description = "测试 SSH 连接到远程服务器，验证用户名和密码是否正确")]
-    async fn server_connect(
-        &self,
-        Parameters(params): Parameters<ServerConnectParam>,
-    ) -> Result<CallToolResult, ErrorData> {
-        Self::to_result(
-            file_module::server_connection(&params.username, &params.password, &params.server)
-                .await,
-        )
-    }
+    // /// 测试 SSH 连接到远程服务器
+    // #[tool(description = "测试 SSH 连接到远程服务器，验证用户名和密码是否正确")]
+    // async fn server_connect(&self, Parameters(params): Parameters<ServerConnectParam>) -> Result<CallToolResult, ErrorData> {
+    //     Self::to_result(file_module::server_connection(&params.username, &params.password, &params.server).await)
+    // }
 
-    /// 在远程服务器上执行 shell 命令
-    #[tool(description = "通过 SSH 在远程服务器上执行 shell 命令，返回命令输出")]
-    async fn remote_exec(
-        &self,
-        Parameters(params): Parameters<RemoteExecParam>,
-    ) -> Result<CallToolResult, ErrorData> {
-        let result = file_module::execute_remote_command(
-            &params.username,
-            &params.password,
-            &params.server,
-            &params.command,
-            params.retry_count,
-            params.retry_interval_secs,
-        )
-        .await;
-        let result_str = match &result {
-            Ok(_) => "ok",
-            Err(_) => "error",
-        };
-        self.audit(
-            AuditEntry::new("remote_exec", result_str)
-                .with_server(&params.server)
-                .with_command(&params.command),
-        );
-        Self::to_result(result)
-    }
+    // /// 在远程服务器上执行 shell 命令
+    // #[tool(description = "通过 SSH 在远程服务器上执行 shell 命令，返回命令输出")]
+    // async fn remote_exec(&self, Parameters(params): Parameters<RemoteExecParam>) -> Result<CallToolResult, ErrorData> {
+    //     let result = file_module::execute_remote_command(
+    //         &params.username, &params.password, &params.server,
+    //         &params.command, params.retry_count, params.retry_interval_secs,
+    //     ).await;
+    //     let result_str = match &result {
+    //         Ok(_) => "ok",
+    //         Err(_) => "error",
+    //     };
+    //     self.audit(
+    //         AuditEntry::new("remote_exec", result_str)
+    //             .with_server(&params.server)
+    //             .with_command(&params.command),
+    //     );
+    //     Self::to_result(result)
+    // }
 
-    /// 上传文件到远程服务器
-    #[tool(description = "通过 SFTP 将本地文件或目录上传到远程服务器")]
-    async fn file_upload(
-        &self,
-        Parameters(params): Parameters<FileTransferParam>,
-    ) -> Result<CallToolResult, ErrorData> {
-        let result = file_module::upload_server_files(
-            params.remote_paths.clone(),
-            params.local_paths.clone(),
-            &params.username,
-            &params.password,
-            &params.server,
-        )
-        .await;
-        let result_str = match &result {
-            Ok(_) => "ok",
-            Err(_) => "error",
-        };
-        self.audit(
-            AuditEntry::new("file_upload", result_str)
-                .with_server(&params.server)
-                .with_paths(params.local_paths.clone()),
-        );
-        Self::to_result(result)
-    }
+    // /// 上传文件到远程服务器
+    // #[tool(description = "通过 SFTP 将本地文件或目录上传到远程服务器")]
+    // async fn file_upload(&self, Parameters(params): Parameters<FileTransferParam>) -> Result<CallToolResult, ErrorData> {
+    //     let result = file_module::upload_server_files(
+    //         params.remote_paths.clone(), params.local_paths.clone(),
+    //         &params.username, &params.password, &params.server,
+    //     ).await;
+    //     let result_str = match &result {
+    //         Ok(_) => "ok",
+    //         Err(_) => "error",
+    //     };
+    //     self.audit(
+    //         AuditEntry::new("file_upload", result_str)
+    //             .with_server(&params.server)
+    //             .with_paths(params.local_paths.clone()),
+    //     );
+    //     Self::to_result(result)
+    // }
 
-    /// 从远程服务器下载文件
-    #[tool(description = "通过 SFTP 从远程服务器下载文件或目录到本地")]
-    async fn file_download(
-        &self,
-        Parameters(params): Parameters<FileTransferParam>,
-    ) -> Result<CallToolResult, ErrorData> {
-        let result = file_module::download_server_files(
-            params.local_paths.clone(),
-            params.remote_paths.clone(),
-            &params.username,
-            &params.password,
-            &params.server,
-        )
-        .await;
-        let result_str = match &result {
-            Ok(_) => "ok",
-            Err(_) => "error",
-        };
-        self.audit(
-            AuditEntry::new("file_download", result_str)
-                .with_server(&params.server)
-                .with_paths(params.remote_paths.clone()),
-        );
-        Self::to_result(result)
-    }
+    // /// 从远程服务器下载文件
+    // #[tool(description = "通过 SFTP 从远程服务器下载文件或目录到本地")]
+    // async fn file_download(&self, Parameters(params): Parameters<FileTransferParam>) -> Result<CallToolResult, ErrorData> {
+    //     let result = file_module::download_server_files(
+    //         params.local_paths.clone(), params.remote_paths.clone(),
+    //         &params.username, &params.password, &params.server,
+    //     ).await;
+    //     let result_str = match &result {
+    //         Ok(_) => "ok",
+    //         Err(_) => "error",
+    //     };
+    //     self.audit(
+    //         AuditEntry::new("file_download", result_str)
+    //             .with_server(&params.server)
+    //             .with_paths(params.remote_paths.clone()),
+    //     );
+    //     Self::to_result(result)
+    // }
 
     // ═══════════════════════════════════════════════
     // 项目构建
@@ -401,23 +381,17 @@ impl McpHandler {
         )]))
     }
 
-    /// 查询服务器列表
-    #[tool(description = "查询服务器列表（从本地 SQLite t_server 表），支持按项目 ID 或名称筛选")]
-    async fn server_list(
-        &self,
-        Parameters(params): Parameters<ServerListParam>,
-    ) -> Result<CallToolResult, ErrorData> {
-        let conn = crate::mcp::db::open_db(&self.app_handle)
-            .map_err(|e| ErrorData::internal_error(e, None))?;
-        let result =
-            crate::mcp::db::query_servers(&conn, params.project_id, params.name.as_deref())
-                .map_err(|e| ErrorData::internal_error(e, None))?;
-        let json = serde_json::to_value(&result)
-            .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
-        Ok(CallToolResult::success(vec![ContentBlock::text(
-            json.to_string(),
-        )]))
-    }
+    // 查询服务器列表 —— 已停用（服务器相关接口统一收归 ssh-mcp-server，恢复时取消注释）
+    // /// 查询服务器列表
+    // #[tool(description = "查询服务器列表（从本地 SQLite t_server 表），支持按项目 ID 或名称筛选")]
+    // async fn server_list(&self, Parameters(params): Parameters<ServerListParam>) -> Result<CallToolResult, ErrorData> {
+    //     let conn = crate::mcp::db::open_db(&self.app_handle).map_err(|e| ErrorData::internal_error(e, None))?;
+    //     let result = crate::mcp::db::query_servers(&conn, params.project_id, params.name.as_deref())
+    //         .map_err(|e| ErrorData::internal_error(e, None))?;
+    //     let json = serde_json::to_value(&result)
+    //         .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+    //     Ok(CallToolResult::success(vec![ContentBlock::text(json.to_string())]))
+    // }
 
     /// 查询应用配置列表
     #[tool(description = "查询应用配置列表（从本地 SQLite t_app_config 表），支持按项目 ID 筛选")]

@@ -7,6 +7,8 @@ const _default: RowSettingsType = {
     winServiceRetryInterval: 2,
     winCopyRetryCount: 3,
     winCopyRetryInterval: 2,
+    sshMcpUrl: 'http://127.0.0.1:61823',
+    sshMcpAutoSync: 0,
     updateTime: '',
 };
 

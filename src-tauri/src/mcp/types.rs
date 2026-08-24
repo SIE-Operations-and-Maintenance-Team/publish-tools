@@ -26,7 +26,10 @@ pub struct FileCompressParam {
 }
 
 // ── SSH 远程操作参数 ──
+// 对应 MCP 工具已在 handler.rs 注释停用（服务器操作入口统一收归 ssh-mcp-server），
+// 保留定义便于恢复；恢复时取消 handler.rs 对应注释即可，此处的 allow 保留不影响。
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct ServerConnectParam {
     pub username: String,
@@ -34,6 +37,7 @@ pub struct ServerConnectParam {
     pub server: String,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct RemoteExecParam {
     pub username: String,
@@ -46,6 +50,7 @@ pub struct RemoteExecParam {
     pub retry_interval_secs: Option<u64>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct FileTransferParam {
     pub username: String,
@@ -127,6 +132,8 @@ pub struct ProjectListParam {
     pub keyword: Option<String>,
 }
 
+// server_list 工具已在 handler.rs 注释停用（服务器相关接口收归 ssh-mcp-server），保留定义便于恢复
+#[allow(dead_code)]
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct ServerListParam {
     #[serde(default)]

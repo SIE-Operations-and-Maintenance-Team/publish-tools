@@ -164,7 +164,7 @@ export function useImportExportDb() {
             const serverRows = await (
               await db()
             ).select<RowServerType[]>(
-              "SELECT id, name, os, ip, port, account, pwd, description FROM t_server WHERE id = $1",
+              "SELECT id, name, os, ip, port, account, pwd, description, source_key sourceKey FROM t_server WHERE id = $1",
               [sid]
             );
             if (serverRows && serverRows.length > 0) {
@@ -178,6 +178,7 @@ export function useImportExportDb() {
                 account: srv.account,
                 pwd: srv.pwd,
                 description: srv.description,
+                sourceKey: srv.sourceKey ?? null,
               });
             } else {
               console.warn(`[import-export] server id=${sid} referenced but not found`);
@@ -377,7 +378,7 @@ export function useImportExportDb() {
             for (let si = 0; si < item.servers.length; si++) {
               const srv = item.servers[si];
               const insertServerResult = await database.execute(
-                "INSERT INTO t_server (project_id, name, os, ip, port, account, pwd, description) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id;",
+                "INSERT INTO t_server (project_id, name, os, ip, port, account, pwd, description, source_key) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id;",
                 [
                   newProjectId,
                   srv.name,
@@ -387,6 +388,7 @@ export function useImportExportDb() {
                   srv.account,
                   srv.pwd,
                   srv.description,
+                  srv.sourceKey ?? null,
                 ]
               );
               const newServerId = insertServerResult.lastInsertId ?? 0;

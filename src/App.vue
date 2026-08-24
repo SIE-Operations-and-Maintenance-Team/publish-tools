@@ -40,6 +40,8 @@ import { Local, Session } from "@/utils/storage";
 import mittBus from "@/utils/mitt";
 import setIntroduction from "@/utils/setIconfont";
 import { fetchGithubReleaseNotes } from "@/utils/githubRelease";
+import { loadPublishSettings } from "@/utils/publishSettings";
+import { autoSyncFromSshMcp } from "@/database/servers/sshMcpSync";
 import { ElMessage } from "element-plus";
 
 // 引入组件
@@ -140,6 +142,21 @@ onMounted(() => {
     if (Session.get("isTagsViewCurrenFull")) {
       stores.setCurrenFullscreen(Session.get("isTagsViewCurrenFull"));
     }
+
+    // SSH MCP 启动自动同步（仅下行、不上传）：延迟 3 秒避开启动期数据库/窗口初始化，失败静默不影响使用
+    window.setTimeout(async () => {
+      try {
+        const settings = await loadPublishSettings();
+        if (settings.sshMcpAutoSync !== 1) return;
+        const result = await autoSyncFromSshMcp(settings.sshMcpUrl);
+        if (!result.ok) {
+          console.warn("SSH MCP 自动同步失败:", result.message);
+          ElMessage.warning(`SSH MCP 自动同步失败：${result.message}`);
+        }
+      } catch (e) {
+        console.warn("SSH MCP 自动同步失败:", e);
+      }
+    }, 3000);
   });
 });
 // 页面销毁时，关闭监听布局配置/i18n监听

@@ -147,6 +147,11 @@ export default {
 		mcpStatusStopped: '已停止',
 		mcpStatusStarting: '启动中',
 		mcpConfigSaved: 'MCP 配置已保存，重启应用后生效',
+		sshMcp: 'SSH MCP 配置同步',
+		sshMcpUrl: 'API 地址',
+		sshMcpUrlTip: 'ssh-mcp-server 管理服务地址，服务器配置统一在其中管理，本工具从该地址同步',
+		sshMcpAutoSync: '启动时自动同步',
+		sshMcpAutoSyncTip: '应用启动时自动从 SSH MCP 下行同步服务器配置到本地（不上传本地服务器）',
 	},
 	about: {
 		title: '关于',

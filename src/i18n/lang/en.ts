@@ -147,6 +147,11 @@ export default {
 		mcpStatusStopped: 'Stopped',
 		mcpStatusStarting: 'Starting',
 		mcpConfigSaved: 'MCP config saved. Restart the app to apply changes.',
+		sshMcp: 'SSH MCP Config Sync',
+		sshMcpUrl: 'API URL',
+		sshMcpUrlTip: 'Address of the ssh-mcp-server admin service where server configs are managed centrally',
+		sshMcpAutoSync: 'Auto sync on startup',
+		sshMcpAutoSyncTip: 'Automatically pull server configs from SSH MCP on app startup (local servers are never uploaded)',
 	},
 	about: {
 		title: 'About',

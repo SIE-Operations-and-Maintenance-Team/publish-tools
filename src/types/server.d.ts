@@ -25,6 +25,7 @@ declare type RowServerType = {
 	account: string;
 	pwd: string;
 	description: string | null;
+	sourceKey?: string | null;   // SSH MCP 同步来源键（项目/环境/主机），有值=已纳管
 	loading?: boolean | null;
 };
 

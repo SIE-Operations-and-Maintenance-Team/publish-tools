@@ -122,6 +122,25 @@ async function ensureSchema(database: Database) {
         await database.execute("ALTER TABLE t_app_config ADD COLUMN build_mode TEXT DEFAULT 'Debug'");
     }
 
+    // t_server 加 SSH MCP 同步来源键（项目/环境/主机），有值 = 已纳管由远端管理，NULL = 本地自建
+    const serverColumns = await database.select<{ name: string }[]>("PRAGMA table_info(t_server)");
+    if (!serverColumns.some((column) => column.name === "source_key")) {
+        await database.execute("ALTER TABLE t_server ADD COLUMN source_key TEXT");
+    }
+    // 部分唯一索引：纳管行的 source_key 唯一（NULL 不受限制，本地自建行可多行为 NULL）
+    await database.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_t_server_source_key ON t_server(source_key) WHERE source_key IS NOT NULL"
+    );
+
+    // t_settings 加 SSH MCP 同步设置（API 地址 + 启动时自动同步开关）
+    const syncSettingsColumns = await database.select<{ name: string }[]>("PRAGMA table_info(t_settings)");
+    if (!syncSettingsColumns.some((column) => column.name === "ssh_mcp_url")) {
+        await database.execute("ALTER TABLE t_settings ADD COLUMN ssh_mcp_url TEXT DEFAULT 'http://127.0.0.1:61823'");
+    }
+    if (!syncSettingsColumns.some((column) => column.name === "ssh_mcp_auto_sync")) {
+        await database.execute("ALTER TABLE t_settings ADD COLUMN ssh_mcp_auto_sync INTEGER DEFAULT 0");
+    }
+
     // ========== 改列（服务重试列名由 stop_retry 统一为 retry，老库存在旧列则逐列重命名） ==========
     // 注：Rust 端 migration 未在 main.rs 注册（死代码），实际建表/改列均由本函数承担
     const settingsColumns = await database.select<{ name: string }[]>("PRAGMA table_info(t_settings)");

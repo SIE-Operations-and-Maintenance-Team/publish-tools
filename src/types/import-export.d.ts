@@ -45,6 +45,7 @@ declare type ExportServer = {
 	account: string;
 	pwd: string;
 	description: string | null;
+	sourceKey?: string | null;   // SSH MCP 同步来源键（v2 可选，旧导出文件无此字段，导入后视为本地自建）
 };
 
 /** 导出 TFS 配置字段（不含 id，oldTfsId 用于导入时重映射） */

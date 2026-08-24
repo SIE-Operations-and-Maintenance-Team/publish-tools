@@ -47,6 +47,17 @@
           <el-tag :type="mcpStatusTagType">{{ $t(mcpStatusI18nKey) }}</el-tag>
         </el-form-item>
 
+        <!-- SSH MCP 配置同步 -->
+        <el-divider content-position="left">{{ $t('message.settings.sshMcp') }}</el-divider>
+        <el-form-item :label="$t('message.settings.sshMcpUrl')">
+          <el-input v-model="form.sshMcpUrl" placeholder="http://127.0.0.1:61823" style="width: 320px" />
+          <span class="settings-tip">{{ $t('message.settings.sshMcpUrlTip') }}</span>
+        </el-form-item>
+        <el-form-item :label="$t('message.settings.sshMcpAutoSync')">
+          <el-switch v-model="form.sshMcpAutoSync" :active-value="1" :inactive-value="0" />
+          <span class="settings-tip">{{ $t('message.settings.sshMcpAutoSyncTip') }}</span>
+        </el-form-item>
+
         <el-form-item>
           <el-button type="primary" :loading="saving" @click="onSave">{{ $t('message.settings.save') }}</el-button>
         </el-form-item>

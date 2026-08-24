@@ -86,12 +86,9 @@ pub fn query_projects(conn: &Connection, keyword: Option<&str>) -> Result<Vec<Va
     rows_to_json(conn, &sql, &param_refs)
 }
 
-/// 查询服务器列表（t_server）
-pub fn query_servers(
-    conn: &Connection,
-    project_id: Option<i64>,
-    name: Option<&str>,
-) -> Result<Vec<Value>, String> {
+/// server_list 工具已在 handler.rs 注释停用（服务器相关接口收归 ssh-mcp-server），保留实现便于恢复
+#[allow(dead_code)]
+pub fn query_servers(conn: &Connection, project_id: Option<i64>, name: Option<&str>) -> Result<Vec<Value>, String> {
     let mut conditions = Vec::new();
     let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
     if let Some(pid) = project_id {

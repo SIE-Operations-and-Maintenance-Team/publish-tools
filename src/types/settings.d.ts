@@ -6,5 +6,7 @@ declare interface RowSettingsType {
 	winServiceRetryInterval: number;  // 秒
 	winCopyRetryCount: number;
 	winCopyRetryInterval: number;         // 秒
+	sshMcpUrl: string;                    // SSH MCP 管理服务 API 地址
+	sshMcpAutoSync: number;               // 0 关 / 1 开，启动时自动下行同步
 	updateTime?: string;
 }

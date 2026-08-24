@@ -64,6 +64,9 @@
         <el-button size="default" type="warning" :loading="discoveryScanning" @click="onScanRemote">
           {{ $t('message.discovery.scanRemote') }}
         </el-button>
+        <el-button size="default" type="primary" plain @click="onSyncFromSshMcp">
+          从 SSH MCP 同步
+        </el-button>
       </template>
       <el-table
         :data="state.tableData.data"
@@ -231,6 +234,8 @@ import { useProjectDb } from "@/database/project/index";
 import { useServerDb } from "@/database/servers/index";
 import { displayOs } from "@/utils/other";
 import { useServiceDiscovery } from "@/composables/useServiceDiscovery";
+import { syncServersFromSshMcp, getUnmanagedServerCount, type SshMcpSyncResult } from "@/database/servers/sshMcpSync";
+import { loadPublishSettings } from "@/utils/publishSettings";
 
 // 引入服务器数据库
 const serverDb = useServerDb();
@@ -566,6 +571,102 @@ const onHandleCurrentChange = async (val: number) => {
 // 打开SSH安装
 const onOpenSSH = () => {
   router.push({ path: "/sshInstall" });
+};
+
+// ============ SSH MCP 同步 ============
+const escapeHtml = (text: string): string =>
+  text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+// 组装同步结果弹窗内容（分类计数 + 明细）
+const buildSyncResultHtml = (r: SshMcpSyncResult): string => {
+  const parts: string[] = [];
+  const line = (label: string, names: string[]) =>
+    `${label} ${names.length} 台${names.length > 0 ? `：${names.map(escapeHtml).join("、")}` : ""}`;
+  parts.push(line("新增", r.added));
+  parts.push(line("更新", r.updated));
+  if (r.adopted.length > 0) parts.push(line("关联本地同机服务器并纳管", r.adopted));
+  if (r.uploaded.length > 0) parts.push(line("已上传到 SSH MCP", r.uploaded));
+  if (r.projectsCreated.length > 0) parts.push(`新建本地项目：${r.projectsCreated.map(escapeHtml).join("、")}`);
+  const skips = [...r.skipped, ...r.uploadSkipped, ...r.conflicts].map(
+    (s) => `${escapeHtml(s.name)}：${escapeHtml(s.reason)}`
+  );
+  if (skips.length > 0) parts.push(`<b>跳过 ${skips.length} 项：</b><br/>&nbsp;&nbsp;${skips.join("<br/>&nbsp;&nbsp;")}`);
+  if (r.orphans.length > 0)
+    parts.push(`<b>远端已移除 ${r.orphans.length} 台（本地保留，可手动删除）：</b>${r.orphans.map(escapeHtml).join("、")}`);
+  return parts.join("<br/>");
+};
+
+// 从 SSH MCP 同步（可选同时上传本地未纳管服务器，用于存量迁移）
+const onSyncFromSshMcp = async () => {
+  const settings = await loadPublishSettings();
+  const baseUrl = settings.sshMcpUrl;
+  let uploadUnmanaged = false;
+  let unmanagedCount = 0;
+  try {
+    unmanagedCount = await getUnmanagedServerCount();
+  } catch (e) {
+    console.warn("统计未纳管服务器失败:", e);
+  }
+
+  if (unmanagedCount > 0) {
+    try {
+      await ElMessageBox.confirm(
+        `检测到 <b>${unmanagedCount}</b> 台本地服务器未纳入 SSH MCP 管理，是否在同步时一并上传（首次迁移推荐）？<br/><br/>` +
+          `上传位置：SSH MCP 对应项目下的「导入」环境，上传成功后这些服务器改由 SSH MCP 统一管理。<br/><br/>` +
+          `同步规则：已纳管服务器将被 SSH MCP 侧配置覆盖（IP/端口/账户/密码/描述）；本地自建且未上传的服务器不受影响；远端已删除的仅在结果中提示，不删本地。`,
+        "从 SSH MCP 同步",
+        {
+          confirmButtonText: "上传并同步",
+          cancelButtonText: "仅同步",
+          distinguishCancelAndClose: true,
+          dangerouslyUseHTMLString: true,
+          type: "info",
+        }
+      );
+      uploadUnmanaged = true;
+    } catch (action) {
+      if (action === "close") return; // 点 X 完全取消；「仅同步」继续走下行
+      uploadUnmanaged = false;
+    }
+  } else {
+    try {
+      await ElMessageBox.confirm(
+        `将从 SSH MCP（${escapeHtml(baseUrl)}）同步服务器配置到本地。<br/>已纳管服务器会被 SSH MCP 侧配置覆盖（IP/端口/账户/密码/描述），本地自建服务器不受影响。`,
+        "从 SSH MCP 同步",
+        {
+          confirmButtonText: "开始同步",
+          cancelButtonText: "取消",
+          dangerouslyUseHTMLString: true,
+          type: "info",
+        }
+      );
+    } catch {
+      return;
+    }
+  }
+
+  const loading = ElLoading.service({
+    lock: true,
+    text: "正在同步，请稍等...",
+    background: "rgba(0, 0, 0, 0)",
+  });
+  let result: SshMcpSyncResult;
+  try {
+    result = await syncServersFromSshMcp(baseUrl, { uploadUnmanaged });
+  } finally {
+    loading.close();
+  }
+
+  if (!result.ok) {
+    ElMessage.error(result.message);
+    return;
+  }
+  await getTableData();
+  await getProjectList(); // 同步可能新建了本地项目
+  ElMessageBox.alert(buildSyncResultHtml(result), "同步结果", {
+    confirmButtonText: "知道了",
+    dangerouslyUseHTMLString: true,
+  });
 };
 
 // 打开新增项目弹窗
