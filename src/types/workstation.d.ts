@@ -4,6 +4,8 @@ declare type WorkstationDraft = {
   gitId: number | null;
   serverIds: number[];
   appconfigDraft: Partial<RowAppconfigType> & { publishMode: number };
+  // 应用配置步骤未校验的表单快照（防手滑离开后丢失），仅同项目有效
+  appconfigFormCache?: any;
   publishOptions: { isBackup: number; isNewVersion: boolean | null; backupBasePath?: string };
   notes?: string;
 };

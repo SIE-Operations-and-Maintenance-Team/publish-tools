@@ -89,9 +89,16 @@ const loadProjects = async () => {
 };
 
 const onChange = (val: number | null) => {
+  const changed = val !== (store.draft.projectId as number | null);
   selectedId.value = val as number | null;
   // 即时持久化，满足“on success persist to store.draft”
   store.draft.projectId = val as number | null;
+  if (changed) {
+    // 换项目后旧项目的应用配置草稿/表单缓存/服务器不再适用，清空防止误存到旧配置行
+    (store.draft as any).appconfigDraft = {};
+    (store.draft as any).appconfigFormCache = null;
+    store.draft.serverIds = [];
+  }
   store.persist();
 };
 

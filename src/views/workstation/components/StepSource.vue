@@ -79,7 +79,7 @@
       type="info"
       :closable="false"
       show-icon
-      title="Git / TFS 至少选择其一"
+      title="此步非必选：如无 Git/TFS 可直接点“下一步” — 将按“全部/DLL名称/日期”等其他模式发布"
       style="margin-top: 10px"
     />
     <el-alert
@@ -100,7 +100,6 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, defineAsyncComponent, watch } from "vue";
-import { ElMessage } from "element-plus";
 import { useGitDb } from "@/database/git/index";
 import { useTfsDb } from "@/database/teamFoundationServer/index";
 import { useWorkstationStore } from "@/stores/workstation";
@@ -168,10 +167,7 @@ const onOpenGitNew = () => gitDialogRef.value?.openDialog("add", null);
 const onOpenTfsNew = () => tfsDialogRef.value?.openDialog("add", null);
 
 const validate = (): boolean => {
-  if (!selectedGitId.value && !selectedTfsId.value) {
-    ElMessage.warning("请选择 Git 或 TFS 作为代码源（至少其一）");
-    return false;
-  }
+  // 代码源可跳过：无 Git/TFS 时按其他 dllMode 发布，不再强阻塞
   persist();
   return true;
 };

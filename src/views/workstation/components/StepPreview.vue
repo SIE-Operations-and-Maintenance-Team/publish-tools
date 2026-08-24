@@ -48,29 +48,8 @@
     </el-descriptions>
 
     <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap">
-      <el-button
-        size="small"
-        :disabled="!canPrecheck"
-        :loading="prechecking"
-        @click="onPrecheck"
-        >预检（dry-run）</el-button
-      >
-      <el-button
-        size="small"
-        type="primary"
-        :disabled="!store.canPublish"
-        :loading="publishing"
-        @click="onPublish"
-        >发布</el-button
-      >
-      <span
-        v-if="!store.canPublish"
-        style="
-          font-size: 12px;
-          color: var(--el-text-color-secondary);
-          align-self: center;
-        "
-        >请先完成必选步骤</span
+      <span style="font-size: 12px; color: var(--el-text-color-secondary)"
+        >请使用底部预检/发布按钮进行操作</span
       >
     </div>
 
@@ -173,13 +152,6 @@ const sourceLabel = computed(() => {
   }
   return parts.join(" + ");
 });
-const canPrecheck = computed(
-  () =>
-    store.canPublish &&
-    hasAppconfig.value &&
-    !prechecking.value &&
-    !publishing.value
-);
 
 // 日志：带时间戳、自动滚动、上限 500 条
 const pushLog = (text: string, type = "log-info") => {
