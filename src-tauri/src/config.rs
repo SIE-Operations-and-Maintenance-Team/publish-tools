@@ -15,9 +15,16 @@ pub fn set_mcp_status(status: &str) {
 
 /// 获取 MCP 运行状态（默认返回 "unknown"）
 pub fn get_mcp_status() -> String {
-    MCP_STATUS.lock().map(|s| {
-        if s.is_empty() { "unknown".to_string() } else { s.clone() }
-    }).unwrap_or_default()
+    MCP_STATUS
+        .lock()
+        .map(|s| {
+            if s.is_empty() {
+                "unknown".to_string()
+            } else {
+                s.clone()
+            }
+        })
+        .unwrap_or_default()
 }
 
 /// MCP 运行时配置（存储在 config.json）
@@ -50,13 +57,11 @@ impl Default for McpConfig {
 }
 
 /// 应用配置（包含 MCP 配置）
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AppConfig {
     #[serde(default)]
     pub mcp: McpConfig,
 }
-
 
 /// 获取 config.json 文件路径
 fn config_path(app_handle: &tauri::AppHandle) -> PathBuf {
@@ -93,12 +98,10 @@ fn save_inner(path: &PathBuf, config: &AppConfig) -> Result<(), String> {
         std::fs::create_dir_all(parent).map_err(|e| format!("创建配置目录失败: {}", e))?;
     }
     let tmp_path = path.with_extension("json.tmp");
-    let json = serde_json::to_string_pretty(config)
-        .map_err(|e| format!("序列化配置失败: {}", e))?;
-    std::fs::write(&tmp_path, &json)
-        .map_err(|e| format!("写入临时配置文件失败: {}", e))?;
-    std::fs::rename(&tmp_path, path)
-        .map_err(|e| format!("重命名配置文件失败: {}", e))?;
+    let json =
+        serde_json::to_string_pretty(config).map_err(|e| format!("序列化配置失败: {}", e))?;
+    std::fs::write(&tmp_path, &json).map_err(|e| format!("写入临时配置文件失败: {}", e))?;
+    std::fs::rename(&tmp_path, path).map_err(|e| format!("重命名配置文件失败: {}", e))?;
     Ok(())
 }
 

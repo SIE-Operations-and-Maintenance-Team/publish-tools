@@ -75,6 +75,13 @@
       <svg-icon name="smom-icon smom-icon-database" />
     </div>
     <div
+      class="layout-navbars-breadcrumb-user-icon"
+      title="新手指引"
+      @click="onOpenOnboarding"
+    >
+      <el-icon><QuestionFilled /></el-icon>
+    </div>
+    <div
       v-show="showScreenfull"
       class="layout-navbars-breadcrumb-user-icon"
       @click="onScreenfullClick"
@@ -122,7 +129,8 @@
 
 <script setup lang="ts" name="layoutBreadcrumbUser">
 import { defineAsyncComponent, ref, computed, reactive, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
+import { QuestionFilled } from "@element-plus/icons-vue";
 // import { exit } from "@tauri-apps/api/process";
 import { ElMessageBox, ElMessage } from "element-plus";
 import screenfull from "screenfull";
@@ -144,6 +152,7 @@ const SvgIcon = defineAsyncComponent(() => import("@/components/svgIcon/index.vu
 const showScreenfull = ref(false);
 const { locale, t } = useI18n();
 const router = useRouter();
+const route = useRoute();
 const storesThemeConfig = useThemeConfig();
 const { themeConfig } = storeToRefs(storesThemeConfig);
 const searchRef = ref();
@@ -233,6 +242,18 @@ const onHandleCommandClick = (path: string) => {
 // 菜单搜索点击
 const onSearchClick = () => {
   searchRef.value.openSearch();
+};
+// 新手指引点击
+const onOpenOnboarding = () => {
+  if (route.path !== "/workstation") {
+    router.push("/workstation").then(() => {
+      mittBus.emit("openOnboarding");
+      // 兜底：工作台为 keep-alive，首启时监听可能晚于 emit，补一次延迟触发
+      setTimeout(() => mittBus.emit("openOnboarding"), 120);
+    });
+    return;
+  }
+  mittBus.emit("openOnboarding");
 };
 // 组件大小改变
 const onComponentSizeChange = (size: string) => {

@@ -28,6 +28,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tokio",
  "walkdir",
+ "windows",
  "winreg 0.7.0",
  "xml-doc",
  "zip 0.5.13",

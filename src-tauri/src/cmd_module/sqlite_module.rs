@@ -104,6 +104,13 @@ pub fn db_migration() -> Vec<Migration> {
         update_time TEXT
     );";
 
+    let t_discovery_prefix = "CREATE TABLE IF NOT EXISTS t_discovery_prefix (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    prefix TEXT UNIQUE NOT NULL,
+    enabled INTEGER DEFAULT 1,
+    is_default INTEGER DEFAULT 0
+);";
+
     let migrations = vec![
         // 数据迁移
         Migration {
@@ -160,6 +167,7 @@ pub fn db_migration() -> Vec<Migration> {
             sql: t_settings,
             kind: MigrationKind::Up,
         },
+        Migration { version: 10, description: "创建服务发现前缀表[t_discovery_prefix].", sql: t_discovery_prefix, kind: MigrationKind::Up, },
     ];
     migrations
 }

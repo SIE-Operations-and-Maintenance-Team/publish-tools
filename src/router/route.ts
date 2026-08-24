@@ -41,11 +41,27 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 		path: '/',
 		name: '/',
 		component: () => import('@/layout/index.vue'),
-		redirect: '/home',
+		redirect: '/workstation',
 		meta: {
 			isKeepAlive: true
 		},
 		children: [
+			{
+				path: '/workstation',
+				name: 'workstation',
+				component: () => import('@/views/workstation/index.vue'),
+				meta: {
+					title: 'message.router.workstation',
+					isLink: '',
+					isHide: false,
+					isKeepAlive: true,
+					isAffix: true,
+					isIframe: false,
+					icon: 'smom-icon smom-icon-pingtai'
+				},
+				redirect: "",
+				children: []
+			},
 			{
 				path: '/home',
 				name: 'home',
@@ -55,7 +71,7 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 					isLink: '',
 					isHide: false,
 					isKeepAlive: true,
-					isAffix: true,
+					isAffix: false,
 					isIframe: false,
 					icon: 'smom-icon smom-icon-fabu'
 				},

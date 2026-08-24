@@ -36,7 +36,10 @@ fn notify_change() {
 
 /// 启动 serve 任务；任务结束后（无论成败）触发一次信号，
 /// 让管理循环及时感知并广播最终状态（error/stopped），避免状态停留在 unknown。
-fn spawn_serve_task(app_handle: &tauri::AppHandle, port: u16) -> tokio::task::JoinHandle<Result<(), String>> {
+fn spawn_serve_task(
+    app_handle: &tauri::AppHandle,
+    port: u16,
+) -> tokio::task::JoinHandle<Result<(), String>> {
     let handle = app_handle.clone();
     tokio::spawn(async move {
         let result = serve(handle, port).await;
@@ -122,14 +125,21 @@ async fn manager_loop(app_handle: tauri::AppHandle, mut rx: watch::Receiver<bool
     if let Some((task, port)) = running.take() {
         task.abort();
         config::set_mcp_status("stopped");
-        let _ = app_handle.emit("mcp-status", serde_json::json!({ "status": "stopped", "port": port }));
+        let _ = app_handle.emit(
+            "mcp-status",
+            serde_json::json!({ "status": "stopped", "port": port }),
+        );
     }
 }
 
 /// 应用启动时初始化：根据配置启动管理循环（不阻塞，立即返回）
 pub fn init(app_handle: &tauri::AppHandle) {
     let cfg = config::load(app_handle);
-    config::set_mcp_status(if cfg.mcp.mcp_enabled { "unknown" } else { "disabled" });
+    config::set_mcp_status(if cfg.mcp.mcp_enabled {
+        "unknown"
+    } else {
+        "disabled"
+    });
     let (sender, receiver) = watch::channel(true);
     set_sender(sender);
     let handle = app_handle.clone();

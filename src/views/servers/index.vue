@@ -58,6 +58,12 @@
             <QuestionFilled />
           </el-icon>
         </el-button>
+        <el-button size="default" type="primary" :loading="discoveryScanning" @click="onScanLocal">
+          {{ $t('message.discovery.scanLocal') }}
+        </el-button>
+        <el-button size="default" type="warning" :loading="discoveryScanning" @click="onScanRemote">
+          {{ $t('message.discovery.scanRemote') }}
+        </el-button>
       </template>
       <el-table
         :data="state.tableData.data"
@@ -124,11 +130,98 @@
       </el-pagination>
     </el-card>
     <server-dialog ref="serverDialogRef" @refresh="getTableData()" />
+
+    <!-- 服务发现结果抽屉 -->
+    <el-drawer
+      v-model="discoveryDrawerVisible"
+      :title="discoveryDrawerTitle"
+      direction="rtl"
+      size="520px"
+      :close-on-click-modal="false"
+    >
+      <div v-loading="discoveryScanning">
+        <el-alert
+          v-if="discoveryError"
+          :title="discoveryError"
+          type="error"
+          show-icon
+          :closable="false"
+          style="margin-bottom: 12px"
+        />
+        <!-- 远端服务器选择（仅远端模式且有服务器时展示） -->
+        <div v-if="currentScanMode === 'remote' && state.tableData.data.length > 0" style="margin-bottom: 12px">
+          <el-select
+            v-model="selectedRemoteServerId"
+            placeholder="请选择要扫描的远端服务器"
+            size="small"
+            style="width: 100%"
+            @change="onScanRemote"
+          >
+            <el-option
+              v-for="srv in state.tableData.data"
+              :key="srv.id"
+              :label="`${srv.name} (${srv.ip})`"
+              :value="srv.id"
+            />
+          </el-select>
+        </div>
+
+        <template v-if="!discoveryScanning && discoveryResults.length === 0">
+          <el-empty :description="$t('message.discovery.noResult')" />
+          <div style="text-align: center; margin-top: 8px">
+            <el-button type="primary" size="small" @click="onGoSettings">
+              {{ $t('message.discovery.goSetting') }}
+            </el-button>
+          </div>
+        </template>
+
+        <div v-else class="discovery-cards">
+          <el-card
+            v-for="(item, idx) in discoveryResults"
+            :key="`${item.serviceName}-${idx}`"
+            shadow="never"
+            style="margin-bottom: 10px"
+          >
+            <div style="display: flex; align-items: flex-start; gap: 8px">
+              <el-checkbox
+                :model-value="isDiscoverySelected(idx)"
+                @change="(val: boolean) => toggleDiscoverySelected(idx, val)"
+              />
+              <div style="flex: 1; min-width: 0">
+                <div style="font-weight: 600; word-break: break-all">{{ item.serviceName }}</div>
+                <div v-if="item.displayName && item.displayName !== item.serviceName" style="font-size: 12px; color: var(--el-text-color-secondary)">{{ item.displayName }}</div>
+                <div style="margin-top: 6px; font-size: 12px">
+                  <span style="color: var(--el-text-color-secondary)">{{ $t('message.discovery.suggestedPath') }}：</span>
+                  <span v-if="item.suggestedPublishPath" style="word-break: break-all">{{ item.suggestedPublishPath }}</span>
+                  <span v-else style="word-break: break-all">{{ item.rawPath || '—' }}</span>
+                  <el-tag v-if="!item.suggestedPublishPath" type="warning" size="small" style="margin-left: 6px">容器未挂载宿主机目录，请手动填写</el-tag>
+                </div>
+                <div style="margin-top: 4px">
+                  <el-tag size="small" :type="item.source === 'docker' ? 'success' : 'info'">{{ item.source }}</el-tag>
+                  <span v-if="item.image" style="margin-left: 6px; font-size: 12px; color: var(--el-text-color-secondary); word-break: break-all">{{ item.image }}</span>
+                </div>
+              </div>
+            </div>
+          </el-card>
+        </div>
+      </div>
+      <template #footer>
+        <div style="display: flex; justify-content: space-between; align-items: center">
+          <span style="font-size: 12px; color: var(--el-text-color-secondary)">已选 {{ selectedDiscoveryKeys.length }} 项</span>
+          <div>
+            <el-button @click="discoveryDrawerVisible = false">关闭</el-button>
+            <el-button type="primary" :disabled="selectedDiscoveryKeys.length === 0" :loading="importing" @click="onConfirmImport">
+              {{ $t('message.discovery.confirmImport') }}
+            </el-button>
+          </div>
+        </div>
+      </template>
+    </el-drawer>
   </div>
 </template>
 
 <script setup lang="ts" name="server">
-import { ref, reactive, onBeforeMount, onMounted, defineAsyncComponent } from "vue";
+import { ref, reactive, onBeforeMount, onMounted, defineAsyncComponent, computed } from "vue";
 import { useRouter } from "vue-router";
 import { cmdInvoke } from "@/utils/command";
 import { ElMessage, ElMessageBox, ElLoading } from "element-plus";
@@ -137,6 +230,7 @@ import _ from "lodash";
 import { useProjectDb } from "@/database/project/index";
 import { useServerDb } from "@/database/servers/index";
 import { displayOs } from "@/utils/other";
+import { useServiceDiscovery } from "@/composables/useServiceDiscovery";
 
 // 引入服务器数据库
 const serverDb = useServerDb();
@@ -167,6 +261,142 @@ const state = reactive<ServerState>({
     },
   },
 });
+
+// 服务发现
+const {
+  scanning: discoveryScanning,
+  results: discoveryResults,
+  error: discoveryError,
+  loadPrefixes: loadDiscoveryPrefixes,
+  scanLocal: doScanLocal,
+  scanRemote: doScanRemote,
+} = useServiceDiscovery();
+const currentScanMode = ref<'local' | 'remote'>('local');
+const discoveryDrawerVisible = ref(false);
+const discoveryDrawerTitle = computed(() => (currentScanMode.value === 'remote' ? '远端发现结果' : '本机发现结果'));
+const selectedDiscoveryKeys = ref<number[]>([]);
+const selectedRemoteServerId = ref<number | null>(null);
+const importing = ref(false);
+
+const isDiscoverySelected = (idx: number) => selectedDiscoveryKeys.value.includes(idx);
+const toggleDiscoverySelected = (idx: number, val: boolean) => {
+  if (val) {
+    if (!selectedDiscoveryKeys.value.includes(idx)) selectedDiscoveryKeys.value.push(idx);
+  } else {
+    selectedDiscoveryKeys.value = selectedDiscoveryKeys.value.filter((v) => v !== idx);
+  }
+};
+
+const onGoSettings = () => {
+  discoveryDrawerVisible.value = false;
+  router.push({ path: "/settings" });
+};
+
+const onScanLocal = async () => {
+  currentScanMode.value = 'local';
+  selectedDiscoveryKeys.value = [];
+  discoveryDrawerVisible.value = true;
+  await loadDiscoveryPrefixes();
+  await doScanLocal();
+};
+
+const onScanRemote = async () => {
+  currentScanMode.value = 'remote';
+  // 若已在抽屉内切换服务器，仅重扫
+  if (selectedRemoteServerId.value == null && state.tableData.data.length === 1) {
+    selectedRemoteServerId.value = state.tableData.data[0].id as number;
+  }
+  if (state.tableData.data.length === 0) {
+    ElMessage.warning("暂无服务器，请先新增服务器");
+    return;
+  }
+  let target: RowServerType | undefined;
+  if (selectedRemoteServerId.value != null) {
+    target = state.tableData.data.find((s) => s.id === selectedRemoteServerId.value);
+  }
+  if (!target) {
+    // 首次点击且多台服务器时：打开抽屉让用户选择
+    selectedDiscoveryKeys.value = [];
+    discoveryResults.value = [];
+    discoveryError.value = null;
+    discoveryDrawerVisible.value = true;
+    await loadDiscoveryPrefixes();
+    return;
+  }
+  selectedDiscoveryKeys.value = [];
+  discoveryDrawerVisible.value = true;
+  await loadDiscoveryPrefixes();
+  await doScanRemote({ ip: `${target.ip}:${target.port}`, account: target.account, pwd: target.pwd });
+};
+
+const onConfirmImport = async () => {
+  if (selectedDiscoveryKeys.value.length === 0) {
+    ElMessage.warning("请先勾选要导入的服务");
+    return;
+  }
+  importing.value = true;
+  let success = 0;
+  const failedItems: string[] = [];
+  const failMessages: string[] = [];
+  for (const idx of selectedDiscoveryKeys.value) {
+    const item = discoveryResults.value[idx];
+    if (!item) continue;
+    // description 附 suggestedPublishPath，真实发布路径由工作台写入 t_app_config.config_items_json
+    const desc = item.suggestedPublishPath ? `建议发布目录: ${item.suggestedPublishPath}` : `WorkingDir: ${item.rawPath || ''}（容器未挂载宿主机目录，请手动填写）`;
+    const row: RowServerType = {
+      id: null,
+      projectId: state.tableData.param.projectId ?? projectList.value?.[0]?.id ?? null,
+      projectName: null,
+      name: item.serviceName,
+      os: item.source === 'docker' ? 2 : 1,
+      ip: "",
+      port: 22,
+      account: "",
+      pwd: "",
+      description: desc,
+    } as RowServerType;
+    const r = await serverDb.insertServer(row);
+    if (r.code === 0) success++;
+    else {
+      failedItems.push(item.serviceName);
+      failMessages.push(r.msg || "导入失败");
+    }
+  }
+  importing.value = false;
+  const distinctMsgs = [...new Set(failMessages)];
+  const failSummary = distinctMsgs.join("；");
+  if (success > 0 && failedItems.length === 0) {
+    ElMessage.success(`已导入 ${success} 条`);
+    discoveryDrawerVisible.value = false;
+    selectedDiscoveryKeys.value = [];
+    await getTableData();
+    try {
+      await ElMessageBox.confirm(
+        `已导入 ${success} 条服务器，IP/账号/端口为空，暂不可连接。请在列表中编辑补录连接信息后再测试连接。`,
+        "导入完成",
+        { confirmButtonText: "知道了", cancelButtonText: "关闭", type: "warning", distinguishCancelAndClose: true }
+      );
+    } catch {
+      // 用户关闭弹窗，无需处理
+    }
+  } else if (success > 0 && failedItems.length > 0) {
+    ElMessage.warning(`已导入 ${success} 条，失败 ${failedItems.length} 条：${failedItems.join("、")}（${failSummary}）`);
+    discoveryDrawerVisible.value = false;
+    selectedDiscoveryKeys.value = [];
+    await getTableData();
+    try {
+      await ElMessageBox.confirm(
+        `已导入 ${success} 条，另有 ${failedItems.length} 条失败（${failedItems.join("、")}）。成功导入的服务器 IP/账号仍为空，请编辑补录后再测试连接。`,
+        "部分导入成功",
+        { confirmButtonText: "知道了", cancelButtonText: "关闭", type: "warning", distinguishCancelAndClose: true }
+      );
+    } catch {
+      // 用户关闭弹窗，无需处理
+    }
+  } else if (failedItems.length > 0) {
+    ElMessage.error(`导入失败 ${failedItems.length} 条：${failedItems.join("、")}（${failSummary}）`);
+  }
+};
 
 // 测试连接
 const onTestConnect = async (row: RowServerType) => {

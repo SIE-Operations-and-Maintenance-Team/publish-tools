@@ -133,9 +133,7 @@ async fn remote_command(
 
     // 在锁内完成 channel 全生命周期，避免 libssh2 同会话并发使用
     let channel_outcome: Result<(i32, String, String), String> = (|| {
-        let mut entry = shared
-            .lock()
-            .map_err(|_| "SSH 会话锁中毒".to_string())?;
+        let mut entry = shared.lock().map_err(|_| "SSH 会话锁中毒".to_string())?;
 
         let (exit_status, stdout, stderr) = {
             let mut channel = entry
@@ -416,7 +414,9 @@ fn find_directory_opus_rt() -> Option<PathBuf> {
     for root in [HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER] {
         for sam in sam_flags {
             let predef = RegKey::predef(root);
-            if let Ok(key) = predef.open_subkey_with_flags(r"SOFTWARE\GPSoftware\Directory Opus", sam) {
+            if let Ok(key) =
+                predef.open_subkey_with_flags(r"SOFTWARE\GPSoftware\Directory Opus", sam)
+            {
                 if let Ok(dir) = key.get_value::<String, _>("InstallDirectory") {
                     candidates.push(PathBuf::from(dir));
                 }
@@ -500,7 +500,10 @@ pub async fn open_dir(path: &str) -> Result<bool, String> {
     let path_string = if let Some(rest) = path_str.strip_prefix(r"\\?\UNC\") {
         format!(r"\\{rest}")
     } else {
-        path_str.strip_prefix(r"\\?\").unwrap_or(path_str).to_string()
+        path_str
+            .strip_prefix(r"\\?\")
+            .unwrap_or(path_str)
+            .to_string()
     };
     let path_str = path_string.as_str();
 
@@ -511,10 +514,11 @@ pub async fn open_dir(path: &str) -> Result<bool, String> {
     let result = match os_type {
         "windows" => {
             // 优先 Directory Opus：dopusrt.exe /acmd 会在 DOpus 未运行时先拉起主程序，
-            // 再执行 Go 命令按用户自身的列表器设置打开目录
+            // 再执行 Go 命令；NEWTAB=tofront 在最近活动窗口新开标签（不覆盖用户当前
+            // 浏览的目录），并把窗口恢复/置前，保证打开结果对用户可见
             match find_directory_opus_rt() {
                 Some(rt) => match Command::new(&rt)
-                    .args(["/acmd", "Go", path_str])
+                    .args(["/acmd", "Go", path_str, "NEWTAB=tofront"])
                     .creation_flags(0x08000000) // CREATE_NO_WINDOW
                     .spawn()
                 {
@@ -584,7 +588,13 @@ pub async fn copy_path(
             let source_path = entry_path.to_str().ok_or("源路径无效")?;
             let destination_path_tmp = destination.join(entry_name);
             let destination_path = destination_path_tmp.to_str().ok_or("目标路径无效")?;
-            Box::pin(copy_path(source_path, destination_path, retry_count, retry_interval_secs)).await?;
+            Box::pin(copy_path(
+                source_path,
+                destination_path,
+                retry_count,
+                retry_interval_secs,
+            ))
+            .await?;
         }
         return Ok(true);
     }
@@ -615,7 +625,10 @@ pub async fn copy_path(
             }
         }
     }
-    Err(format!("复制失败（尝试 {} 次）：{}", max_attempts, last_err))
+    Err(format!(
+        "复制失败（尝试 {} 次）：{}",
+        max_attempts, last_err
+    ))
 }
 
 /// 复制路径(时间段内)文件
@@ -1024,9 +1037,7 @@ async fn exec_download_server_files(
     let shared = ssh_pool::get_session(username, password, server)?;
 
     let outcome: Result<bool, String> = (|| {
-        let mut entry = shared
-            .lock()
-            .map_err(|_| "SSH 会话锁中毒".to_string())?;
+        let mut entry = shared.lock().map_err(|_| "SSH 会话锁中毒".to_string())?;
 
         let sftp = entry
             .session
@@ -1108,9 +1119,10 @@ fn download_server_file(remote_path: &Path, local_path: &Path, sftp: &ssh2::Sftp
             if let Ok(mut local_file) = File::create(local_path) {
                 let mut buffer = Vec::new();
                 if remote_file.read_to_end(&mut buffer).is_ok()
-                    && local_file.write_all(&buffer).is_ok() {
-                        return true;
-                    }
+                    && local_file.write_all(&buffer).is_ok()
+                {
+                    return true;
+                }
             }
         }
         Err(e) => {
@@ -1193,9 +1205,7 @@ async fn exec_upload_server_files(
     let shared = ssh_pool::get_session(username, password, server)?;
 
     let outcome: Result<bool, String> = (|| {
-        let mut entry = shared
-            .lock()
-            .map_err(|_| "SSH 会话锁中毒".to_string())?;
+        let mut entry = shared.lock().map_err(|_| "SSH 会话锁中毒".to_string())?;
 
         let sftp = entry
             .session
@@ -1907,7 +1917,9 @@ pub async fn read_dlls_by_name(dir: &str, patterns: &str) -> Result<Vec<String>,
     }
 
     let mut dll_files = Vec::new();
-    for entry in fs::read_dir(src_dir).map_err(|e| format!("无法读取源目录 {:?}: {}", src_dir, e))? {
+    for entry in
+        fs::read_dir(src_dir).map_err(|e| format!("无法读取源目录 {:?}: {}", src_dir, e))?
+    {
         let entry = entry.map_err(|e| format!("读取目录项失败: {}", e))?;
         let path = entry.path();
         if !path.is_file() {

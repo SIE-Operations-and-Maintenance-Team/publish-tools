@@ -72,13 +72,10 @@ pub async fn upgrade_module_version(file_path: &str, module_name: &str) -> Resul
             }
             Ok(Event::Text(e)) => {
                 if in_name {
-                    current_module_name = std::str::from_utf8(&e)
-                        .unwrap_or("")
-                        .to_string();
+                    current_module_name = std::str::from_utf8(&e).unwrap_or("").to_string();
                     writer.write_event(Event::Text(e)).unwrap();
                 } else if in_version && should_modify {
-                    let version_str =
-                        std::str::from_utf8(&e).unwrap_or("").to_string();
+                    let version_str = std::str::from_utf8(&e).unwrap_or("").to_string();
                     if version_str.is_empty() {
                         writer.write_event(Event::Text(e)).unwrap();
                     } else {
