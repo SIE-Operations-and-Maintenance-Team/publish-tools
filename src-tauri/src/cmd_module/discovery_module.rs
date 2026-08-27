@@ -69,7 +69,7 @@ pub fn extract_real_path(path_name: &str) -> String {
         return "".into();
     }
     // 4) 取 parent 目录 — 分隔符无关（同时处理 / 与 \），避免 Linux 宿主上 Path::parent 对 Windows 路径失效
-    if let Some(idx) = exe_path.rfind(|c| c == '/' || c == '\\') {
+    if let Some(idx) = exe_path.rfind(['/', '\\']) {
         return exe_path[..idx].to_string();
     }
     "".into()
