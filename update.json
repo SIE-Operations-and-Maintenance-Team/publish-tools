@@ -1,15 +1,15 @@
 {
-    "version": "0.0.44",
-    "notes": "<b>功能</b><br>• 无<br><b>修复</b><br>• 修复 MCP 服务 list_tools 缺少 ttl_ms/cache_scope 参数，被严格协议校验的客户端整体拒绝工具列表的问题：手写 list_tools 返回 ttl_ms=0（不缓存）、cache_scope=Private，符合动态数据语义<br>• 修复应用配置 WpfClient 选项卡首次勾选服务器不显示发布路径输入项的问题：旧单服务器数据（serverId 为 null）归一化时补齐 serverIds/serverArr 字段，避免切换监听访问 serverArr.length 报错中断<br><b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.44/SmomPublish_0.0.44_x64-setup.exe'>点击此处</a> 下载。</b>",
-    "pub_date": "2026-08-19T12:29:57Z",
+    "version": "0.0.45",
+    "notes": "<b>功能</b><br>• 新增\"发布工作台\"（置顶导航首位）：四步向导（选项目 → 选发布内容 → 应用配置 → 预检与发布），聚合既有链路一站式完成发布<br>• 新手引导：首次启动自动弹出全屏 5 步真实表单向导，Header 提供重播入口<br>• 服务自发现：SSH 连接可按 systemd/Docker/进程三链路自动发现已部署服务路径，配合设置中的发现前缀管理，一键认领纳管服务器<br><b>修复</b><br>• 修复发布工作台页面滚动失效的问题；预检/发布按钮移入表单卡片、未选代码源不再误报缺失、已存配置自动带出避免重复填写<br>• 修复服务器管理上传 SSH MCP 时因项目名/服务器名命名规则误拦截未纳管主机的问题；所属项目筛选下拉支持一键清空<br>• Directory Opus 打开目录改为新开标签页（NEWTAB=tofront），不再覆盖用户当前浏览的标签页，窗口后台/最小化时自动恢复置前<br><b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.45/SmomPublish_0.0.45_x64-setup.exe'>点击此处</a> 下载。</b>",
+    "pub_date": "2026-08-27T12:55:34Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVpYeE5xRkJIVnVFb0ZKQ2c1bVl1U3BDbkEvMXVSejFzZDhVQUgwQWVLVHlLbjJnU0xCVHozNnlQT2I0UzFOSCtQNWJmRXdpKzhpMy9qdUkraThwckFZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MTQyNTczCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjQ0X3g2NC1zZXR1cC5leGUKZk9YN3dON2NTVE5KSGw5U1hSNFdmV1luQ216ZVNxNlozNWZyUTExQ3Y0MEc0TWdvV3NqOEhnemF0cE5Ia2ROd0NxWHlkOHZOYWFCUzBQMUhMOUxDQ2c9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.44/SmomPublish_0.0.44_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVdyWFYwOHZMSG5uMjZ0bDZVSDUzM2ZBc1NCNVdKU1h6MlFOWkVKKzkwLzBIcTRzQ1FLb0x2bStIdWRTWGR0Z29SUndtNzg0MWtWNytkekdqYXVKdEE0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3ODM1MzA4CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjQ1X3g2NC1zZXR1cC5leGUKK05NYUpvWjZ5czQ3bE80ZTVnai9xdkk4M0E0U1JtNGJySHRuOE13L3dBdVA0bzZMWmIvT2VoQ3JlNmR2cnQ5YkNHQmgzQ3N2aVR5Q0VRaUtGOFdVRHc9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.45/SmomPublish_0.0.45_x64-setup.exe"
         },
         "windows-msi": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVl3VDEwTWFjbTdoWEl5QS9ZaDZxTjZmREZ4T1FIL3F0RERYTTVyc3NNWjk1NXdtaVE3a1BVcWxSclJhRmp3NHZyWDZiVkF4NVNSVy9XSTBqWnNnTUFnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MTQyNTczCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjQ0X3g2NF96aC1DTi5tc2kKMGVZdW4vZDVYekU1UVk0Y21lQ2phdFNUTnBLMVpzcnRzNTF6M1FvN2JlSmZKL1liU3ZIN2gzMFM5ZndVOHMzU1lsWjI4R0d5Z1hwaE93aWhTT1RIQVE9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.44/SmomPublish_0.0.44_x64_zh-CN.msi"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWRyYktUVHF5REFtSnVoNGJRMkRhQzZ6Zlo1bFo2alB0bG9MNmRSa3FpYUFCNmxIVzAvZitYdUc4cCs2ZWdZaEtiVHBjd2E2dmFScTlSSkhDdkZhRlFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3ODM1MzA4CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjQ1X3g2NF96aC1DTi5tc2kKVFZSMnN5UHVQZ0NYZlE1dy9DK0FFb1FvYllSRzh3dW0welE5SUJTNXB0dEJlV2w1bnppdzJPUmNIM3kxc1pMK1UxSzIzRElEZ3FKWXhXZTQrbjFGRHc9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.45/SmomPublish_0.0.45_x64_zh-CN.msi"
         }
     }
 }
