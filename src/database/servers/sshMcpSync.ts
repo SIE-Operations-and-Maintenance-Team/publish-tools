@@ -16,8 +16,9 @@
 import { fetch } from "@tauri-apps/plugin-http";
 import { db } from "@/database/sqlite";
 
-/** SSH MCP 项目/环境/主机名命名规则（字母数字_-中文，1-64 位，不含斜杠和空白） */
-const SSH_MCP_NAME_RE = /^[a-zA-Z0-9_\-一-龥]{1,64}$/;
+// 暂停命名规则校验：规则常量与上行校验逻辑一并注释保留，恢复时同步解开即可
+// /** SSH MCP 项目/环境/主机名命名规则（字母数字_-中文，1-64 位，不含斜杠和空白） */
+// const SSH_MCP_NAME_RE = /^[a-zA-Z0-9_\-一-龥]{1,64}$/;
 
 /** 上行迁移目标环境名：发布工具服务器无环境维度，统一进「导入」环境后再在 SSH MCP 界面归类 */
 const IMPORT_ENV_NAME = "导入";
