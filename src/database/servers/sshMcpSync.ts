@@ -262,20 +262,20 @@ export async function syncServersFromSshMcp(
         for (const row of localRows) {
             if (row.source_key) continue; // 仅上传未纳管行（含阶段一被认领的）
             const projectName = (row.project_id ? projectNameById.get(row.project_id) : null) || UNGROUPED_PROJECT_NAME;
-            if (!SSH_MCP_NAME_RE.test(projectName)) {
-                result.uploadSkipped.push({
-                    name: row.name,
-                    reason: `所属项目名「${projectName}」不满足 SSH MCP 命名规则（仅字母数字_-中文）`,
-                });
-                continue;
-            }
-            if (!SSH_MCP_NAME_RE.test(row.name)) {
-                result.uploadSkipped.push({
-                    name: row.name,
-                    reason: "服务器名不满足 SSH MCP 命名规则（仅字母数字_-中文，1-64 位）",
-                });
-                continue;
-            }
+            // if (!SSH_MCP_NAME_RE.test(projectName)) {
+            //     result.uploadSkipped.push({
+            //         name: row.name,
+            //         reason: `所属项目名「${projectName}」不满足 SSH MCP 命名规则（仅字母数字_-中文）`,
+            //     });
+            //     continue;
+            // }
+            // if (!SSH_MCP_NAME_RE.test(row.name)) {
+            //     result.uploadSkipped.push({
+            //         name: row.name,
+            //         reason: "服务器名不满足 SSH MCP 命名规则（仅字母数字_-中文，1-64 位）",
+            //     });
+            //     continue;
+            // }
             const flatKey = `${projectName}/${IMPORT_ENV_NAME}/${row.name}`;
             if (remoteKeys.has(flatKey)) {
                 // SSH MCP 已存在同名主机：跳过，绝不覆盖远端已有配置

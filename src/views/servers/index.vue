@@ -15,9 +15,11 @@
           <el-col :span="6">
             <el-select
               filterable
+              clearable
               placeholder="请选择所属项目"
               size="default"
               v-model="state.tableData.param.projectId"
+              @clear="onSearch"
             >
               <el-option
                 v-for="project in projectList"
