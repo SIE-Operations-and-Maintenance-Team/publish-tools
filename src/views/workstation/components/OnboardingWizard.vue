@@ -131,7 +131,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted } from "vue";
 import { ElMessage } from "element-plus";
 import { useI18n } from "vue-i18n";
 import { useOnboardingStore } from "@/stores/onboarding";
@@ -238,6 +238,14 @@ watch(
   },
   { immediate: false }
 );
+
+// 首启自动弹出时 visible 在本组件挂载前已被置 true,上面的 watch 不会触发,挂载后补一次同步与检测
+onMounted(() => {
+  if (props.modelValue) {
+    syncActiveFromStore();
+    detectEnv();
+  }
+});
 
 const onVisibleChange = (v: boolean) => {
   emit("update:modelValue", v);

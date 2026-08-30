@@ -428,7 +428,11 @@ const onOpenOnboarding = () => {
 onMounted(() => {
   store.restore();
   onboarding.restore();
-  if (onboarding.shouldAutoOpen()) onboardingVisible.value = true;
+  // 首次安装只自动弹出一次:弹出即标记,无论用户完成还是直接关闭都不再自动弹
+  if (onboarding.shouldAutoOpen()) {
+    onboardingVisible.value = true;
+    onboarding.markAutoShown();
+  }
   mittBus.on("openOnboarding", onOpenOnboarding);
 });
 

@@ -14,6 +14,8 @@ declare type WorkstationStep = 0 | 1 | 2 | 3 | 4 | 5;
 
 declare type OnboardingState = {
   completed: boolean;
+  // 首次安装自动弹出已执行过(弹出即标记,直接关闭也不再自动弹)
+  autoShown: boolean;
   currentStep: number;
   skippedSteps: number[];
 };
