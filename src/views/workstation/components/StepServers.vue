@@ -149,6 +149,7 @@
             <div style="display: flex; gap: 8px; align-items: flex-start">
               <el-checkbox
                 :model-value="selectedDiscoveryIdx.includes(idx)"
+                :disabled="!matchModule(item.serviceName)"
                 @change="(v: boolean) => toggleDiscovery(idx, v)"
               />
               <div style="flex: 1; min-width: 0">
@@ -189,6 +190,16 @@
                     :type="item.source === 'docker' ? 'success' : 'info'"
                     >{{ item.source }}</el-tag
                   >
+                  <el-tag
+                    v-if="matchModule(item.serviceName)"
+                    size="small"
+                    type="primary"
+                    style="margin-left: 6px"
+                    >导入到应用配置:{{ matchModule(item.serviceName)?.label }}
+                  </el-tag>
+                  <el-tag v-else size="small" type="warning" style="margin-left: 6px"
+                    >未识别所属模块，跳过导入</el-tag
+                  >
                   <span
                     v-if="item.image"
                     style="
@@ -223,7 +234,7 @@
               :disabled="selectedDiscoveryIdx.length === 0"
               :loading="importing"
               @click="onConfirmImport"
-              >确认导入</el-button
+              >导入到应用配置</el-button
             >
           </div>
         </div>
@@ -241,7 +252,7 @@
 <script setup lang="ts">
 import { ref, onMounted, defineAsyncComponent, watch } from "vue";
 import { useRouter } from "vue-router";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessage } from "element-plus";
 import { useServerDb } from "@/database/servers/index";
 import { useWorkstationStore } from "@/stores/workstation";
 import { useServiceDiscovery } from "@/composables/useServiceDiscovery";
@@ -273,6 +284,26 @@ const selectedDiscoveryIdx = ref<number[]>([]);
 const importing = ref(false);
 const remotePickerVisible = ref(false);
 const remoteTargetId = ref<number | null>(null);
+// 本次扫描的目标服务器:远端=被扫描的服务器记录;本机=null(导入时复用/自动创建"本机"记录)
+const scanTarget = ref<RowServerType | null>(null);
+
+// 服务名 → 应用配置模块映射(按关键字包含匹配,顺序即优先级)
+const SERVICE_MODULE_RULES = [
+  { key: "webApiHost", label: "WebApiHost", match: "webapihost" },
+  { key: "scheduleServer", label: "调度(ScheduleServer)", match: "scheduleserver" },
+  { key: "webClient", label: "WebClient", match: "webclient" },
+  { key: "wpfClient", label: "WpfClient", match: "wpfclient" },
+  { key: "spcMonitor", label: "SpcMonitor", match: "spcmonitor" },
+] as const;
+
+type ServiceModuleKey = (typeof SERVICE_MODULE_RULES)[number]["key"];
+
+const matchModule = (
+  serviceName: string
+): { key: ServiceModuleKey; label: string } | null => {
+  const n = (serviceName || "").toLowerCase();
+  return SERVICE_MODULE_RULES.find((r) => n.includes(r.match)) || null;
+};
 
 const loadServers = async () => {
   // 按当前项目过滤，若无项目则拉全量
@@ -301,6 +332,7 @@ const onOpenNew = () => serverDialogRef.value?.openDialog("add", null);
 const onScanLocal = async () => {
   drawerTitle.value = "本机发现结果";
   selectedDiscoveryIdx.value = [];
+  scanTarget.value = null;
   drawerVisible.value = true;
   await loadPrefixes();
   await scanLocal();
@@ -328,6 +360,7 @@ const doScanRemoteWithTarget = async () => {
   remotePickerVisible.value = false;
   drawerTitle.value = "远端发现结果";
   selectedDiscoveryIdx.value = [];
+  scanTarget.value = target;
   drawerVisible.value = true;
   await loadPrefixes();
   await scanRemote({
@@ -338,6 +371,8 @@ const doScanRemoteWithTarget = async () => {
 };
 
 const toggleDiscovery = (idx: number, val: boolean) => {
+  // 未识别所属模块的服务不允许勾选(导入无目标模块)
+  if (!matchModule(discoveryResults.value[idx]?.serviceName || "")) return;
   if (val) {
     if (!selectedDiscoveryIdx.value.includes(idx))
       selectedDiscoveryIdx.value.push(idx);
@@ -353,108 +388,156 @@ const onGoSettings = () => {
   router.push({ path: "/settings" });
 };
 
+// 本机扫描的导入目标:复用已有的"本机"记录,不存在则自动创建一条(ip=127.0.0.1)
+const ensureLocalServer = async (): Promise<RowServerType | null> => {
+  const exist = serverList.value.find(
+    (s) => s.ip === "127.0.0.1" || s.name === "本机"
+  );
+  if (exist) return exist;
+  const r = await serverDb.insertServer({
+    id: null,
+    projectId: store.draft.projectId ?? null,
+    projectName: null,
+    name: "本机",
+    os: 1,
+    ip: "127.0.0.1",
+    port: 22,
+    account: "",
+    pwd: "",
+    description: "扫描本机时自动创建",
+  } as RowServerType);
+  if (r.code !== 0) {
+    ElMessage.error(r.msg);
+    return null;
+  }
+  await loadServers();
+  return serverList.value.find((s) => s.id === r.data) ?? null;
+};
+
+// 空白模块默认结构(与 CommonAppconfigType + serverIds/serverArr 对齐)
+const emptyModule = () => ({
+  clientPath: "",
+  serverPath: null,
+  serverIds: [] as number[],
+  serverArr: [] as SelectServerType[],
+});
+
+// 把发现的服务合并进一份 configItems:模块勾选目标服务器 + 该服务器下追加服务条目(服务标识+发布路径)
+// 返回实际新增的服务条数;同名服务标识已存在时跳过,不覆盖
+const mergeServicesIntoConfigItems = (
+  ci: Record<string, any>,
+  targetId: number,
+  targetName: string,
+  picked: { item: DiscoveryItem; module: { key: ServiceModuleKey; label: string } }[]
+): number => {
+  let added = 0;
+  for (const { item, module: m } of picked) {
+    if (!ci[m.key]) ci[m.key] = emptyModule();
+    const mod = ci[m.key];
+    if (!Array.isArray(mod.serverIds)) mod.serverIds = [];
+    if (!Array.isArray(mod.serverArr)) mod.serverArr = [];
+    if (!mod.serverIds.includes(targetId)) mod.serverIds.push(targetId);
+    let arr = mod.serverArr.find(
+      (x: SelectServerType) => Number(x.id) === Number(targetId)
+    );
+    if (!arr) {
+      arr = { id: targetId, name: targetName, serverPathArr: [] };
+      mod.serverArr.push(arr);
+    }
+    if (!Array.isArray(arr.serverPathArr)) arr.serverPathArr = [];
+    const exists = arr.serverPathArr.some((sp: ServerOptionType) =>
+      (sp.value || []).some((v) => v.identity === item.serviceName)
+    );
+    if (exists) continue;
+    arr.serverPathArr.push({
+      label: "",
+      value: [
+        {
+          identity: item.serviceName,
+          path: item.suggestedPublishPath || item.rawPath || "",
+        },
+      ],
+    });
+    added++;
+  }
+  return added;
+};
+
 const onConfirmImport = async () => {
   if (selectedDiscoveryIdx.value.length === 0) {
     ElMessage.warning("请先勾选要导入的服务");
     return;
   }
-  importing.value = true;
-  let success = 0;
-  const newIds: number[] = [];
-  const failed: string[] = [];
-  // 收集建议目录，用于回填应用配置
-  const suggestedMap: Record<string, string> = {};
-  for (const idx of selectedDiscoveryIdx.value) {
-    const item = discoveryResults.value[idx];
-    if (!item) continue;
-    const row: RowServerType = {
-      id: null,
-      projectId: store.draft.projectId ?? null,
-      projectName: null,
-      name: item.serviceName,
-      os: item.source === "docker" ? 2 : 1,
-      ip: "",
-      port: 22,
-      account: "",
-      pwd: "",
-      description: item.suggestedPublishPath
-        ? `建议发布目录: ${item.suggestedPublishPath}`
-        : `WorkingDir: ${item.rawPath || ""}`,
-    } as RowServerType;
-    const r = await serverDb.insertServer(row);
-    if (r.code === 0) {
-      success++;
-      if (r.data) newIds.push(r.data as number);
-      if (item.suggestedPublishPath)
-        suggestedMap[item.serviceName] = item.suggestedPublishPath;
-    } else {
-      failed.push(item.serviceName);
-    }
+  const picked = selectedDiscoveryIdx.value
+    .map((idx) => discoveryResults.value[idx])
+    .filter(Boolean)
+    .map((item: DiscoveryItem) => ({ item, module: matchModule(item.serviceName) }))
+    .filter((x): x is { item: DiscoveryItem; module: { key: ServiceModuleKey; label: string } } => !!x.module);
+  const unmappedCount = selectedDiscoveryIdx.value.length - picked.length;
+  if (picked.length === 0) {
+    ElMessage.warning("所选服务均未能识别所属模块(WebApiHost/调度/WebClient 等)，未导入");
+    return;
   }
-  importing.value = false;
-  if (success > 0) {
-    ElMessage.success(`已导入 ${success} 条，IP/账号待补录`);
-    drawerVisible.value = false;
-    selectedDiscoveryIdx.value = [];
-    await loadServers();
-    // 回填 draft.serverIds：新增的自动选中
-    for (const id of newIds)
-      if (!selectedIds.value.includes(id)) selectedIds.value.push(id);
+  importing.value = true;
+  try {
+    // 导入目标服务器:远端=被扫描的服务器记录;本机=复用/自动创建"本机"记录
+    let target = scanTarget.value;
+    if (!target) {
+      target = await ensureLocalServer();
+      if (!target || target.id == null) return;
+    }
+    if (target.id == null) return;
+
+    // 1) 合并进已校验的应用配置草稿(为空则初始化骨架,应用配置步骤恢复时可见)
+    const draft: any = store.draft as any;
+    if (!draft.appconfigDraft || Object.keys(draft.appconfigDraft).length === 0) {
+      draft.appconfigDraft = {
+        projectId: draft.projectId ?? null,
+        environment: null,
+        configItems: {},
+      };
+    }
+    const ad = draft.appconfigDraft;
+    if (!ad.configItems) ad.configItems = {};
+    const added = mergeServicesIntoConfigItems(
+      ad.configItems,
+      target.id,
+      target.name as string,
+      picked
+    );
+
+    // 2) 同步合并进未校验的表单缓存(仅同项目),防止应用配置步骤恢复缓存时覆盖掉本次导入
+    const cache = draft.appconfigFormCache;
+    if (cache && cache.projectId === draft.projectId) {
+      if (!cache.ruleForm) cache.ruleForm = {};
+      if (!cache.ruleForm.configItems) cache.ruleForm.configItems = {};
+      mergeServicesIntoConfigItems(
+        cache.ruleForm.configItems,
+        target.id,
+        target.name as string,
+        picked
+      );
+    }
+
+    // 3) 目标服务器加入已选,供预览/发布使用
+    if (target.id != null && !selectedIds.value.includes(target.id))
+      selectedIds.value.push(target.id);
     store.draft.serverIds = [...selectedIds.value];
     store.persist();
-    // m-01: 若有建议目录，提示是否回填到应用配置
-    const hasSuggested = Object.keys(suggestedMap).length > 0;
-    if (hasSuggested) {
-      const firstSuggested = Object.values(suggestedMap)[0];
-      try {
-        await ElMessageBox.confirm(
-          `发现 ${
-            Object.keys(suggestedMap).length
-          } 项含建议发布目录（例：${firstSuggested}），是否回填到应用配置的发布路径？`,
-          "发现建议目录",
-          {
-            confirmButtonText: "回填",
-            cancelButtonText: "稍后手动填写",
-            type: "info",
-          }
-        );
-        // 回填到 appconfigDraft.configItems 的 serverPath（若为空）
-        const draft: Record<string, unknown> =
-          (store.draft.appconfigDraft as unknown as Record<string, unknown>) ||
-          {};
-        if (!draft["configItems"])
-          (draft as Record<string, unknown>)["configItems"] = {};
-        const ci = draft["configItems"] as Record<string, unknown>;
-        const modules = [
-          "webApiHost",
-          "scheduleServer",
-          "webClient",
-          "spcMonitor",
-          "wpfClient",
-        ];
-        for (const m of modules) {
-          if (!ci[m])
-            ci[m] = {
-              clientPath: "",
-              serverPath: "",
-              serverIds: [],
-              serverArr: [],
-            };
-          const mod = ci[m] as Record<string, unknown>;
-          if (!mod["serverPath"]) mod["serverPath"] = firstSuggested;
-        }
-        store.draft.appconfigDraft =
-          draft as unknown as typeof store.draft.appconfigDraft;
-        store.persist();
-        ElMessage.success(
-          "已回填建议目录到应用配置，可在“应用配置”步骤查看或修改"
-        );
-      } catch {
-        // 用户取消，不回填
-      }
+
+    drawerVisible.value = false;
+    selectedDiscoveryIdx.value = [];
+    if (added > 0) {
+      ElMessage.success(
+        `已将 ${added} 项服务导入应用配置（挂到服务器「${target.name}」下），可在“应用配置”步骤查看修改` +
+          (unmappedCount > 0 ? `；另有 ${unmappedCount} 项未识别所属模块已跳过` : "")
+      );
+    } else {
+      ElMessage.info("所选服务在应用配置中已存在（同名服务标识），未做修改");
     }
+  } finally {
+    importing.value = false;
   }
-  if (failed.length > 0) ElMessage.error(`导入失败：${failed.join("、")}`);
 };
 
 const validate = (): boolean => {
