@@ -10,7 +10,8 @@
           <el-col :span="24">
             <el-form-item label="项目管理" prop="projectId">
               <el-select filterable placeholder="请选择项目管理" size="default" v-model="state.ruleForm.projectId"
-                disabled :title="workstation.draft.projectId ? '已由工作台第1步选定' : '请返回第1步选择项目'">
+                :disabled="projectLocked" @change="onProjectChange"
+                :title="projectLocked ? '已由工作台第1步选定，如需更换请返回第1步' : ''">
                 <el-option v-for="project in projectList" :key="project.id" :label="project.name" :value="project.id" />
               </el-select>
             </el-form-item>
@@ -508,7 +509,7 @@
 </template>
 
 <script setup lang="ts" name="appconfigDialog">
-import { nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
 import type { FormRules } from "element-plus";
 import { ElMessage } from "element-plus";
 import { CirclePlus, Remove, Files } from "@element-plus/icons-vue";
@@ -1402,6 +1403,32 @@ const getServerList = async (projectId: number | null) => {
 // —— 工作台内联适配：与 src/stores/workstation 的 draft 双向同步 ——
 let restoring = false;
 
+// 项目锁定：第1步已选项目时禁止在此更换；未选时开放选择（修复跳过第1步后无法选择项目）
+const projectLocked = computed(() => !!workstation.draft.projectId);
+
+// 此处选择项目：写入草稿并清空旧项目的应用配置草稿/缓存/服务器，同步由下方 watch 触发
+const onProjectChange = async (val: number | null) => {
+  if (!val) return;
+  const changed = val !== (workstation.draft.projectId as number | null);
+  workstation.draft.projectId = val;
+  if (changed) {
+    (workstation.draft as any).appconfigDraft = {};
+    (workstation.draft as any).appconfigFormCache = null;
+    workstation.draft.serverIds = [];
+    state.ruleForm.id = null;
+  }
+  workstation.persist();
+};
+
+// 向导用 v-show 常驻本组件，第1步选定项目后不会重新挂载：监听草稿项目变化并重新同步
+watch(
+  () => workstation.draft.projectId,
+  () => {
+    if (restoring) return;
+    syncFromWorkstation();
+  }
+);
+
 // 查询项目已存的应用配置；fallbackAny=true 时无精确环境匹配则回退取任意环境第一条（按环境升序）
 const findDbAppconfig = async (
   projectId: number | null,
@@ -1614,6 +1641,10 @@ const syncFromWorkstation = async () => {
         state.ruleForm.dllMode = '全部';
       }
     }
+
+    // 5) 兜底：缓存/DB 恢复可能带回旧的 ruleForm.projectId（缓存头 projectId 取自草稿，
+    //    可能与缓存内表单的 projectId 不一致），最终以工作台草稿为准，防止项目丢失显示为空
+    state.ruleForm.projectId = (pid ?? null) as number | null;
 
     // 刷新项目/服务器列表并保持 projectId 锁定为工作台已选
     await getProjectList();
