@@ -1,15 +1,15 @@
 {
-    "version": "0.0.46",
-    "notes": "<b>功能</b><br>• 服务自发现导入重做：扫描本机/远端的服务按名称自动映射到应用配置各模块（WebApiHost/调度/WebClient/WpfClient/SpcMonitor），确认导入后直接在\"应用配置\"步骤生成服务条目（服务标识+发布路径），挂到被扫描的服务器下；不再把服务误存为服务器记录，无法识别模块的服务明确标注跳过<br><b>修复</b><br>• 修复发布工作台\"应用配置\"步骤不显示已选项目的问题（跳过向导第1步或表单缓存恢复时项目被覆盖为空）：项目以草稿为准强制对齐，跳过第1步时也允许在应用配置处直接选择项目（#1）<br>• 修复新手引导每次进入工作台反复弹出的问题：改为首次安装只自动弹出一次，直接关闭后不再弹；顶部\"新手指引\"手动入口不受影响<br><b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.46/SmomPublish_0.0.46_x64-setup.exe'>点击此处</a> 下载。</b>",
-    "pub_date": "2026-08-30T05:48:01Z",
+    "version": "0.0.47",
+    "notes": "<b>功能</b><br>• 新增启动默认菜单设置：设置页可选启动落页（发布工作台 / 项目发布），默认发布工作台<br><b>修复</b><br>• 修复预检报\"无可发布模块\"却无任何线索的问题：应用配置中的服务器被删除/重建后 id 失效（多选框回显为数字），聚合时被静默跳过。现在进入应用配置步骤即检测失效 id——项目内同名服务器唯一时自动修正并保留已配发布路径，否则提示重新选择；预检日志同步补全\"未配置客户端路径 / 服务器不在勾选范围\"等明确提示<br><b>其他</b><br>• 重写 README：功能改为文字描述并移除旧截图<br>• 项目指令文档统一迁移至 AGENTS.md（CLAUDE.md 改为导入链接）<br><b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.47/SmomPublish_0.0.47_x64-setup.exe'>点击此处</a> 下载。</b>",
+    "pub_date": "2026-09-01T08:40:46Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVkvckZmc2xIZWVPTnlibzZINTJybW1VWUZwZitnalArejBzMDlEa2ducFNZelhYMThUYSsxL0djWlVKQkxHSHlKSWljYjJmM1J4dUVQdG9kdjAwTXdnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4MDY4ODU3CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjQ2X3g2NC1zZXR1cC5leGUKQStza3BZNFhMT2JRSnl1aVhQaHVvUUlYY1EzTHpJVFVjWUE3a2N4TVIrem9hamFFZ0VBcUlSVlZiZnEzWXlhZGFRaTNCYXh4VldDeXpTMnlYaEMxQkE9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.46/SmomPublish_0.0.46_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWEwS20zQU1YY1daUVVuV1VkMU1IWmJzK2dtbU50dUVURFVyYm1nbkxYaEFLRWoxVzBJcjRNQmVKaGIyUXNDUzlEeDVRU3JJQmVTL1Z6aUdRcTFUMkFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4MjUyMDE5CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjQ3X3g2NC1zZXR1cC5leGUKbGxHYWRkcU5GYk8xVC9HM3RKSjZtRDFwekc2alhVYlE5aCtkSVFYMjAwNjFPNTFMSTBkL1NNVmk5ZW9RU2ZKdG1yVHpGV24vVUp6dDN5aGd2ZFA4Q3c9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.47/SmomPublish_0.0.47_x64-setup.exe"
         },
         "windows-msi": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWFTUVdXd0RJOUZKR3NrOHRyWlpqRHRIUmxVZGo1emcrbFhOcmN4OXBPZlViWUpGTXdsM2diQ3o2eE9kOXNsTTRkR3I2VUJneEk3R0JtT3Q1Ynh4emdBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4MDY4ODU3CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjQ2X3g2NF96aC1DTi5tc2kKK21kdXdPRHNJajJLejR3S1hDVENiZTFRaEhiY1hrSDZ2T2puZ0piRHJBVXlaTGNmd2dlM3Y3dndqcGdSTmdBdmVPYURkK2VOVTM0amlmN24yWmtERGc9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.46/SmomPublish_0.0.46_x64_zh-CN.msi"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWF2NllUSGl3ZHVpM3pmb3UvN2pZcm4wZFVGeEkvWkJ1bEd4WmdEN3Z0YmgzQ3Vzck1rTXVORlFCTFRjd3p0TUdqamErTENpaVJsMlFMM0NKbjNmL2dvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4MjUyMDE5CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjQ3X3g2NF96aC1DTi5tc2kKakg0ejk4ZWl1eTJMY1NCOE9XV09BWmFlQnZxYTlaUGFMYzJ6clUvRlFVMGtJMlpGd0hFZDhXS21ZUldFVDBFbzczem9aZ1JVeVl6aERvSzUwLzhuRFE9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.47/SmomPublish_0.0.47_x64_zh-CN.msi"
         }
     }
 }
