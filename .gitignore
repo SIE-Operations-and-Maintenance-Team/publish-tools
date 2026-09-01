@@ -45,3 +45,5 @@ src-tauri/tauri.key.bak-oldkey
 src-tauri/tauri.key.pub.bak-oldkey
 
 Exp-Tools/*
+# ZCode 本地工具目录
+.zcode/
