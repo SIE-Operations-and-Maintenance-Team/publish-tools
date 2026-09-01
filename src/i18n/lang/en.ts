@@ -125,6 +125,10 @@ export default {
 	settings: {
 		autoStart: 'Auto Start on Boot',
 		autoStartTip: 'Launch the app automatically on boot and keep it in the system tray',
+		startupMenu: 'Startup Default Menu',
+		startupMenuTip: 'Page opened at app startup; takes effect on next launch after saving',
+		startupMenuWorkstation: 'Workstation',
+		startupMenuHome: 'Project Publish',
 		oneClickPublish: 'One-Click Publish',
 		oneClickPublishTip: 'Show one-click publish button and its scheduled option when enabled',
 		winServiceRetry: 'Windows Service Start/Stop Retry',

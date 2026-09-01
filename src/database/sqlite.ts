@@ -141,6 +141,11 @@ async function ensureSchema(database: Database) {
         await database.execute("ALTER TABLE t_settings ADD COLUMN ssh_mcp_auto_sync INTEGER DEFAULT 0");
     }
 
+    // t_settings 加启动默认菜单（'workstation' 发布工作台 / 'home' 项目发布）
+    if (!syncSettingsColumns.some((column) => column.name === "startup_menu")) {
+        await database.execute("ALTER TABLE t_settings ADD COLUMN startup_menu TEXT DEFAULT 'workstation'");
+    }
+
     // ========== 改列（服务重试列名由 stop_retry 统一为 retry，老库存在旧列则逐列重命名） ==========
     // 注：Rust 端 migration 未在 main.rs 注册（死代码），实际建表/改列均由本函数承担
     const settingsColumns = await database.select<{ name: string }[]>("PRAGMA table_info(t_settings)");

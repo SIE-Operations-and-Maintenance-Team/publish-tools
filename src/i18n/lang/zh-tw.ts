@@ -125,6 +125,10 @@ export default {
 	settings: {
 		autoStart: '開機自啟',
 		autoStartTip: '開啟後開機自動啟動應用，並駐留系統托盤',
+		startupMenu: '啟動預設選單',
+		startupMenuTip: '應用啟動時預設進入的頁面，儲存後下次啟動生效',
+		startupMenuWorkstation: '發佈工作臺',
+		startupMenuHome: '項目發佈',
 		oneClickPublish: '一鍵發布',
 		oneClickPublishTip: '開啟後顯示一鍵發布按鈕與定時發布中的一鍵發布選項',
 		winServiceRetry: 'Windows 服務啟停重試',

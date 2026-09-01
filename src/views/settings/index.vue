@@ -9,6 +9,15 @@
           <span class="settings-tip">{{ $t('message.settings.autoStartTip') }}</span>
         </el-form-item>
 
+        <!-- 启动默认菜单 -->
+        <el-form-item :label="$t('message.settings.startupMenu')">
+          <el-radio-group v-model="form.startupMenu">
+            <el-radio value="workstation">{{ $t('message.settings.startupMenuWorkstation') }}</el-radio>
+            <el-radio value="home">{{ $t('message.settings.startupMenuHome') }}</el-radio>
+          </el-radio-group>
+          <span class="settings-tip">{{ $t('message.settings.startupMenuTip') }}</span>
+        </el-form-item>
+
         <!-- 一键发布 -->
         <el-divider content-position="left">{{ $t('message.settings.oneClickPublish') }}</el-divider>
         <el-form-item :label="$t('message.settings.oneClickPublish')">

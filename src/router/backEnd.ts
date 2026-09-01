@@ -7,6 +7,7 @@ import { formatTwoStageRoutes, formatFlatteningRoutes, router } from '@/router/i
 import _ from "lodash";
 import { useRoutesList } from '@/stores/routesList';
 import { useTagsViewRoutes } from '@/stores/tagsViewRoutes';
+import { loadPublishSettings } from '@/utils/publishSettings';
 
 /**
  * 获取目录下的 .vue、.tsx 全部文件
@@ -35,6 +36,10 @@ export async function initBackEndControlRoutes() {
 	// 存储接口原始路由（未处理component），根据需求选择使用
 	let mRoute = _.cloneDeep(menuRoute);
 	useRequestOldRoutes().setRequestOldRoutes(mRoute);
+
+	// 启动默认菜单：按 t_settings.startup_menu 改写根路由重定向，仅空/非法值一律回退发布工作台
+	const { startupMenu } = await loadPublishSettings();
+	dynamicRoutes[0].redirect = startupMenu === 'home' ? '/home' : '/workstation';
 
 	// 添加动态路由
 	await setAddRoute();

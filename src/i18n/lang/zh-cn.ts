@@ -125,6 +125,10 @@ export default {
 	settings: {
 		autoStart: '开机自启',
 		autoStartTip: '开启后开机自动启动应用，并驻留系统托盘',
+		startupMenu: '启动默认菜单',
+		startupMenuTip: '应用启动时默认进入的页面，保存后下次启动生效',
+		startupMenuWorkstation: '发布工作台',
+		startupMenuHome: '项目发布',
 		oneClickPublish: '一键发布',
 		oneClickPublishTip: '开启后显示一键发布按钮与定时发布中的一键发布选项',
 		winServiceRetry: 'Windows 服务启停重试',
