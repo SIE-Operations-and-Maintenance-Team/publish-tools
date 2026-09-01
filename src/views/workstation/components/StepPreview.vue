@@ -349,7 +349,10 @@ const toServerConfigs = async (
     | WebClientConfigType
     | SpcMonitorConfigType
     | undefined;
-  if (!cfg?.clientPath) return null;
+  if (!cfg?.clientPath) {
+    pushLog(`${moduleKey} 未配置客户端路径，跳过`, "log-warning");
+    return null;
+  }
   const clientPath = String(cfg.clientPath);
   const publishFiles = await getPublishFiles(clientPath);
   if (publishFiles === null) return null;
@@ -424,8 +427,13 @@ const toServerConfigs = async (
     if (
       store.draft.serverIds.length &&
       !store.draft.serverIds.includes(srv.id as number)
-    )
+    ) {
+      pushLog(
+        `服务器 ${srv.name || srv.id}(id=${srv.id}) 不在本次发布勾选范围，跳过`,
+        "log-warning"
+      );
       continue;
+    }
     const detail = await getServerDetail(srv.id as number);
     if (!detail) {
       pushLog(`服务器 ${srv.name || srv.id} 不存在，跳过`, "log-warning");
@@ -460,7 +468,10 @@ const toServerConfigs = async (
 const toWpfConfigs = async (): Promise<PublishWpfType[] | null> => {
   const ac: any = store.draft.appconfigDraft || {};
   const cfg = ac.configItems?.wpfClient as WpfClientConfigType | undefined;
-  if (!cfg?.clientPath) return null;
+  if (!cfg?.clientPath) {
+    pushLog("WpfClient 未配置客户端路径，跳过", "log-warning");
+    return null;
+  }
   const clientPath = String(cfg.clientPath);
   // 校验基础路径
   const exists = await cmdInvoke("exists", { path: clientPath });
@@ -546,8 +557,13 @@ const toWpfConfigs = async (): Promise<PublishWpfType[] | null> => {
     if (
       store.draft.serverIds.length &&
       !store.draft.serverIds.includes(srv.id as number)
-    )
+    ) {
+      pushLog(
+        `WpfClient 服务器 ${srv.name || srv.id}(id=${srv.id}) 不在本次发布勾选范围，跳过`,
+        "log-warning"
+      );
       continue;
+    }
     const detail = await getServerDetail(srv.id as number);
     if (!detail) continue;
     const publishPath = srv.serverPathArr?.[0]?.value?.[0]?.path;

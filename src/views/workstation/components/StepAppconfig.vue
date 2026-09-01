@@ -1400,6 +1400,37 @@ const getServerList = async (projectId: number | null) => {
   serverList.value = dataResult.data.data;
 };
 
+// 检测各模块 serverIds 中已失效的服务器 id（服务器被删除/重建后 id 漂移，多选框会回显为数字）：
+// serverArr 内记录的名称在当前项目服务器中唯一匹配时自动修正为真实 id（保留已配发布路径），否则提示手动重选
+const checkStaleServerIds = () => {
+  if (!serverList.value || serverList.value.length === 0) return;
+  const moduleKeys = ['webApiHost', 'scheduleServer', 'webClient', 'wpfClient', 'spcMonitor'];
+  const stale: string[] = [];
+  for (const key of moduleKeys) {
+    const mod = (state.ruleForm.configItems as any)[key];
+    if (!mod?.serverIds?.length) continue;
+    for (let i = 0; i < mod.serverIds.length; i++) {
+      const id = mod.serverIds[i];
+      if (serverList.value.some((s) => s.id === id)) continue;
+      const arrItem = (mod.serverArr || []).find((x: any) => Number(x.id) === Number(id));
+      const displayName = arrItem?.name || `id=${id}`;
+      const matches = arrItem?.name
+        ? serverList.value.filter((s) => s.name === arrItem.name)
+        : [];
+      if (matches.length === 1) {
+        const realId = matches[0].id as number;
+        mod.serverIds[i] = realId;
+        if (arrItem) arrItem.id = realId;
+        ElMessage.info(`已自动修正失效服务器 id：${key} ${displayName} → 当前服务器(id=${realId})`);
+      } else {
+        stale.push(`${key} ${displayName}`);
+      }
+    }
+  }
+  if (stale.length > 0)
+    ElMessage.warning(`以下应用服务器已失效（服务器已删除或重建），请重新选择：${stale.join('、')}`);
+};
+
 // —— 工作台内联适配：与 src/stores/workstation 的 draft 双向同步 ——
 let restoring = false;
 
@@ -1651,6 +1682,8 @@ const syncFromWorkstation = async () => {
     await getTfsList();
     await getGitList();
     if (state.ruleForm.projectId) await getServerList(state.ruleForm.projectId as number);
+    // 表单恢复完成后检测失效服务器 id（自愈或提示），避免带着漂移 id 走到预检静默失败
+    checkStaleServerIds();
   } finally {
     await nextTick();
     restoring = false;
