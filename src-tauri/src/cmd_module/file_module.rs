@@ -1151,10 +1151,18 @@ pub async fn upload_server_files(
     username: &str,
     password: &str,
     server: &str,
+    retry_count: Option<u32>,
+    retry_interval_secs: Option<u64>,
 ) -> Result<bool, String> {
+    // retry_count = None → 内建默认 3 次/2s（直连调用点行为不变）；前端重试包装传 1 单发，重试由前端控制
+    let max_attempts = retry_count.unwrap_or(MAX_RETRIES).max(1);
+    let delay = retry_interval_secs
+        .filter(|s| *s > 0)
+        .map(Duration::from_secs)
+        .unwrap_or(RETRY_DELAY);
     let mut attempts = 0;
     let mut err_msg = String::new();
-    while attempts < MAX_RETRIES {
+    while attempts < max_attempts {
         match exec_upload_server_files(
             remote_paths.clone(),
             local_paths.clone(),
@@ -1168,7 +1176,9 @@ pub async fn upload_server_files(
             Err(e) => {
                 eprintln!("尝试 {} 失败: {}，正在重试...", attempts + 1, e);
                 attempts += 1;
-                thread::sleep(RETRY_DELAY);
+                if attempts < max_attempts {
+                    thread::sleep(delay);
+                }
                 err_msg = e.to_string();
             }
         }

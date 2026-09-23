@@ -7,7 +7,7 @@ export function useSettingsDb() {
          * 读取全局设置（id=1）。若无行则插入默认行后重查。
          */
         getSettings: async () => {
-            const selectSql = "select id, one_click_publish_enabled oneClickPublishEnabled, win_service_retry_count winServiceRetryCount, win_service_retry_interval winServiceRetryInterval, win_copy_retry_count winCopyRetryCount, win_copy_retry_interval winCopyRetryInterval, ssh_mcp_url sshMcpUrl, ssh_mcp_auto_sync sshMcpAutoSync, startup_menu startupMenu, update_time updateTime from t_settings where id = 1";
+            const selectSql = "select id, one_click_publish_enabled oneClickPublishEnabled, win_service_retry_count winServiceRetryCount, win_service_retry_interval winServiceRetryInterval, win_copy_retry_count winCopyRetryCount, win_copy_retry_interval winCopyRetryInterval, upload_retry_count uploadRetryCount, upload_retry_interval uploadRetryInterval, ssh_mcp_url sshMcpUrl, ssh_mcp_auto_sync sshMcpAutoSync, startup_menu startupMenu, update_time updateTime from t_settings where id = 1";
 
             let dataResult: DataResultType<RowSettingsType> = {
                 code: 0,
@@ -35,14 +35,16 @@ export function useSettingsDb() {
          * 保存全局设置（upsert id=1）。
          */
         saveSettings: async (data: RowSettingsType) => {
-            const updateSql = "UPDATE t_settings SET one_click_publish_enabled = $1, win_service_retry_count = $2, win_service_retry_interval = $3, win_copy_retry_count = $4, win_copy_retry_interval = $5, ssh_mcp_url = $6, ssh_mcp_auto_sync = $7, startup_menu = $8, update_time = $9 WHERE id = 1";
-            const insertSql = "INSERT INTO t_settings (id, one_click_publish_enabled, win_service_retry_count, win_service_retry_interval, win_copy_retry_count, win_copy_retry_interval, ssh_mcp_url, ssh_mcp_auto_sync, startup_menu, update_time) VALUES(1, $1, $2, $3, $4, $5, $6, $7, $8, $9)";
+            const updateSql = "UPDATE t_settings SET one_click_publish_enabled = $1, win_service_retry_count = $2, win_service_retry_interval = $3, win_copy_retry_count = $4, win_copy_retry_interval = $5, upload_retry_count = $6, upload_retry_interval = $7, ssh_mcp_url = $8, ssh_mcp_auto_sync = $9, startup_menu = $10, update_time = $11 WHERE id = 1";
+            const insertSql = "INSERT INTO t_settings (id, one_click_publish_enabled, win_service_retry_count, win_service_retry_interval, win_copy_retry_count, win_copy_retry_interval, upload_retry_count, upload_retry_interval, ssh_mcp_url, ssh_mcp_auto_sync, startup_menu, update_time) VALUES(1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)";
             const bindValues = [
                 data.oneClickPublishEnabled,
                 data.winServiceRetryCount,
                 data.winServiceRetryInterval,
                 data.winCopyRetryCount,
                 data.winCopyRetryInterval,
+                data.uploadRetryCount,
+                data.uploadRetryInterval,
                 data.sshMcpUrl || "http://127.0.0.1:61823",
                 data.sshMcpAutoSync ?? 0,
                 data.startupMenu || "workstation",

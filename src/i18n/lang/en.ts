@@ -133,6 +133,8 @@ export default {
 		oneClickPublishTip: 'Show one-click publish button and its scheduled option when enabled',
 		winServiceRetry: 'Windows Service Start/Stop Retry',
 		winCopyRetry: 'Windows Copy Retry',
+		uploadRetry: 'Upload Retry',
+		uploadRetryTip: 'Automatic retry when uploading files to the server during project publish: processes may briefly hold files after service stop, so failed uploads retry at the configured interval',
 		retryCount: 'Retry Count',
 		retryInterval: 'Retry Interval (sec)',
 		save: 'Save',

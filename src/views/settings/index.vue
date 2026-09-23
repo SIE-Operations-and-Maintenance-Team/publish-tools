@@ -43,6 +43,16 @@
           <el-input-number v-model="form.winCopyRetryInterval" :min="1" :max="60" :step="1" />
         </el-form-item>
 
+        <!-- 上传重试 -->
+        <el-divider content-position="left">{{ $t('message.settings.uploadRetry') }}</el-divider>
+        <el-form-item :label="$t('message.settings.retryCount')">
+          <el-input-number v-model="form.uploadRetryCount" :min="1" :max="99" :step="1" />
+          <span class="settings-tip">{{ $t('message.settings.uploadRetryTip') }}</span>
+        </el-form-item>
+        <el-form-item :label="$t('message.settings.retryInterval')">
+          <el-input-number v-model="form.uploadRetryInterval" :min="1" :max="60" :step="1" />
+        </el-form-item>
+
         <!-- MCP 服务配置 -->
         <el-divider content-position="left">{{ $t('message.settings.mcp') }}</el-divider>
         <el-form-item :label="$t('message.settings.mcpEnabled')">
@@ -323,6 +333,8 @@ const validate = (): boolean => {
   if (form.winServiceRetryInterval < 1 || form.winServiceRetryInterval > 60) return false;
   if (form.winCopyRetryCount < 1 || form.winCopyRetryCount > 99) return false;
   if (form.winCopyRetryInterval < 1 || form.winCopyRetryInterval > 60) return false;
+  if (form.uploadRetryCount < 1 || form.uploadRetryCount > 99) return false;
+  if (form.uploadRetryInterval < 1 || form.uploadRetryInterval > 60) return false;
   return true;
 };
 

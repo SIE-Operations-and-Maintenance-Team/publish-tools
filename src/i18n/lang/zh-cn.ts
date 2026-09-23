@@ -133,6 +133,8 @@ export default {
 		oneClickPublishTip: '开启后显示一键发布按钮与定时发布中的一键发布选项',
 		winServiceRetry: 'Windows 服务启停重试',
 		winCopyRetry: 'Windows 复制重试',
+		uploadRetry: '上传重试',
+		uploadRetryTip: '项目发布上传文件到服务器时的自动重试：服务停止后进程可能短暂占用文件，失败后按间隔重试',
 		retryCount: '重试次数',
 		retryInterval: '重试间隔（秒）',
 		save: '保 存',

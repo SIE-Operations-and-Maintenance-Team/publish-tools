@@ -7,6 +7,8 @@ const _default: RowSettingsType = {
     winServiceRetryInterval: 2,
     winCopyRetryCount: 3,
     winCopyRetryInterval: 2,
+    uploadRetryCount: 99,
+    uploadRetryInterval: 3,
     sshMcpUrl: 'http://127.0.0.1:61823',
     sshMcpAutoSync: 0,
     startupMenu: 'workstation',
@@ -31,17 +33,19 @@ export async function loadPublishSettings(): Promise<RowSettingsType> {
 
 /**
  * 同步读缓存的重试参数。调用前应已 await loadPublishSettings()。
- * group='service' → Windows 服务启动/关闭命令；group='copy' → copy_path。
+ * group='service' → Windows 服务启动/关闭命令；group='copy' → copy_path；group='upload' → upload_server_files（项目发布上传重试）。
  *
  * 键名必须是 camelCase：Tauri command 参数按 camelCase 键取值（Rust 端 retry_count → 前端 retryCount），
  * 传 snake_case 键时 Option 参数会静默取 None（不报错），导致重试设置失效、恒走默认值。
  */
-export function getRetryArgs(group: 'service' | 'copy'): {
+export function getRetryArgs(group: 'service' | 'copy' | 'upload'): {
     retryCount: number;
     retryIntervalSecs: number;
 } {
     const s = cached ?? defaultSettings();
-    return group === 'service'
-        ? { retryCount: s.winServiceRetryCount, retryIntervalSecs: s.winServiceRetryInterval }
-        : { retryCount: s.winCopyRetryCount, retryIntervalSecs: s.winCopyRetryInterval };
+    if (group === 'service')
+        return { retryCount: s.winServiceRetryCount, retryIntervalSecs: s.winServiceRetryInterval };
+    if (group === 'copy')
+        return { retryCount: s.winCopyRetryCount, retryIntervalSecs: s.winCopyRetryInterval };
+    return { retryCount: s.uploadRetryCount, retryIntervalSecs: s.uploadRetryInterval };
 }

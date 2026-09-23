@@ -105,6 +105,8 @@ async function ensureSchema(database: Database) {
         win_service_retry_interval INTEGER DEFAULT 2,
         win_copy_retry_count INTEGER DEFAULT 3,
         win_copy_retry_interval INTEGER DEFAULT 2,
+        upload_retry_count INTEGER DEFAULT 99,
+        upload_retry_interval INTEGER DEFAULT 3,
         update_time TEXT
     )`);
 
@@ -144,6 +146,14 @@ async function ensureSchema(database: Database) {
     // t_settings 加启动默认菜单（'workstation' 发布工作台 / 'home' 项目发布）
     if (!syncSettingsColumns.some((column) => column.name === "startup_menu")) {
         await database.execute("ALTER TABLE t_settings ADD COLUMN startup_menu TEXT DEFAULT 'workstation'");
+    }
+
+    // t_settings 加上传重试设置（项目发布上传文件到服务器的重试次数/间隔，秒）
+    if (!syncSettingsColumns.some((column) => column.name === "upload_retry_count")) {
+        await database.execute("ALTER TABLE t_settings ADD COLUMN upload_retry_count INTEGER DEFAULT 99");
+    }
+    if (!syncSettingsColumns.some((column) => column.name === "upload_retry_interval")) {
+        await database.execute("ALTER TABLE t_settings ADD COLUMN upload_retry_interval INTEGER DEFAULT 3");
     }
 
     // ========== 改列（服务重试列名由 stop_retry 统一为 retry，老库存在旧列则逐列重命名） ==========

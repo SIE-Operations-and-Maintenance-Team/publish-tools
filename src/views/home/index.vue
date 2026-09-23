@@ -2209,27 +2209,34 @@ const switchWinService = async (
 };
 
 // 上传文件到服务器（带重试）：服务停止后进程可能仍短暂持有文件句柄，
-// 导致 SCP 覆盖 dll/exe 失败；失败后等待并重试，给进程退出留出时间
-const uploadServerFilesWithRetry = async (
-  args: {
-    localPaths: string[];
-    remotePaths: string[];
-    username: string;
-    password: string;
-    server: string;
-  },
-  maxRetries = 100,
-  intervalMs = 3000
-) => {
-  let result = await cmdInvoke("upload_server_files", args);
-  for (let attempt = 1; attempt < maxRetries; attempt++) {
+// 导致 SCP 覆盖 dll/exe 失败；失败后等待并重试，给进程退出留出时间。
+// 次数/间隔读全局设置（设置页"上传重试"）；每次调用传 retryCount: 1 单发执行，
+// 关闭 Rust 端内建重试，重试完全由本函数控制并打印可见日志，设置的重试次数即实际尝试次数
+const uploadServerFilesWithRetry = async (args: {
+  localPaths: string[];
+  remotePaths: string[];
+  username: string;
+  password: string;
+  server: string;
+}) => {
+  const { retryCount, retryIntervalSecs } = getRetryArgs("upload");
+  const totalAttempts = Math.max(1, retryCount);
+  let result = await cmdInvoke("upload_server_files", { ...args, retryCount: 1, retryIntervalSecs: 1 });
+  for (let attempt = 1; attempt <= totalAttempts; attempt++) {
     if (result.code === 0) return result;
-    printInfoLog(
-      `文件上传失败，${intervalMs / 1000}s 后重试 (${attempt}/${maxRetries})：${result.data}`,
-      "log-warning"
-    );
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
-    result = await cmdInvoke("upload_server_files", args);
+    if (attempt < totalAttempts) {
+      printInfoLog(
+        `文件上传失败，${retryIntervalSecs}s 后重试（尝试 ${attempt}/${totalAttempts}）：${result.data}`,
+        "log-warning"
+      );
+      await new Promise((resolve) => setTimeout(resolve, retryIntervalSecs * 1000));
+      result = await cmdInvoke("upload_server_files", { ...args, retryCount: 1, retryIntervalSecs: 1 });
+    } else {
+      printInfoLog(
+        `文件上传失败，重试已用尽（尝试 ${attempt}/${totalAttempts}）：${result.data}`,
+        "log-warning"
+      );
+    }
   }
   return result;
 };
