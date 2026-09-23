@@ -1,15 +1,15 @@
 {
-    "version": "0.0.47",
-    "notes": "<b>功能</b><br>• 新增启动默认菜单设置：设置页可选启动落页（发布工作台 / 项目发布），默认发布工作台<br><b>修复</b><br>• 修复预检报\"无可发布模块\"却无任何线索的问题：应用配置中的服务器被删除/重建后 id 失效（多选框回显为数字），聚合时被静默跳过。现在进入应用配置步骤即检测失效 id——项目内同名服务器唯一时自动修正并保留已配发布路径，否则提示重新选择；预检日志同步补全\"未配置客户端路径 / 服务器不在勾选范围\"等明确提示<br><b>其他</b><br>• 重写 README：功能改为文字描述并移除旧截图<br>• 项目指令文档统一迁移至 AGENTS.md（CLAUDE.md 改为导入链接）<br><b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.47/SmomPublish_0.0.47_x64-setup.exe'>点击此处</a> 下载。</b>",
-    "pub_date": "2026-09-01T08:40:46Z",
+    "version": "0.0.48",
+    "notes": "<b>功能</b><br>• 新增\"上传重试\"设置：项目发布上传文件到服务器的重试次数/间隔可在设置页配置（默认 99 次 / 3 秒，与其他重试设置一致），并附带作用范围提示<br><b>修复</b><br>• 修复上传重试不受设置控制且双层叠加的问题：此前为前端硬编码 100 次/3 秒叠加后端内建 3 次/2 秒，极端情况最多 300 次尝试、静默等待约 15 分钟；现在设置几次即实际尝试几次，每次失败均输出\"尝试 N/M\"日志，重试耗尽时明确提示，不再静默失败<br><b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.48/SmomPublish_0.0.48_x64-setup.exe'>点击此处</a> 下载。</b>",
+    "pub_date": "2026-09-23T14:15:48Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWEwS20zQU1YY1daUVVuV1VkMU1IWmJzK2dtbU50dUVURFVyYm1nbkxYaEFLRWoxVzBJcjRNQmVKaGIyUXNDUzlEeDVRU3JJQmVTL1Z6aUdRcTFUMkFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4MjUyMDE5CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjQ3X3g2NC1zZXR1cC5leGUKbGxHYWRkcU5GYk8xVC9HM3RKSjZtRDFwekc2alhVYlE5aCtkSVFYMjAwNjFPNTFMSTBkL1NNVmk5ZW9RU2ZKdG1yVHpGV24vVUp6dDN5aGd2ZFA4Q3c9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.47/SmomPublish_0.0.47_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWFuenhCOXAwdHhPSFRxVkV6QXdwT05QaDBaMFpZdjN2TjBXRm1pM1RNcWoxWmxMdWNGUC9pUENlbkRuRVJsak5UcTd5UEMrT3VqUUJVU0ZWWE5XNnc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwMTcyOTIxCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjQ4X3g2NC1zZXR1cC5leGUKZEMweUxtSTVPME0ycU9Gb2NocUV0ZFM4MXgxT0ZYYjl3Tm8rcVN3ZktFcFRkZWllTWlUY3lITWNBV0pmdE1mVnpUT1ZpOE8ySTYvOWV2NnFlVnQ5Q2c9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.48/SmomPublish_0.0.48_x64-setup.exe"
         },
         "windows-msi": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWF2NllUSGl3ZHVpM3pmb3UvN2pZcm4wZFVGeEkvWkJ1bEd4WmdEN3Z0YmgzQ3Vzck1rTXVORlFCTFRjd3p0TUdqamErTENpaVJsMlFMM0NKbjNmL2dvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4MjUyMDE5CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjQ3X3g2NF96aC1DTi5tc2kKakg0ejk4ZWl1eTJMY1NCOE9XV09BWmFlQnZxYTlaUGFMYzJ6clUvRlFVMGtJMlpGd0hFZDhXS21ZUldFVDBFbzczem9aZ1JVeVl6aERvSzUwLzhuRFE9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.47/SmomPublish_0.0.47_x64_zh-CN.msi"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVJrR1hRL2tZK3FySzVUMUY3eGdEWS9HYzBOQWo1OGtJQVc2UFNVSnpRb2xsMkFYVVF2WVJWeXVVbnNqOW9OK0lOTFVnSlB5UmI5ZWlNMjloSXltZ3cwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwMTcyOTIxCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjQ4X3g2NF96aC1DTi5tc2kKN0FxaGozaTBmdGZnd2ZJMEJwdjI2VWFteUVnemxrTklSblh0bEFXUkxETkRJNEhkUThockJJVUxSczlTc1ZvRlJ4U2FxNkc4cEVLL3JSaDAxcmN1QXc9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.48/SmomPublish_0.0.48_x64_zh-CN.msi"
         }
     }
 }
