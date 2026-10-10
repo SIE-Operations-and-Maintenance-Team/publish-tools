@@ -847,7 +847,10 @@ const onFunModuleHandle = async (index: number) => {
     case "一键发布":
       try {
         const oneClickPublishResult = await oneClickPublishing();
-        if (oneClickPublishResult) printInfoLog("一键发布成功。");
+        if (oneClickPublishResult) {
+          printInfoLog("一键发布成功。");
+          await getProjectDefault();
+        }
       } catch (e: any) {
         if (e?.message === "PUBLISH_STOPPED") {
           printInfoLog("发布已停止.", "log-warning");
@@ -3934,6 +3937,7 @@ const executeScheduledPublish = async (schedule: RowPublishScheduleType) => {
     let success = false;
     if (schedule.publishType === '一键发布') {
       success = await oneClickPublishing();
+      if (success) await getProjectDefault();
     } else if (schedule.publishType === '手动发布') {
       success = await projectPublish();
       if (success) await getProjectDefault();
