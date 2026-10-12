@@ -1,15 +1,15 @@
 {
-    "version": "0.0.49",
-    "notes": "<b>修复</b><br>• 修复\"一键发布\"完成后发布信息栏不自动刷新的问题：发布过程中会逐模块清空\"客户端生成路径\"，此前只有\"手动发布\"结束后会重新读取发布信息，导致一键发布结束后发布信息栏的模块表格消失、内容停留在旧状态；现在一键发布成功后会与手动发布一致地重新加载发布信息（首页按钮入口与定时发布入口均已修复）<br><b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.49/SmomPublish_0.0.49_x64-setup.exe'>点击此处</a> 下载。</b>",
-    "pub_date": "2026-10-10T02:22:25Z",
+    "version": "0.0.50",
+    "notes": "<b>修复</b><br>• 修复项目发布页\"移除\"的模块在发布前备份阶段仍被纳入的问题：此前\"移除\"只清空页面内存中的\"客户端生成路径\"，编译、获取程序集与发布环节都会跳过该模块，唯独发布前备份会按配置 ID 重新查询数据库，导致已移除的模块仍被备份（该模块服务器不可达时还会中断整个发布）；现在发布前备份与本次发布使用同一份配置，并在日志中列出未参与备份的模块<br><b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.50/SmomPublish_0.0.50_x64-setup.exe'>点击此处</a> 下载。</b>",
+    "pub_date": "2026-10-12T06:32:38Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWFBbzVtYTVxVE9NdWJDWGFvbWFHK05tYjNMdCsyM2FTd2REQWtoR2wwaUFKTzFZUDF3a2ZaeFU3czBZRkZhbTc3bGgwalNXSVlLQllySEp1V3dMQ2dFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNTk4OTE3CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjQ5X3g2NC1zZXR1cC5leGUKRmxabTJmV2JuTXNJV2VHNGJBNjZveTBDOHhManVZNWoyUENjV1dRZGN1QWpWanNnYm5JM2NaVTlYTTUwbWNCQWhSR2ZyNTRFNU1FTzVqYUljcTJsQkE9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.49/SmomPublish_0.0.49_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWRUUU9DdTdMdFVhV2w2QStpVWFqTUpXQ3djZlpPMzcxUHlhNU40NnBHbXhlQ1NLSFI0ZXRFbWRNa3VhZlA2OXpiZ0V0VGRPTitYOWZydlFWU0tWNHdrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNzg2NzMwCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjUwX3g2NC1zZXR1cC5leGUKUmhWWWx2anFZNm50enpUcVVXVms2SjFtTytpL0JkUVRpU0FkMmZYUENNVUJzakthVUI0OVdmTzJ1SkZpQVdCQ1d2dm5JeXlHb2pZRW94VnZvUmlOREE9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.50/SmomPublish_0.0.50_x64-setup.exe"
         },
         "windows-msi": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWJIMWU1U2dHTStPcytFNmYwZ1ZLbXJ5OWxKWEZESDA5OS85eUdyVWFNd3RHY3J5Q2dYZVBXeUFKMERhRGJwYmxneHY4WTA2K1dIS25JZVdUdTFCb0EwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNTk4OTE3CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjQ5X3g2NF96aC1DTi5tc2kKYkEycjloMDdwREtlanBvWnVSaWE4aHdYUzczdVlZeVN2UFpFOW0rdVlLM2x6cU9DS05VTFcxYkg2QzVZMmNkS09SZ3g2V3lseXNOd3RUZVBBMVlsQ0E9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.49/SmomPublish_0.0.49_x64_zh-CN.msi"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWJnUWpvUGpCSEQ4NGNEeVpxZ2xjd3hhblBheDRuaG5Ta3hOcW1QeXdRdlo4bFQrNnJnSjAxYllaRzlrblpDZlBHeU9JZjlUaDRneHpxSlcrbzlVUmdBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNzg2NzMwCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjUwX3g2NF96aC1DTi5tc2kKRFh0SE93QW13MXZSMGxmVWtDcGRHaHpmSkxrVmF2THpXeVl6NW9IUEdQM3UzSTN1SGkveFk2MVE1ZGFVcUhmRjhudTJMWTMrbTFGTjduRnByZVlQRGc9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.50/SmomPublish_0.0.50_x64_zh-CN.msi"
         }
     }
 }
