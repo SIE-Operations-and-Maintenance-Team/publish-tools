@@ -1,4 +1,5 @@
 import { ElLoading } from "element-plus";
+import _ from "lodash";
 import { useAppconfigDb } from "@/database/appconfig/index";
 import { formatDate } from "@/utils/formatTime";
 import { useServerDb } from "@/database/servers/index";
@@ -689,19 +690,29 @@ const getDllNameBackFiles = async (clientPath: string, appconfigData: any) => {
 /**
  * 加载备份项
  * @param appconfigId 配置ID
+ * @param remark 备注
+ * @param showLoading 是否显示加载动画
+ * @param appconfigOverride 调用方当前会话的配置（如主页「移除」模块后的内存态）；传入时不再按 id 重查库
  * @returns 备份项
  */
 export async function loadBackupItems(
   appconfigId: number,
   remark: string = "",
-  showLoading: boolean = true
+  showLoading: boolean = true,
+  appconfigOverride?: RowAppconfigType
 ) {
-  // 获取应用配置
-  const appConfigResult = await useAppconfigDb().getAppconfigById(appconfigId);
-  if (appConfigResult.code !== 0) return false;
+  let appConfigItem: RowAppconfigType;
+  if (appconfigOverride) {
+    // 深拷贝：备份项生成时的存量兼容补写会就地修改配置对象，不能污染调用方的响应式状态
+    appConfigItem = _.cloneDeep(appconfigOverride);
+  } else {
+    // 获取应用配置
+    const appConfigResult = await useAppconfigDb().getAppconfigById(appconfigId);
+    if (appConfigResult.code !== 0) return false;
+    appConfigItem = appConfigResult.data.data;
+  }
 
   // 备份记录
-  let appConfigItem = appConfigResult.data.data;
   let currentDate = formatDate(new Date(), "YYYY-mm-dd HH:MM:SS");
 
   let dllMode = appConfigItem.dllMode;

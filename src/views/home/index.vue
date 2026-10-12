@@ -1080,10 +1080,36 @@ const onGeneratePublish = async () => {
 
 // 发布前备份
 const publishBeforeBackup = async (id: number) => {
-  var backupItem = await loadBackupItems(id, "发布前备份", false);
+  // 传入当前会话的内存态配置：备份需与页面上的「移除」保持一致，不能按 id 重查库
+  var backupItem = await loadBackupItems(
+    id,
+    "发布前备份",
+    false,
+    state.publishData.appconfigData
+  );
   if (!backupItem) return false;
   var backupData = backupItem as RowBackupType;
   printInfoLog("");
+
+  // 提示未参与备份的模块（本次已移除或本就未配置[客户端生成路径]）
+  const backupConfigItems = state.publishData.appconfigData.configItems;
+  const skippedBackupModules = new Array<string>();
+  if (!backupConfigItems?.webApiHost?.clientPath)
+    skippedBackupModules.push(webApiHostName.value);
+  if (!backupConfigItems?.scheduleServer?.clientPath)
+    skippedBackupModules.push(scheduleServerName.value);
+  if (!backupConfigItems?.webClient?.clientPath)
+    skippedBackupModules.push(webClientName.value);
+  if (!backupConfigItems?.wpfClient?.clientPath)
+    skippedBackupModules.push(wpfClientName.value);
+  if (!backupConfigItems?.spcMonitor?.clientPath)
+    skippedBackupModules.push(spcMonitorName.value);
+  if (skippedBackupModules.length > 0) {
+    printInfoLog(
+      `以下模块未配置或已移除[客户端生成路径]，不参与备份：${skippedBackupModules.join("、")}`,
+      "log-warning"
+    );
+  }
 
   // 备份[WebApiHost]
   if (backupData.backupItems.webApiHost && backupData.backupItems.webApiHost.length > 0) {
