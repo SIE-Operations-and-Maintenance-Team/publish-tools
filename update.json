@@ -1,15 +1,15 @@
 {
-    "version": "0.0.50",
-    "notes": "<b>修复</b><br>• 修复项目发布页\"移除\"的模块在发布前备份阶段仍被纳入的问题：此前\"移除\"只清空页面内存中的\"客户端生成路径\"，编译、获取程序集与发布环节都会跳过该模块，唯独发布前备份会按配置 ID 重新查询数据库，导致已移除的模块仍被备份（该模块服务器不可达时还会中断整个发布）；现在发布前备份与本次发布使用同一份配置，并在日志中列出未参与备份的模块<br><b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.50/SmomPublish_0.0.50_x64-setup.exe'>点击此处</a> 下载。</b>",
-    "pub_date": "2026-10-12T06:32:38Z",
+    "version": "0.0.51",
+    "notes": "<b>功能</b><br>• 发布前获取最新代码：项目发布页新增「获取最新代码」按钮；应用配置新增「拉取最新代码」开关（默认开启），一键发布在编译前按配置的 TFS/Git 条目拉取最新代码（TFS 执行 `tf get`、Git 执行 `git pull --ff-only`），本地有未提交修改时确认后可继续，定时发布无人值守时跳过并记录原因，拉取失败或冲突则中止发布<br>• 应用配置支持自动查找 MSBuild 路径，TFS 管理支持自动查找 TF.exe 路径，Git 管理支持自动定位 git.exe 路径（均通过常见安装目录或系统命令定位）<br>• 项目管理、备份管理、TFS 管理、服务器管理支持批量删除<br>• 项目管理的程序集输出路径可点击打开所在目录；备份还原记录支持查看完整日志<br>• 发布平台与文件手动发布：日志按服务实例分标签页展示，标签带运行/成功/失败状态点；文件手动发布新增重置按钮<br>• MCP 工具集精简为发布平台操作：一键发布、获取最新代码、编译项目、获取程序集、手动发布（可传 appconfig_id 或 project_id+environment，不传则用界面当前选择，执行结束返回成败与失败原因），定时发布相关工具保留；文件操作、本地命令、构建、数据库查询、MCP 配置等工具移除<br><b>修复</b><br>• 移除发布平台未实现的「异步上传」开关，避免开启后没有任何效果<br>• 定时发布的失败原因收集包含各日志标签页中的服务日志，不再只取基础日志<br><b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.51/SmomPublish_0.0.51_x64-setup.exe'>点击此处</a> 下载。</b>",
+    "pub_date": "2026-10-18T10:10:28Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWRUUU9DdTdMdFVhV2w2QStpVWFqTUpXQ3djZlpPMzcxUHlhNU40NnBHbXhlQ1NLSFI0ZXRFbWRNa3VhZlA2OXpiZ0V0VGRPTitYOWZydlFWU0tWNHdrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNzg2NzMwCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjUwX3g2NC1zZXR1cC5leGUKUmhWWWx2anFZNm50enpUcVVXVms2SjFtTytpL0JkUVRpU0FkMmZYUENNVUJzakthVUI0OVdmTzJ1SkZpQVdCQ1d2dm5JeXlHb2pZRW94VnZvUmlOREE9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.50/SmomPublish_0.0.50_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVVnSFFZaC8xV0FhbU1Oa2pacFl5VDU1N2xxSnVhTHQ0V1FOdzNvdy9lTkQ0T0tFZnZ3RlNyeHJHQWxDNHVpc09vcURpR1EySjJIUUEyZmM1VHF4WUE4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMzE4MjAzCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjUxX3g2NC1zZXR1cC5leGUKNk5oTzloa2lCSi81bUdTWnpGU3c5QU04ZjhTVDU2Z0x0dkpNbDF2VWpaRVRkeU0yYk0zZFZjMzdBL2V2clRpSkFaWEFta3dKOGgvMEtnMmhDYkdoQnc9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.51/SmomPublish_0.0.51_x64-setup.exe"
         },
         "windows-msi": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWJnUWpvUGpCSEQ4NGNEeVpxZ2xjd3hhblBheDRuaG5Ta3hOcW1QeXdRdlo4bFQrNnJnSjAxYllaRzlrblpDZlBHeU9JZjlUaDRneHpxSlcrbzlVUmdBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNzg2NzMwCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjUwX3g2NF96aC1DTi5tc2kKRFh0SE93QW13MXZSMGxmVWtDcGRHaHpmSkxrVmF2THpXeVl6NW9IUEdQM3UzSTN1SGkveFk2MVE1ZGFVcUhmRjhudTJMWTMrbTFGTjduRnByZVlQRGc9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.50/SmomPublish_0.0.50_x64_zh-CN.msi"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVUrTEhZUlBMVFQyS3RjQzhTN00rRTBzUHZUaWlEL1daYk5mSmFZZmRxY1c2dmM4aGpTOWgxWGVGNlM5bTMzdHRIQnE1cEdiVElMQ3JpR0ZuYzNLR3cwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMzE4MjAzCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjUxX3g2NF96aC1DTi5tc2kKakdFamJqbE5mNHlYRXVuRVRKZDRUWkZCQmxsckhYME9QRHJWSUpmd1M1SWNkeXpnYUY5NGZQeWFFVFBQWFprTDFQYlhRU3FUMGU0aC9RY3VQTkczQ3c9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.51/SmomPublish_0.0.51_x64_zh-CN.msi"
         }
     }
 }
