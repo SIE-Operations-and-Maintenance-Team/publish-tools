@@ -36,8 +36,16 @@
           </el-icon>
           新增
         </el-button>
+        <el-button size="default" type="danger" :disabled="selectedRows.length === 0" @click="onBatchDel">
+          <el-icon>
+            <ele-Delete />
+          </el-icon>
+          批量删除
+        </el-button>
       </template>
-      <el-table :data="state.tableData.data" v-loading="state.tableData.loading" style="width: 100%">
+      <el-table :data="state.tableData.data" v-loading="state.tableData.loading" style="width: 100%"
+        @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="50" />
         <el-table-column fixed type="index" label="序号" width="60" />
         <el-table-column prop="gitName" label="Git名称" width="150" />
         <el-table-column prop="gitRepository" label=".git目录" show-overflow-tooltip width="300" />
@@ -180,6 +188,13 @@ const onOpenGit = (type: string, row: any) => {
   gitDialogRef.value.openDialog(type, row);
 };
 
+// 多选
+const selectedRows = ref<RowGitType[]>([]);
+
+const handleSelectionChange = (rows: RowGitType[]) => {
+  selectedRows.value = rows;
+};
+
 // 删除Git
 const onRowDel = (row: RowGitType) => {
   ElMessageBox.confirm(`此操作将永久删除Git "${row.gitName}"，是否继续？`, '提示', {
@@ -202,6 +217,34 @@ const onRowDel = (row: RowGitType) => {
       }
     })
     .catch(() => { });
+};
+
+// 批量删除
+const onBatchDel = () => {
+  const names = selectedRows.value.map((r) => r.gitName).join("、");
+  ElMessageBox.confirm(
+    `此操作将永久删除以下Git配置：【${names}】，是否确认?`,
+    "批量删除",
+    {
+      confirmButtonText: "确认",
+      cancelButtonText: "取消",
+      type: "warning",
+    }
+  ).then(async () => {
+    const ids = selectedRows.value.map((r) => Number(r.id));
+    const failedIds = new Array<number>();
+    for (const id of ids) {
+      const deleteResult = await gitDb.deleteGit(id);
+      if (deleteResult.code !== 0) failedIds.push(id);
+    }
+    selectedRows.value = [];
+    await getTableData();
+    if (failedIds.length > 0) {
+      ElMessage.error(`批量删除完成，失败 ${failedIds.length} 条（ID：${failedIds.join("、")}）`);
+    } else {
+      ElMessage.success("批量删除成功");
+    }
+  });
 };
 
 // 页面加载时获取数据
