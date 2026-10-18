@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "SmomPublish"
-version = "0.0.50"
+version = "0.0.51"
 dependencies = [
  "axum",
  "chrono",
