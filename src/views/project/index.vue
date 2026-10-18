@@ -46,12 +46,20 @@
           </el-icon>
           新增
         </el-button>
+        <el-button size="default" type="danger" :disabled="selectedRows.length === 0" @click="onBatchDel">
+          <el-icon>
+            <ele-Delete />
+          </el-icon>
+          批量删除
+        </el-button>
       </template>
       <el-table
         :data="state.tableData.data"
         v-loading="state.tableData.loading"
         style="width: 100%"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column type="selection" width="50" />
         <el-table-column fixed type="index" label="序号" width="60" />
         <el-table-column prop="code" label="项目编码" width="100" />
         <el-table-column prop="name" label="项目名称" width="200" />
@@ -79,7 +87,14 @@
           label="程序集输出路径"
           min-width="300"
           show-overflow-tooltip
-        />
+        >
+          <template #default="scope">
+            <a class="t-link-path" href="javascript:void(0);" title="打开程序集输出路径"
+              @click="onOpenAssemblyOutPath(scope.row.assemblyOutPath)"
+              v-if="scope.row.assemblyOutPath">{{ scope.row.assemblyOutPath }}</a>
+            <label v-else></label>
+          </template>
+        </el-table-column>
         <el-table-column
           prop="description"
           label="描述"
@@ -125,6 +140,7 @@ import { ref, reactive, onBeforeMount, defineAsyncComponent } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import _ from "lodash";
 import { useProjectDb } from "@/database/project/index";
+import { cmdInvoke } from "@/utils/command";
 
 // 引入项目管理数据库
 const projectDb = useProjectDb();
@@ -218,6 +234,13 @@ const onCopyProject = async (row: RowProjectType) => {
   }
 };
 
+// 多选
+const selectedRows = ref<RowProjectType[]>([]);
+
+const handleSelectionChange = (rows: RowProjectType[]) => {
+  selectedRows.value = rows;
+};
+
 // 删除项目
 const onRowDel = (row: RowProjectType) => {
   ElMessageBox.confirm(`此操作将永久删除项目名称：“${row.name}”，是否确认?`, "提示", {
@@ -232,6 +255,30 @@ const onRowDel = (row: RowProjectType) => {
     }
     await getTableData();
     ElMessage.success("删除成功");
+  });
+};
+
+// 批量删除
+const onBatchDel = () => {
+  const names = selectedRows.value.map((r) => r.name).join("、");
+  ElMessageBox.confirm(`此操作将永久删除以下项目：【${names}】，是否确认?`, "批量删除", {
+    confirmButtonText: "确认",
+    cancelButtonText: "取消",
+    type: "warning",
+  }).then(async () => {
+    const ids = selectedRows.value.map((r) => Number(r.id));
+    const failedIds = new Array<number>();
+    for (const id of ids) {
+      const deleteResult = await projectDb.deleteProject(id);
+      if (deleteResult.code !== 0) failedIds.push(id);
+    }
+    selectedRows.value = [];
+    await getTableData();
+    if (failedIds.length > 0) {
+      ElMessage.error(`批量删除完成，失败 ${failedIds.length} 条（ID：${failedIds.join("、")}）`);
+    } else {
+      ElMessage.success("批量删除成功");
+    }
   });
 };
 
@@ -252,6 +299,12 @@ const onIsDefault = async (val: number, project: RowProjectType) => {
   onSearch();
 };
 
+// 打开程序集输出路径
+const onOpenAssemblyOutPath = async (path: string) => {
+  if (!path) return;
+  await cmdInvoke("open_dir", { path });
+};
+
 onBeforeMount(async () => {
   await getTableData();
 });
@@ -267,6 +320,13 @@ onBeforeMount(async () => {
     .el-table {
       flex: 1;
     }
+  }
+  .t-link-path {
+    text-decoration: none;
+    color: #303133;
+  }
+  .t-link-path:hover {
+    text-decoration: underline;
   }
 }
 </style>

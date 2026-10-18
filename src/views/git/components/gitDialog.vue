@@ -19,7 +19,12 @@
           <el-col :span="24" class="mb20">
             <el-form-item label="Git工具路径">
               <el-input v-model="state.ruleForm.gitPath" maxlength="500" clearable :disabled="formDisabled"
-                placeholder="请输入Git工具路径，如：git"></el-input>
+                placeholder="请输入Git工具路径，如：git">
+                <template #append v-if="!formDisabled">
+                  <el-button type="info" size="small" @click="onFindGitExePath" :icon="Place"
+                    title="自动获取"></el-button>
+                </template>
+              </el-input>
             </el-form-item>
           </el-col>
           <el-col :span="24" class="mb20">
@@ -58,9 +63,11 @@
 import { nextTick, reactive, ref } from "vue";
 import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage } from "element-plus";
+import { Place } from "@element-plus/icons-vue";
 import _ from "lodash";
 import { getDefaultSubObject } from "@/utils/other";
 import { useGitDb } from "@/database/git/index";
+import { cmdInvoke } from "@/utils/command";
 
 // 定义子组件向父组件传值/事件
 const emit = defineEmits(["refresh"]);
@@ -131,6 +138,21 @@ const onSubmit = async () => {
     emit("refresh");
   } else {
     ElMessage.error(insertResult.msg);
+  }
+};
+
+// 自动查找 git.exe 路径
+const onFindGitExePath = async () => {
+  try {
+    const result = await cmdInvoke("find_git_exe_path", {});
+    if (result.code === 0) {
+      state.ruleForm.gitPath = result.data;
+      ElMessage.success("Git 路径查找成功！");
+    } else {
+      ElMessage.warning(result.data);
+    }
+  } catch (error) {
+    ElMessage.error("查找 Git 路径失败：" + JSON.stringify(error));
   }
 };
 

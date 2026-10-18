@@ -31,7 +31,12 @@
           <el-col :span="24">
             <el-form-item label="TFVC工具" prop="tfvcPath">
               <el-input v-model="state.ruleForm.tfvcPath" maxlength="500" clearable
-                placeholder="请输入TFVC工具路径"></el-input>
+                placeholder="请输入TFVC工具路径">
+                <template #append v-if="state.dialog.type !== 'viewer'">
+                  <el-button type="info" size="small" @click="onFindTfExePath" :icon="Place"
+                    title="自动获取"></el-button>
+                </template>
+              </el-input>
             </el-form-item>
           </el-col>
           <el-col :span="24" class="mb20">
@@ -67,8 +72,10 @@
 import { nextTick, reactive, ref } from "vue";
 import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage } from "element-plus";
+import { Place } from "@element-plus/icons-vue";
 import { getDefaultSubObject } from "@/utils/other";
 import { useTfsDb } from "@/database/teamFoundationServer/index";
+import { cmdInvoke } from "@/utils/command";
 
 // 定义子组件向父组件传值/事件
 const emit = defineEmits(["refresh"]);
@@ -141,6 +148,21 @@ const onSubmit = async () => {
     emit("refresh");
   } else {
     ElMessage.error(insertResult.msg);
+  }
+};
+
+// 自动查找 TF.exe 路径
+const onFindTfExePath = async () => {
+  try {
+    const result = await cmdInvoke("find_tf_exe_path", {});
+    if (result.code === 0) {
+      state.ruleForm.tfvcPath = result.data;
+      ElMessage.success("TF.exe 路径查找成功！");
+    } else {
+      ElMessage.warning(result.data);
+    }
+  } catch (error) {
+    ElMessage.error("查找 TF.exe 路径失败：" + JSON.stringify(error));
   }
 };
 

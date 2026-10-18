@@ -46,6 +46,12 @@ fn get_mcp_status() -> String {
     SmomPublish::config::get_mcp_status()
 }
 
+/// 前端回填 MCP 动作执行结果（配合 mcp/bridge.rs 的等待通道）
+#[tauri::command]
+fn mcp_action_result(request_id: String, success: bool, message: String) -> bool {
+    SmomPublish::mcp::bridge::complete(&request_id, success, message)
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_http::init())
@@ -99,6 +105,7 @@ fn main() {
             get_mcp_config,
             update_mcp_config,
             get_mcp_status,
+            mcp_action_result,
             file_module::exists,
             file_module::create_dir,
             file_module::open_dir,
@@ -126,6 +133,9 @@ fn main() {
             file_module::read_content_to_file,
             file_module::zip_dir,
             file_module::get_encryption_key,
+            file_module::find_tf_exe_path,
+            file_module::find_msbuild_path,
+            file_module::find_git_exe_path,
             file_module::delete_files_with_prefix,
             file_module::copy_sie_dlls,
             file_module::copy_non_sie_dlls,

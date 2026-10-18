@@ -145,6 +145,14 @@ declare interface DataResultType<T = any> {
 	data: T;
 }
 
+// 日志标签页
+declare type LogTabType = {
+	id: string;
+	label: string;
+	logs: LogPrintType[];
+	status: 'info' | 'running' | 'success' | 'error' | 'pending';
+};
+
 // 上传文件数量
 declare type LogPrintType = {
 	content: LogContentType;

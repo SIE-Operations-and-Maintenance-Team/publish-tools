@@ -28,16 +28,18 @@ import {
   nextTick,
   watch,
 } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { storeToRefs } from "pinia";
 import { useTagsViewRoutes } from "@/stores/tagsViewRoutes";
 import { check, Update } from "@tauri-apps/plugin-updater";
+import { listen } from "@tauri-apps/api/event";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { useThemeConfig } from "@/stores/themeConfig";
 import other from "@/utils/other";
 import { Local, Session } from "@/utils/storage";
 import mittBus from "@/utils/mitt";
+import { setPendingMcpAction } from "@/utils/mcpPending";
 import setIntroduction from "@/utils/setIconfont";
 import { fetchGithubReleaseNotes } from "@/utils/githubRelease";
 import { loadPublishSettings } from "@/utils/publishSettings";
@@ -62,6 +64,7 @@ const layoutUpgradeRef = ref();
 const { messages, locale } = useI18n();
 const setingsRef = ref();
 const route = useRoute();
+const router = useRouter();
 const stores = useTagsViewRoutes();
 const storesThemeConfig = useThemeConfig();
 const { themeConfig } = storeToRefs(storesThemeConfig);
@@ -142,6 +145,17 @@ onMounted(() => {
     if (Session.get("isTagsViewCurrenFull")) {
       stores.setCurrenFullscreen(Session.get("isTagsViewCurrenFull"));
     }
+
+    // MCP 发布动作：不在发布页时先暂存再跳转，由发布页挂载后取走执行
+    listen<{ request_id: string; action: string; appconfig?: unknown }>("mcp-action", async (event) => {
+      const payload = event.payload;
+      if (route.path !== "/home") {
+        setPendingMcpAction(payload);
+        await router.push("/home");
+        return;
+      }
+      mittBus.emit("mcp-action", payload);
+    }).catch((e) => console.warn("监听 mcp-action 失败:", e));
 
     // SSH MCP 启动自动同步（仅下行、不上传）：延迟 3 秒避开启动期数据库/窗口初始化，失败静默不影响使用
     window.setTimeout(async () => {

@@ -163,36 +163,6 @@
                     </td>
                   </tr>
                   <tr>
-                    <th>异步上传</th>
-                    <td>
-                      <el-switch
-                        v-model="isAsyncMode"
-                        :active-value="true"
-                        :inactive-value="false"
-                        :disabled="state.funModule[currModuleIndex].loading == true"
-                        inline-prompt
-                        active-text="开启"
-                        inactive-text="关闭"
-                        size="default"
-                      />
-                      <el-tooltip
-                        content="异步模式下仅 WebApiHost / ScheduleServer / WpfClient / SpcMonitor 并行执行，WebClient 仍需等待所有 WebApiHost 完成后才执行。"
-                        placement="top"
-                        effect="light"
-                      >
-                        <el-icon
-                          style="
-                            margin-left: 10px;
-                            position: relative;
-                            top: 4px;
-                            cursor: help;
-                            color: #909399;
-                          "
-                        >
-                          <QuestionFilled />
-                        </el-icon>
-                      </el-tooltip>
-                    </td>
                     <th>备份路径</th>
                     <td>
                       <el-input
@@ -589,20 +559,36 @@
                 </el-col>
               </el-row>
             </div>
-            <div ref="logContentRef" class="card-item-content log-content">
-              <p v-for="log in logPrintInfo" :class="log.type">
-                {{ log.content.value }}
-                <el-text :type="log.content.uploadFile.currNumber >=
-                  log.content.uploadFile.totalNumber
-                  ? 'primary'
-                  : 'warning'
-                  " size="small" v-if="log.content.uploadFile && log.content.uploadFile.totalNumber > 0">{{
-                    log.content.uploadFile.prefix
-                  }}{{ log.content.uploadFile.currNumber }}/{{
-                    log.content.uploadFile.totalNumber
-                  }}
-                  个文件。</el-text>
-              </p>
+            <div class="card-item-content log-content" style="padding: 0px">
+              <el-tabs v-model="activeLogTab" type="border-card" class="log-tabs"
+                :class="{ 'log-tabs-single': displayTabs.length <= 1 }">
+                <el-tab-pane v-for="tab in displayTabs" :key="tab.id" :name="tab.id">
+                  <template #label>
+                    <span>
+                      <span v-if="tab.status === 'running'" style="color: var(--el-color-warning)">●</span>
+                      <span v-else-if="tab.status === 'success'" style="color: var(--el-color-success)">●</span>
+                      <span v-else-if="tab.status === 'error'" style="color: var(--el-color-danger)">●</span>
+                      <span v-else style="color: var(--el-color-info)">●</span>
+                      {{ tab.label }}
+                    </span>
+                  </template>
+                  <div :ref="(el: any) => setTabContentRef(tab.id, el)" class="log-tab-pane-content">
+                    <p v-for="log in tab.logs" :class="log.type">
+                      {{ log.content.value }}
+                      <el-text :type="log.content.uploadFile.currNumber >=
+                        log.content.uploadFile.totalNumber
+                        ? 'primary'
+                        : 'warning'
+                        " size="small" v-if="log.content.uploadFile && log.content.uploadFile.totalNumber > 0">{{
+                          log.content.uploadFile.prefix
+                        }}{{ log.content.uploadFile.currNumber }}/{{
+                          log.content.uploadFile.totalNumber
+                        }}
+                        个文件。</el-text>
+                    </p>
+                  </div>
+                </el-tab-pane>
+              </el-tabs>
             </div>
           </div>
         </div>
@@ -629,7 +615,7 @@ import {
 } from "vue";
 import { ElMessage } from "element-plus";
 import _ from "lodash";
-import { Refresh, CircleClose, EditPen, QuestionFilled, VideoPause, VideoPlay, Close } from "@element-plus/icons-vue";
+import { Refresh, CircleClose, EditPen, VideoPause, VideoPlay, Close } from "@element-plus/icons-vue";
 import { useProjectDb } from "@/database/project/index";
 import { useAppconfigDb } from "@/database/appconfig/index";
 import { useServerDb } from "@/database/servers/index";
@@ -662,6 +648,8 @@ import { sendNotification } from '@tauri-apps/plugin-notification';
 import mittBus from "@/utils/mitt";
 import { useSettingsDb } from "@/database/settings/index";
 import { loadPublishSettings, getRetryArgs } from "@/utils/publishSettings";
+import { pullLatestCode, isPullLatestEnabled } from "@/utils/sourceControl";
+import { takePendingMcpAction } from "@/utils/mcpPending";
 
 const SvgIcon = defineAsyncComponent(() => import("@/components/svgIcon/index.vue"));
 
@@ -707,10 +695,64 @@ const webClientName = ref("WebClient");
 const wpfClientName = ref("WpfClient");
 const spcMonitorName = ref("SpcMonitor");
 const projectAssemblyOutPath = ref("");
-// 异步上传模式
-const isAsyncMode = ref(false);
-const logContentRef = ref();
 const logPrintInfo = ref<LogPrintType[]>([]);
+// 日志标签页：main 为基础日志，服务发布时按实例动态创建
+const logTabs = ref<LogTabType[]>([]);
+const activeLogTab = ref<string>("main");
+const tabContentRefs = ref<Record<string, HTMLElement>>({});
+// 串行发布期间的服务日志标签页上下文，内部日志无需逐个传 tabId
+let currentLogTabId: string | undefined = undefined;
+
+// 展示的标签页：基础页 + 动态服务页
+const displayTabs = computed<LogTabType[]>(() => {
+  const baseTab: LogTabType = {
+    id: "main",
+    label: "总体日志",
+    logs: logPrintInfo.value,
+    status: "info",
+  };
+  return [baseTab, ...logTabs.value];
+});
+
+// 创建日志标签页
+const createLogTab = (serviceName: string, serverName: string, instanceName?: string): string => {
+  const id = `${serviceName}_${serverName}_${instanceName || "default"}_${Date.now()}_${logTabs.value.length}`;
+  const label = instanceName
+    ? `${serviceName} / ${serverName} / ${instanceName}`
+    : `${serviceName} / ${serverName}`;
+  logTabs.value.push({ id, label, logs: [], status: "pending" });
+  return id;
+};
+
+// 更新标签页状态
+const updateTabStatus = (tabId: string, status: LogTabType["status"]) => {
+  const tab = logTabs.value.find((t) => t.id === tabId);
+  if (tab) tab.status = status;
+};
+
+// 绑定标签页内容区 DOM 引用
+const setTabContentRef = (id: string, el: any) => {
+  if (el) tabContentRefs.value[id] = el;
+};
+
+// 在指定日志标签页上下文中执行
+const withLogTab = async <T>(tabId: string, action: () => Promise<T>): Promise<T> => {
+  const prev = currentLogTabId;
+  currentLogTabId = tabId;
+  try {
+    return await action();
+  } finally {
+    currentLogTabId = prev;
+  }
+};
+
+// 滚动到日志底部
+const scrollLogToBottom = (tabId: string) => {
+  nextTick(() => {
+    const el = tabContentRefs.value[tabId];
+    if (el) el.scrollTop = el.scrollHeight;
+  });
+};
 const generatePublishLog = ref({
   isEnable: true,
   type: "默认",
@@ -735,6 +777,14 @@ const state = reactive({
       iconColor: "--el-color-primary",
       loading: false,
       loadingText: "一键发布中",
+    },
+    {
+      title: "获取最新代码",
+      iconBgColor: "--next-color-latest-lighter",
+      iconFont: "smom-icon smom-icon-zuixinbanben",
+      iconColor: "--next-color-latest",
+      loading: false,
+      loadingText: "拉取中",
     },
     {
       title: "编译项目",
@@ -790,6 +840,209 @@ const visibleFunModule = computed(() => {
     : withOrig.filter((f) => f.title !== "一键发布");
 });
 
+// 执行功能模块（界面按钮与 MCP 共用），返回是否成功
+const executeFunModule = async (title: string): Promise<boolean> => {
+  switch (title) {
+    case "获取最新代码": {
+      const pullResult = await pullLatestCode(state.publishData.appconfigData, {
+        interactive: true,
+        log: (content, type) => printInfoLog(content, type),
+      });
+      // skipped 表示未执行拉取（无源码管理配置、分支不一致、脏工作区取消），按未成功返回
+      return pullResult.code === 0 && !pullResult.data?.skipped;
+    }
+    case "一键发布":
+      try {
+        const oneClickPublishResult = await oneClickPublishing();
+        currentLogTabId = undefined;
+        if (oneClickPublishResult) {
+          printInfoLog("一键发布成功。");
+          await getProjectDefault();
+        }
+        return oneClickPublishResult;
+      } catch (e: any) {
+        if (e?.message === "PUBLISH_STOPPED") {
+          printInfoLog("发布已停止.", "log-warning");
+        }
+        currentLogTabId = undefined;
+        return false;
+      }
+    case "编译项目": {
+      const buildProjectsResult = await buildProjects();
+      if (buildProjectsResult)
+        printInfoLog("编译项目成功，可以尝试：获取程序集、手动发布。");
+      return buildProjectsResult;
+    }
+    case "获取程序集": {
+      const getAppAssemblysResult = await getApplicationAssemblys(true);
+      if (getAppAssemblysResult) printInfoLog("获取程序集成功。");
+      return getAppAssemblysResult;
+    }
+    case "手动发布":
+      try {
+        const publishResult = await projectPublish();
+        currentLogTabId = undefined;
+        if (publishResult) {
+          printInfoLog("手动发布成功。");
+          await getProjectDefault();
+        }
+        return publishResult;
+      } catch (e: any) {
+        if (e?.message === "PUBLISH_STOPPED") {
+          printInfoLog("发布已停止.", "log-warning");
+        }
+        currentLogTabId = undefined;
+        return false;
+      }
+    default:
+      return false;
+  }
+};
+
+// 将 MCP 传入的应用配置（数据库行）转换为界面使用的结构
+const normalizeMcpAppconfig = (row: any): RowAppconfigType | null => {
+  if (!row) return null;
+  const configItemsJson = String(row.config_items_json || "{}");
+  let configItems: any = {};
+  try {
+    configItems = JSON.parse(configItemsJson);
+  } catch {
+    configItems = {};
+  }
+  return {
+    id: Number(row.id),
+    projectId: Number(row.project_id),
+    projectName: row.project_name || "",
+    environment: Number(row.environment),
+    msBuildPath: row.ms_build_path || "",
+    dllMode: row.dll_mode || "",
+    dllModeValue: row.dll_mode_value || "",
+    buildMode: row.build_mode || "Debug",
+    configItemsJson,
+    configItems,
+  } as RowAppconfigType;
+};
+
+// MCP 触发的功能执行（复用界面按钮的初始化流程）
+const runFunModuleForMcp = async (title: string): Promise<{ success: boolean; message: string }> => {
+  if (showEmptyAppConfig.value) {
+    return { success: false, message: "未获取到应用配置" };
+  }
+  const running = state.funModule.find((item) => item.loading);
+  if (running) {
+    return { success: false, message: `正在[${running.title}]中，请稍等` };
+  }
+  const idx = state.funModule.findIndex((item) => item.title === title);
+  if (idx < 0) {
+    return { success: false, message: `不支持的操作：${title}` };
+  }
+
+  onRemoveLogs();
+  state.publishData.publishStopped = false;
+  state.publishData.publishPaused = false;
+  state.publishData.resumeResolve = null;
+  state.funModule[idx].loading = true;
+  currModuleIndex.value = idx;
+  initLogs();
+  if (title === "一键发布" || title === "获取程序集" || title === "手动发布") {
+    if (!(await validateTfsLocalPath())) {
+      state.funModule[idx].loading = false;
+      return { success: false, message: "TFS 本地根目录校验失败" };
+    }
+  }
+  await loadPublishSettings();
+  // 从其他页面跳转过来时项目列表可能尚未加载，先补齐，避免取不到程序集输出路径
+  if (!projectList.value || projectList.value.length < 1) {
+    await getProjectList();
+  }
+  projectAssemblyOutPath.value = await getProjectOutPath();
+
+  const success = await executeFunModule(title);
+  printInfoLog("");
+  printInfoLog(generatePublishLog.value.logs, "log-info");
+  state.funModule[idx].loading = false;
+  generatePublishLog.value.data = "";
+  generatePublishLog.value.logs = "";
+
+  return {
+    success,
+    message: success ? "执行成功" : collectFailLogs() || "执行失败",
+  };
+};
+
+// MCP 动作入口（App.vue 通过 mittBus 转交）
+const onMcpAction = async (payload: any) => {
+  const requestId = payload?.request_id ?? payload?.requestId;
+  if (!requestId) return;
+  const actionTitles: Record<string, string> = {
+    oneClickPublish: "一键发布",
+    pullLatestCode: "获取最新代码",
+    buildProjects: "编译项目",
+    getApplicationAssemblys: "获取程序集",
+    manualPublish: "手动发布",
+  };
+  const title = actionTitles[payload?.action];
+  if (!title) {
+    const replyResult = await cmdInvoke("mcp_action_result", {
+      requestId,
+      success: false,
+      message: `未知操作：${payload?.action}`,
+    });
+    if (replyResult.code !== 0) {
+      console.warn("回传 MCP 执行结果失败:", replyResult.data);
+    }
+    return;
+  }
+
+  // 传入配置时临时替换界面状态，执行完恢复，不改变用户当前选择
+  const appconfig = normalizeMcpAppconfig(payload.appconfig);
+  const prev = {
+    projectId: state.publishData.projectId,
+    projectName: state.publishData.projectName,
+    environment: state.publishData.environment,
+    appconfigData: state.publishData.appconfigData,
+    showEmptyAppConfig: showEmptyAppConfig.value,
+  };
+  if (appconfig) {
+    showEmptyAppConfig.value = false;
+    state.publishData.projectId = appconfig.projectId;
+    state.publishData.projectName = appconfig.projectName || "";
+    state.publishData.environment = appconfig.environment ?? 1;
+    state.publishData.appconfigData = appconfig;
+    printInfoLog(
+      `MCP 调用：${title}（项目：${appconfig.projectName} / 环境：${displayEnvironment(
+        Number(appconfig.environment)
+      )}）`
+    );
+  } else {
+    printInfoLog(`MCP 调用：${title}（使用界面当前选择）`);
+  }
+
+  let result = { success: false, message: "执行异常" };
+  try {
+    result = await runFunModuleForMcp(title);
+  } catch (e: any) {
+    result = { success: false, message: String(e?.message || e) };
+  } finally {
+    if (appconfig) {
+      state.publishData.projectId = prev.projectId;
+      state.publishData.projectName = prev.projectName;
+      state.publishData.environment = prev.environment;
+      state.publishData.appconfigData = prev.appconfigData;
+      showEmptyAppConfig.value = prev.showEmptyAppConfig;
+    }
+  }
+
+  const replyResult = await cmdInvoke("mcp_action_result", {
+    requestId,
+    success: result.success,
+    message: result.message,
+  });
+  if (replyResult.code !== 0) {
+    console.warn("回传 MCP 执行结果失败:", replyResult.data);
+  }
+};
+
 // 功能模块触发
 const currModuleIndex = ref(0);
 const onFunModuleHandle = async (index: number) => {
@@ -843,43 +1096,7 @@ const onFunModuleHandle = async (index: number) => {
   // 加载发布设置缓存（供后续 copy_path / 服务停止启动 调用点 getRetryArgs 使用）
   await loadPublishSettings();
   projectAssemblyOutPath.value = await getProjectOutPath();
-  switch (title) {
-    case "一键发布":
-      try {
-        const oneClickPublishResult = await oneClickPublishing();
-        if (oneClickPublishResult) {
-          printInfoLog("一键发布成功。");
-          await getProjectDefault();
-        }
-      } catch (e: any) {
-        if (e?.message === "PUBLISH_STOPPED") {
-          printInfoLog("发布已停止.", "log-warning");
-        }
-      }
-      break;
-    case "编译项目":
-      const buildProjectsResult = await buildProjects();
-      if (buildProjectsResult)
-        printInfoLog("编译项目成功，可以尝试：获取程序集、手动发布。");
-      break;
-    case "获取程序集":
-      const getAppAssemblysResult = await getApplicationAssemblys(true);
-      if (getAppAssemblysResult) printInfoLog("获取程序集成功。");
-      break;
-    case "手动发布":
-      try {
-        const publishResult = await projectPublish();
-        if (publishResult) {
-          printInfoLog("手动发布成功。");
-          await getProjectDefault();
-        }
-      } catch (e: any) {
-        if (e?.message === "PUBLISH_STOPPED") {
-          printInfoLog("发布已停止.", "log-warning");
-        }
-      }
-      break;
-  }
+  await executeFunModule(title);
   printInfoLog("");
   printInfoLog(generatePublishLog.value.logs, "log-info");
   state.funModule[origIndex].loading = false;
@@ -970,14 +1187,34 @@ const onStopPublish = () => {
   }
 };
 
+// 一键发布前获取最新代码（受应用配置[拉取最新代码]开关控制）
+const pullLatestCodeBeforePublish = async () => {
+  if (!isPullLatestEnabled(state.publishData.appconfigData.configItems)) return true;
+  const pullResult = await pullLatestCode(state.publishData.appconfigData, {
+    // 定时发布无人值守，脏工作区不弹确认框
+    interactive: !isScheduledRunning.value,
+    log: (content, type) => printInfoLog(content, type),
+  });
+  if (pullResult.code !== 0) {
+    printInfoLog("获取最新代码失败，发布已中止.", "log-error");
+    return false;
+  }
+  return true;
+};
+
 // 一健发布
 const oneClickPublishing = async () => {
+  // 编译前获取最新代码
+  const pullLatestResult = await pullLatestCodeBeforePublish();
+  if (!pullLatestResult) return false;
+
   // 编译项目
   const buildProjectsResult = await buildProjects();
   if (!buildProjectsResult) return false;
 
   // 发布项目
   const publishResult = await projectPublish();
+  currentLogTabId = undefined;
   if (!publishResult) return false;
 
   printInfoLog("");
@@ -1080,6 +1317,7 @@ const onGeneratePublish = async () => {
 
 // 发布前备份
 const publishBeforeBackup = async (id: number) => {
+  currentLogTabId = undefined;
   // 传入当前会话的内存态配置：备份需与页面上的「移除」保持一致，不能按 id 重查库
   var backupItem = await loadBackupItems(
     id,
@@ -1118,11 +1356,7 @@ const publishBeforeBackup = async (id: number) => {
       "WebApiHost",
       backupData.backupItems.webApiHost,
       (uploadFile: UploadFileNumberType) => {
-        logPrintInfo.value[currLogIndex].content.uploadFile.prefix = uploadFile.prefix;
-        logPrintInfo.value[currLogIndex].content.uploadFile.currNumber =
-          uploadFile.currNumber;
-        logPrintInfo.value[currLogIndex].content.uploadFile.totalNumber =
-          uploadFile.totalNumber;
+        updateLogProgress(currLogIndex, uploadFile.prefix || "", uploadFile.currNumber, uploadFile.totalNumber);
       }
     );
     if (backupWebApiHostResult.code !== 0) {
@@ -1145,11 +1379,7 @@ const publishBeforeBackup = async (id: number) => {
       "ScheduleServer",
       backupData.backupItems.scheduleServer,
       (uploadFile: UploadFileNumberType) => {
-        logPrintInfo.value[currLogIndex].content.uploadFile.prefix = uploadFile.prefix;
-        logPrintInfo.value[currLogIndex].content.uploadFile.currNumber =
-          uploadFile.currNumber;
-        logPrintInfo.value[currLogIndex].content.uploadFile.totalNumber =
-          uploadFile.totalNumber;
+        updateLogProgress(currLogIndex, uploadFile.prefix || "", uploadFile.currNumber, uploadFile.totalNumber);
       }
     );
     if (backupScheduleServerResult.code !== 0) {
@@ -1169,11 +1399,7 @@ const publishBeforeBackup = async (id: number) => {
       "WebClient",
       backupData.backupItems.webClient,
       (uploadFile: UploadFileNumberType) => {
-        logPrintInfo.value[currLogIndex].content.uploadFile.prefix = uploadFile.prefix;
-        logPrintInfo.value[currLogIndex].content.uploadFile.currNumber =
-          uploadFile.currNumber;
-        logPrintInfo.value[currLogIndex].content.uploadFile.totalNumber =
-          uploadFile.totalNumber;
+        updateLogProgress(currLogIndex, uploadFile.prefix || "", uploadFile.currNumber, uploadFile.totalNumber);
       }
     );
     if (backupWebClientResult.code !== 0) {
@@ -1193,11 +1419,7 @@ const publishBeforeBackup = async (id: number) => {
       "WpfClient",
       backupData.backupItems.wpfClient,
       (uploadFile: UploadFileNumberType) => {
-        logPrintInfo.value[currLogIndex].content.uploadFile.prefix = uploadFile.prefix;
-        logPrintInfo.value[currLogIndex].content.uploadFile.currNumber =
-          uploadFile.currNumber;
-        logPrintInfo.value[currLogIndex].content.uploadFile.totalNumber =
-          uploadFile.totalNumber;
+        updateLogProgress(currLogIndex, uploadFile.prefix || "", uploadFile.currNumber, uploadFile.totalNumber);
       },
       Boolean(state.publishData.appconfigData.configItems.isNewVersion)
     );
@@ -1218,7 +1440,7 @@ const publishBeforeBackup = async (id: number) => {
       "SpcMonitor",
       backupData.backupItems.spcMonitor,
       (uploadFileNumber: UploadFileNumberType) => {
-        logPrintInfo.value[currLogIndex].content.uploadFile = uploadFileNumber;
+        updateLogProgress(currLogIndex, uploadFileNumber.prefix || "", uploadFileNumber.currNumber, uploadFileNumber.totalNumber);
       }
     );
     if (backupSpcMonitorResult.code !== 0) {
@@ -1241,6 +1463,7 @@ const publishBeforeBackup = async (id: number) => {
 
 // 发布[WebApiHost]服务
 const publishWebApiHost = async () => {
+  currentLogTabId = undefined;
   const webApiHostItem = state.publishData.appconfigData.configItems.webApiHost;
   if (!webApiHostItem.clientPath) return true;
 
@@ -1274,6 +1497,7 @@ const publishWebApiHost = async () => {
 
 // 发布[SpcMonitor]服务
 const publishSpcMonitor = async () => {
+  currentLogTabId = undefined;
   const spcMonitorItem = state.publishData.appconfigData.configItems.spcMonitor;
   if (!spcMonitorItem.clientPath) return true;
 
@@ -1309,6 +1533,7 @@ const publishSpcMonitor = async () => {
 
 // 发布[WebClient]服务
 const publishWebClient = async () => {
+  currentLogTabId = undefined;
   const webClientItem = state.publishData.appconfigData.configItems.webClient;
   if (!webClientItem.clientPath) return true;
 
@@ -1342,6 +1567,7 @@ const publishWebClient = async () => {
 
 // 发布[ScheduleServer]服务
 const publishScheduleServer = async () => {
+  currentLogTabId = undefined;
   const scheduleServerItem = state.publishData.appconfigData.configItems.scheduleServer;
   if (!scheduleServerItem.clientPath) return true;
 
@@ -1382,6 +1608,15 @@ const publishScheduleServer = async () => {
           printInfoLog(`服务[${scheduleServer.name}]未填写服务发布路径，请检查.`, "log-error");
           return false;
         }
+
+        // 每个服务实例一个日志标签页
+        const tabId = createLogTab(
+          scheduleServerName.value,
+          scheduleServer.name || "",
+          serverPathVal.identity
+        );
+        updateTabStatus(tabId, "running");
+        currentLogTabId = tabId;
 
         const uName = serverInfo.account;
         const uPwd = serverInfo.pwd;
@@ -1461,11 +1696,7 @@ const publishScheduleServer = async () => {
             return false;
           }
           uploadFileNumber.currNumber++;
-          logPrintInfo.value[currLogIndex].content.uploadFile.prefix = uploadFileNumber.prefix;
-          logPrintInfo.value[currLogIndex].content.uploadFile.currNumber =
-            uploadFileNumber.currNumber;
-          logPrintInfo.value[currLogIndex].content.uploadFile.totalNumber =
-            uploadFileNumber.totalNumber;
+          updateLogProgress(currLogIndex, uploadFileNumber.prefix || "", uploadFileNumber.currNumber, uploadFileNumber.totalNumber);
         }
 
         printInfoLog(
@@ -1496,6 +1727,7 @@ const publishScheduleServer = async () => {
           return false;
         }
         printInfoLog(`${logPrefix} 发布成功.`, "log-success");
+        updateTabStatus(tabId, "success");
       }
     }
   }
@@ -1504,6 +1736,7 @@ const publishScheduleServer = async () => {
 
 // [新]发布[WpfClient]服务
 const newPublishWpfClient = async () => {
+  currentLogTabId = undefined;
   const wpfClientItem = state.publishData.appconfigData.configItems.wpfClient;
   if (!wpfClientItem.clientPath) return true;
 
@@ -1548,6 +1781,10 @@ const newPublishWpfClient = async () => {
   // 遍历多台服务器逐个发布
   for (let srvIdx = 0; srvIdx < wpfServerArr.length; srvIdx++) {
     const wpfServer = wpfServerArr[srvIdx];
+    // 每台服务器一个日志标签页
+    const tabId = createLogTab(wpfClientName.value, wpfServer.name || "");
+    updateTabStatus(tabId, "running");
+    currentLogTabId = tabId;
     if (!wpfServer.id) {
       printInfoLog(
         ` ${wpfClientName.value} 未选择服务或该服务器不存在，请检查.`,
@@ -1746,6 +1983,8 @@ const newPublishWpfClient = async () => {
       printInfoLog(`已成功更新 ${dirName}.zip 版本号.`, "log-success");
     }
 
+    updateTabStatus(tabId, "success");
+
     // 发布成功，删除临时文件
     await cmdInvoke("delete_paths", {
       paths: [tempPublishDir],
@@ -1756,6 +1995,7 @@ const newPublishWpfClient = async () => {
 
 // 发布[WpfClient]服务
 const publishWpfClient = async () => {
+  currentLogTabId = undefined;
   const wpfClientItem = state.publishData.appconfigData.configItems.wpfClient;
   if (!wpfClientItem.clientPath) return true;
 
@@ -1800,6 +2040,10 @@ const publishWpfClient = async () => {
   // 遍历多台服务器逐个发布
   for (let srvIdx = 0; srvIdx < wpfServerArr.length; srvIdx++) {
     const wpfServer = wpfServerArr[srvIdx];
+    // 每台服务器一个日志标签页
+    const tabId = createLogTab(wpfClientName.value, wpfServer.name || "");
+    updateTabStatus(tabId, "running");
+    currentLogTabId = tabId;
     if (!wpfServer.id) {
       printInfoLog(
         ` ${wpfClientName.value} 未选择服务或该服务器不存在，请检查.`,
@@ -2049,6 +2293,8 @@ const publishWpfClient = async () => {
       printInfoLog(`已成功更新 ${dirName}.zip 版本号.`, "log-success");
     }
 
+    updateTabStatus(tabId, "success");
+
     // 发布成功，删除临时文件
     await cmdInvoke("delete_paths", {
       paths: [tempPublishDir],
@@ -2063,6 +2309,7 @@ const serverPublish = async (
   serverPathArr: ServerOptionType[],
   serverName: string
 ) => {
+  currentLogTabId = undefined;
   for (let j = 0; j < serverPathArr.length; j++) {
     const serverPath = serverPathArr[j];
     if (!serverPath.value) {
@@ -2079,115 +2326,126 @@ const serverPublish = async (
         printInfoLog(`服务[${server.name}]未填写服务发布路径，请检查.`, "log-error");
         return false;
       }
-      const uName = server.account;
-      const uPwd = server.pwd;
-      const serverAddress = `${server.ip}:${server.port}`;
-      const logPrefix = formatServiceLog(server.name, server.ip, serverName, serverPathVal.identity);
 
-      /* 1.关闭服务 */
-      printInfoLog(`${logPrefix} 正在关闭...`);
-      let closeServiceResult;
-      if (server.os === 1) {
-        closeServiceResult = await switchWinService(
-          uName,
-          uPwd,
-          serverAddress,
-          serverPathVal.identity,
-          "stop"
-        );
-      } else if (server.os === 2) {
-        closeServiceResult = await switchDockerService(
-          uName,
-          uPwd,
-          serverAddress,
-          serverPathVal.identity,
-          "stop"
-        );
-      } else {
-        printInfoLog(
-          `未找到 ${displayOs(Number(server.os))} 部署环境，请检查.`,
-          "log-error"
-        );
-        return false;
-      }
-      if (!closeServiceResult) {
-        printInfoLog(`${logPrefix} 关闭失败.`, "log-error");
-        return false;
-      }
-      printInfoLog(`${logPrefix} 已关闭.`, "log-success");
+      // 每个服务实例一个日志标签页
+      const tabId = createLogTab(serverName, server.name, serverPathVal.identity);
+      updateTabStatus(tabId, "running");
+      let instanceSuccess = false;
+      try {
+        instanceSuccess = await withLogTab(tabId, async () => {
+          // 闭包内保留已判空的实例标识与发布路径
+          const instanceIdentity = serverPathVal.identity as string;
+          const instancePath = serverPathVal.path as string;
+          const uName = server.account;
+          const uPwd = server.pwd;
+          const serverAddress = `${server.ip}:${server.port}`;
+          const logPrefix = formatServiceLog(server.name, server.ip, serverName, instanceIdentity);
 
-      /* 上传文件到服务器 */
-      const currLogIndex = printInfoLog(`${logPrefix} 正在上传文件...`);
+          /* 1.关闭服务 */
+          printInfoLog(`${logPrefix} 正在关闭...`);
+          let closeServiceResult;
+          if (server.os === 1) {
+            closeServiceResult = await switchWinService(
+              uName,
+              uPwd,
+              serverAddress,
+              instanceIdentity,
+              "stop"
+            );
+          } else if (server.os === 2) {
+            closeServiceResult = await switchDockerService(
+              uName,
+              uPwd,
+              serverAddress,
+              instanceIdentity,
+              "stop"
+            );
+          } else {
+            printInfoLog(
+              `未找到 ${displayOs(Number(server.os))} 部署环境，请检查.`,
+              "log-error"
+            );
+            return false;
+          }
+          if (!closeServiceResult) {
+            printInfoLog(`${logPrefix} 关闭失败.`, "log-error");
+            return false;
+          }
+          printInfoLog(`${logPrefix} 已关闭.`, "log-success");
 
-      // 获取项目输出路径
-      let localPath = projectAssemblyOutPath.value + "/" + serverName;
-      const remotePath = removeSlash(serverPathVal.path);
-      const projectFiles = await readDirFiles(localPath);
-      if (projectFiles.length < 1) {
-        printInfoLog(
-          `未获取到 ${serverName} 项目的程序集文件，可点击【获取程序集】排查.`,
-          "log-warning"
-        );
-        // return;
-      }
-      let uploadFileNumber: UploadFileNumberType = {
-        currNumber: 0,
-        totalNumber: projectFiles.length,
-        prefix: "已上传：",
-      };
-      for (let l = 0; l < projectFiles.length; l++) {
-        await checkCanContinueHome();
-        const projectFile = projectFiles[l];
-        const uploadServerFileResult = await uploadServerFilesWithRetry({
-          localPaths: [`${localPath}/${projectFile}`],
-          remotePaths: [`${remotePath}/${projectFile}`],
-          username: uName,
-          password: uPwd,
-          server: serverAddress,
-        });
-        if (uploadServerFileResult.code !== 0) {
+          /* 上传文件到服务器 */
+          const currLogIndex = printInfoLog(`${logPrefix} 正在上传文件...`);
+
+          // 获取项目输出路径
+          let localPath = projectAssemblyOutPath.value + "/" + serverName;
+          const remotePath = removeSlash(instancePath);
+          const projectFiles = await readDirFiles(localPath);
+          if (projectFiles.length < 1) {
+            printInfoLog(
+              `未获取到 ${serverName} 项目的程序集文件，可点击【获取程序集】排查.`,
+              "log-warning"
+            );
+            // return;
+          }
+          let uploadFileNumber: UploadFileNumberType = {
+            currNumber: 0,
+            totalNumber: projectFiles.length,
+            prefix: "已上传：",
+          };
+          for (let l = 0; l < projectFiles.length; l++) {
+            await checkCanContinueHome();
+            const projectFile = projectFiles[l];
+            const uploadServerFileResult = await uploadServerFilesWithRetry({
+              localPaths: [`${localPath}/${projectFile}`],
+              remotePaths: [`${remotePath}/${projectFile}`],
+              username: uName,
+              password: uPwd,
+              server: serverAddress,
+            });
+            if (uploadServerFileResult.code !== 0) {
+              printInfoLog(
+                `${logPrefix} 发布失败：${uploadServerFileResult.data}.`,
+                "log-error"
+              );
+              return false;
+            }
+            uploadFileNumber.currNumber++;
+            updateLogProgress(currLogIndex, uploadFileNumber.prefix || "", uploadFileNumber.currNumber, uploadFileNumber.totalNumber);
+          }
           printInfoLog(
-            `${logPrefix} 发布失败：${uploadServerFileResult.data}.`,
-            "log-error"
+            `${logPrefix} 已将 ${projectFiles.length} 个文件上传到服务器.`,
+            "log-success"
           );
-          return false;
-        }
-        uploadFileNumber.currNumber++;
-        logPrintInfo.value[currLogIndex].content.uploadFile.prefix =
-          uploadFileNumber.prefix;
-        logPrintInfo.value[currLogIndex].content.uploadFile.currNumber =
-          uploadFileNumber.currNumber;
-        logPrintInfo.value[currLogIndex].content.uploadFile.totalNumber =
-          uploadFileNumber.totalNumber;
+          printInfoLog(`${logPrefix} 正在启动.`);
+          let startServiceResult;
+          if (server.os === 1) {
+            startServiceResult = await switchWinService(
+              uName,
+              uPwd,
+              serverAddress,
+              instanceIdentity,
+              "start"
+            );
+          } else if (server.os === 2) {
+            startServiceResult = await switchDockerService(
+              uName,
+              uPwd,
+              serverAddress,
+              instanceIdentity,
+              "start"
+            );
+          }
+          if (!startServiceResult) {
+            printInfoLog(`${logPrefix} 启动失败.`, "log-error");
+            return false;
+          }
+          printInfoLog(`${logPrefix} 发布成功.`, "log-success");
+          return true;
+        });
+      } finally {
+        updateTabStatus(tabId, instanceSuccess ? "success" : "error");
       }
-      printInfoLog(
-        `${logPrefix} 已将 ${projectFiles.length} 个文件上传到服务器.`,
-        "log-success"
-      );
-      printInfoLog(`${logPrefix} 正在启动.`);
-      let startServiceResult;
-      if (server.os === 1) {
-        startServiceResult = await switchWinService(
-          uName,
-          uPwd,
-          serverAddress,
-          serverPathVal.identity,
-          "start"
-        );
-      } else if (server.os === 2) {
-        startServiceResult = await switchDockerService(
-          uName,
-          uPwd,
-          serverAddress,
-          serverPathVal.identity,
-          "start"
-        );
-      }
-      if (!startServiceResult) {
-        printInfoLog(`${logPrefix} 启动失败.`, "log-error");
-        return false;
-      }
-      printInfoLog(`${logPrefix} 发布成功.`, "log-success");
+      if (!instanceSuccess) return false;
     }
   }
   return true;
@@ -2412,6 +2670,7 @@ const getProjectOutPath = async () => {
 
 // 获取应用程序集
 const getApplicationAssemblys = async (isOpenDir: boolean = false) => {
+  currentLogTabId = undefined;
   // 获取项目输出路径
   let projectOutPath = projectAssemblyOutPath.value;
   let isSuccess = true;
@@ -3888,6 +4147,10 @@ const onEnvironmentChange = async (val: number) => {
 // 清空日志
 const onRemoveLogs = () => {
   logPrintInfo.value = [];
+  logTabs.value = [];
+  tabContentRefs.value = {};
+  activeLogTab.value = "main";
+  currentLogTabId = undefined;
   generatePublishLog.value.data = "";
   generatePublishLog.value.logs = "";
 };
@@ -3963,9 +4226,11 @@ const executeScheduledPublish = async (schedule: RowPublishScheduleType) => {
     let success = false;
     if (schedule.publishType === '一键发布') {
       success = await oneClickPublishing();
+      currentLogTabId = undefined;
       if (success) await getProjectDefault();
     } else if (schedule.publishType === '手动发布') {
       success = await projectPublish();
+      currentLogTabId = undefined;
       if (success) await getProjectDefault();
     }
 
@@ -3991,7 +4256,12 @@ const executeScheduledPublish = async (schedule: RowPublishScheduleType) => {
 
 /** 收集执行失败时的日志内容 */
 const collectFailLogs = () => {
-  const logs = logPrintInfo.value
+  // 服务发布日志已分标签页存放，失败原因需要一并收集
+  const allLogs = logTabs.value.reduce<LogPrintType[]>(
+    (acc, tab) => acc.concat(tab.logs),
+    [...logPrintInfo.value]
+  );
+  const logs = allLogs
     .filter(log => log.type === "log-error" || log.type === "log-warning")
     .map(log => log.content.value)
     .filter(Boolean);
@@ -4007,11 +4277,14 @@ const collectFailLogs = () => {
  * 打印日志信息
  * @param content 日志内容
  * @param type：log-info、log-warning、log-error、log-success
+ * @param showDate 是否显示日期
+ * @param tabId 指定日志标签页；不传则写入当前上下文所在的标签页
  */
 const printInfoLog = (
   content: string,
   type: "log-info" | "log-warning" | "log-error" | "log-success" = "log-info",
-  showDate: boolean = true
+  showDate: boolean = true,
+  tabId?: string
 ) => {
   let nowDate = "";
   if (showDate) {
@@ -4028,11 +4301,41 @@ const printInfoLog = (
       },
     },
   };
+
+  // 服务发布上下文：写入对应标签页
+  const targetTabId = tabId ?? currentLogTabId;
+  if (targetTabId) {
+    const tab = logTabs.value.find((t) => t.id === targetTabId);
+    if (tab) {
+      tab.logs.push(logInfo);
+      // 失败日志自动把仍在运行中的标签页标记为失败
+      if (type === "log-error" && tab.status === "running") tab.status = "error";
+      scrollLogToBottom(targetTabId);
+      return tab.logs.length - 1;
+    }
+  }
+
   logPrintInfo.value.push(logInfo);
-  nextTick(() => {
-    logContentRef.value.scrollTop = logContentRef.value.scrollHeight;
-  });
+  scrollLogToBottom("main");
   return logPrintInfo.value.length - 1;
+};
+
+// 更新上传进度（写入当前上下文所在的日志数组）
+const updateLogProgress = (
+  logIndex: number,
+  prefix: string,
+  currNumber: number,
+  totalNumber: number,
+  tabId?: string
+) => {
+  const targetTabId = tabId ?? currentLogTabId;
+  const logs = targetTabId
+    ? logTabs.value.find((t) => t.id === targetTabId)?.logs
+    : logPrintInfo.value;
+  if (!logs || !logs[logIndex]) return;
+  logs[logIndex].content.uploadFile.prefix = prefix;
+  logs[logIndex].content.uploadFile.currNumber = currNumber;
+  logs[logIndex].content.uploadFile.totalNumber = totalNumber;
 };
 
 // 页面加载完时
@@ -4046,18 +4349,27 @@ onMounted(() => {
   startScheduledPublishChecker();
   reloadSettings();
   mittBus.on("settingsChanged", reloadSettings);
+  mittBus.on("mcp-action", onMcpAction);
+  // 从其他页面跳转过来时，取走 App.vue 暂存的 MCP 动作
+  const pendingMcpAction = takePendingMcpAction();
+  if (pendingMcpAction) onMcpAction(pendingMcpAction);
 });
 
 // 卸载时停止定时检测
 onUnmounted(() => {
   stopScheduledPublishChecker();
   mittBus.off("settingsChanged", reloadSettings);
+  mittBus.off("mcp-action", onMcpAction);
 });
 
 onActivated(async () => {
   console.log('=== onActivated 被调用 ===');
   // 每次进入页面都重新查询默认项目并恢复环境
   await getProjectDefault();
+
+  // keep-alive 场景下不会重新挂载，这里取走 MCP 暂存动作（忙时会回传失败而不是一直等待）
+  const pendingMcpAction = takePendingMcpAction();
+  if (pendingMcpAction) onMcpAction(pendingMcpAction);
 
   if (state.funModule[currModuleIndex.value].loading == true) {
     console.log("当前模块正在加载中…");
@@ -4193,10 +4505,40 @@ $homeNavLengh: 8;
 
       .log-content {
         box-sizing: border-box;
-        background-color: #545c64;
         counter-reset: line-number;
         padding-right: 1em;
         text-align: left;
+        overflow: hidden;
+
+        .log-tabs {
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+
+          // 只有一个页签时隐藏页签栏，避免多出一行无意义的标签
+          &.log-tabs-single :deep(.el-tabs__header) {
+            display: none;
+          }
+
+          :deep(.el-tabs__content) {
+            flex: 1;
+            overflow: hidden;
+            padding: 0;
+          }
+
+          :deep(.el-tab-pane) {
+            height: 100%;
+          }
+        }
+
+        .log-tab-pane-content {
+          box-sizing: border-box;
+          height: 100%;
+          overflow-y: auto;
+          background-color: #545c64;
+          padding: 8px 1em 8px 8px;
+          text-align: left;
+        }
       }
     }
 

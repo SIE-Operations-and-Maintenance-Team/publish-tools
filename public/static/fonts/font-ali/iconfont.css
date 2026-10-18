@@ -1,8 +1,8 @@
 @font-face {
   font-family: "smom-icon"; /* Project id 5100865 */
-  src: url('iconfont.woff2?t=1767088286353') format('woff2'),
-       url('iconfont.woff?t=1767088286353') format('woff'),
-       url('iconfont.ttf?t=1767088286353') format('truetype');
+  src: url('iconfont.woff2?t=1792305740181') format('woff2'),
+       url('iconfont.woff?t=1792305740181') format('woff'),
+       url('iconfont.ttf?t=1792305740181') format('truetype');
 }
 
 .smom-icon {
@@ -11,6 +11,10 @@
   font-style: normal;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.smom-icon-zuixinbanben:before {
+  content: "\e7fb";
 }
 
 .smom-icon-git:before {
@@ -99,9 +103,6 @@
 
 .smom-icon-tfs:before {
   content: "\e60c";
-}
-.smom-icon-git:before {
-  content: "\e61a";
 }
 
 .smom-icon-chengxuji:before {

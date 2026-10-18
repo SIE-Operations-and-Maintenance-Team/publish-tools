@@ -36,8 +36,16 @@
           </el-icon>
           新增
         </el-button>
+        <el-button size="default" type="danger" :disabled="selectedRows.length === 0" @click="onBatchDel">
+          <el-icon>
+            <ele-Delete />
+          </el-icon>
+          批量删除
+        </el-button>
       </template>
-      <el-table :data="state.tableData.data" v-loading="state.tableData.loading" style="width: 100%">
+      <el-table :data="state.tableData.data" v-loading="state.tableData.loading" style="width: 100%"
+        @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="50" />
         <el-table-column fixed type="index" label="序号" width="60" />
         <el-table-column prop="tfsName" label="TFS名称" width="180" />
         <el-table-column prop="tfsServerUrl" label="服务地址" show-overflow-tooltip width="300" />
@@ -193,6 +201,13 @@ const onOpenTfs = (type: string, row: any) => {
   tfsDialogRef.value.openDialog(type, row);
 };
 
+// 多选
+const selectedRows = ref<RowTfsType[]>([]);
+
+const handleSelectionChange = (rows: RowTfsType[]) => {
+  selectedRows.value = rows;
+};
+
 // 删除备份
 const onRowDel = (row: RowTfsType) => {
   ElMessageBox.confirm("您确认删除该备份记录吗？", "提示", {
@@ -207,6 +222,34 @@ const onRowDel = (row: RowTfsType) => {
     }
     await getTableData();
     ElMessage.success("删除成功");
+  });
+};
+
+// 批量删除
+const onBatchDel = () => {
+  const names = selectedRows.value.map((r) => r.tfsName).join("、");
+  ElMessageBox.confirm(
+    `此操作将永久删除以下TFS配置：【${names}】，是否确认?`,
+    "批量删除",
+    {
+      confirmButtonText: "确认",
+      cancelButtonText: "取消",
+      type: "warning",
+    }
+  ).then(async () => {
+    const ids = selectedRows.value.map((r) => Number(r.id));
+    const failedIds = new Array<number>();
+    for (const id of ids) {
+      const deleteResult = await tfsDb.deleteTfs(id);
+      if (deleteResult.code !== 0) failedIds.push(id);
+    }
+    selectedRows.value = [];
+    await getTableData();
+    if (failedIds.length > 0) {
+      ElMessage.error(`批量删除完成，失败 ${failedIds.length} 条（ID：${failedIds.join("、")}）`);
+    } else {
+      ElMessage.success("批量删除成功");
+    }
   });
 };
 

@@ -23,7 +23,15 @@
             <el-tag type="danger" v-else>失败</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="logContent" label="日志信息" show-overflow-tooltip />
+        <el-table-column prop="logContent" label="日志信息" min-width="300">
+          <template #default="scope">
+            <div class="log-cell">
+              <span class="log-preview">{{ truncateText(scope.row.logContent, 80) }}</span>
+              <el-button v-if="scope.row.logContent" size="small" text type="primary"
+                @click="onViewLog(scope.row)">查看详情</el-button>
+            </div>
+          </template>
+        </el-table-column>
       </el-table>
       <el-pagination
         @size-change="onHandleSizeChange"
@@ -42,6 +50,18 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 日志详情弹窗 -->
+    <el-dialog title="日志详情" v-model="logDialog.show" :close-on-click-modal="false" destroy-on-close draggable
+      width="700px">
+      <div class="log-content-wrapper">
+        <pre v-if="logDialog.content" class="log-content">{{ logDialog.content }}</pre>
+        <span v-else class="log-empty">暂无日志信息</span>
+      </div>
+      <template #footer>
+        <el-button @click="logDialog.show = false" size="default">关 闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -57,6 +77,12 @@ const emit = defineEmits(["refresh"]);
 
 // 引入项目管理数据库
 const restoreDb = useRestoreDb();
+
+// 日志详情弹窗状态
+const logDialog = reactive({
+  show: false,
+  content: "",
+});
 
 // 定义变量内容
 const tableData = ref({
@@ -82,6 +108,30 @@ const state = reactive<FormDialogType>({
     submitTxt: "还 原",
   },
 });
+
+// 截断文本
+const truncateText = (text: string | null, maxLen: number): string => {
+  if (!text) return "-";
+  if (text.length <= maxLen) return text;
+  return text.substring(0, maxLen) + "...";
+};
+
+// 尝试格式化 JSON，失败则返回原始文本
+const formatLogContent = (raw: string | null): string => {
+  if (!raw) return "";
+  try {
+    const parsed = JSON.parse(raw);
+    return JSON.stringify(parsed, null, 2);
+  } catch {
+    return raw;
+  }
+};
+
+// 查看日志详情
+const onViewLog = (row: RowRestoreType) => {
+  logDialog.content = formatLogContent(row.logContent);
+  logDialog.show = true;
+};
 
 // 打开弹窗
 const openDialog = (row: RowBackupType) => {
@@ -144,5 +194,44 @@ defineExpose({
 <style lang="scss">
 .el-overlay .el-overlay-dialog .el-dialog .el-dialog__body {
   padding: 0px !important;
+}
+</style>
+
+<style scoped lang="scss">
+.log-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.log-preview {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.log-content-wrapper {
+  max-height: 500px;
+  overflow: auto;
+  padding: 12px;
+  background: #f5f7fa;
+  border-radius: 4px;
+}
+
+.log-content {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: "Courier New", Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #303133;
+}
+
+.log-empty {
+  color: #909399;
+  font-size: 14px;
 }
 </style>

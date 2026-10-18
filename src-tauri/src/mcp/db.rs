@@ -66,217 +66,6 @@ fn sqlite_val_to_json(val: rusqlite::types::Value) -> Value {
     }
 }
 
-// ── 查询函数 ──
-
-/// 查询项目列表（t_project）
-pub fn query_projects(conn: &Connection, keyword: Option<&str>) -> Result<Vec<Value>, String> {
-    let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = if let Some(kw) = keyword {
-        let like = format!("%{}%", kw);
-        (
-            "SELECT id, code, name, is_default, description FROM t_project WHERE name LIKE ?1 OR code LIKE ?1 ORDER BY id".into(),
-            vec![Box::new(like)],
-        )
-    } else {
-        (
-            "SELECT id, code, name, is_default, description FROM t_project ORDER BY id".into(),
-            vec![],
-        )
-    };
-    let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
-    rows_to_json(conn, &sql, &param_refs)
-}
-
-/// server_list 工具已在 handler.rs 注释停用（服务器相关接口收归 ssh-mcp-server），保留实现便于恢复
-#[allow(dead_code)]
-pub fn query_servers(conn: &Connection, project_id: Option<i64>, name: Option<&str>) -> Result<Vec<Value>, String> {
-    let mut conditions = Vec::new();
-    let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
-    if let Some(pid) = project_id {
-        conditions.push("project_id = ?".to_string());
-        params.push(Box::new(pid));
-    }
-    if let Some(n) = name {
-        conditions.push(format!("name LIKE ?{}", params.len() + 1));
-        params.push(Box::new(format!("%{}%", n)));
-    }
-    let where_clause = if conditions.is_empty() {
-        String::new()
-    } else {
-        format!("WHERE {}", conditions.join(" AND "))
-    };
-    let sql = format!("SELECT id, project_id, name, os, ip, port, account, description FROM t_server {} ORDER BY id", where_clause);
-    let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
-    rows_to_json(conn, &sql, &param_refs)
-}
-
-/// 查询应用配置列表（t_app_config）
-pub fn query_app_configs(conn: &Connection, project_id: Option<i64>) -> Result<Vec<Value>, String> {
-    let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = if let Some(pid) =
-        project_id
-    {
-        (
-            "SELECT id, project_id, environment, ms_build_path, dll_mode, dll_mode_value, config_items_json, build_mode FROM t_app_config WHERE project_id = ?1 ORDER BY id".into(),
-            vec![Box::new(pid)],
-        )
-    } else {
-        (
-            "SELECT id, project_id, environment, ms_build_path, dll_mode, dll_mode_value, config_items_json, build_mode FROM t_app_config ORDER BY id".into(),
-            vec![],
-        )
-    };
-    let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
-    rows_to_json(conn, &sql, &param_refs)
-}
-
-/// 按 ID 查询单个应用配置
-pub fn query_app_config_by_id(conn: &Connection, id: i64) -> Result<Value, String> {
-    let mut results = rows_to_json(
-        conn,
-        "SELECT id, project_id, environment, ms_build_path, dll_mode, dll_mode_value, config_items_json, build_mode FROM t_app_config WHERE id = ?1",
-        &[&id],
-    )?;
-    if results.is_empty() {
-        Err(format!("应用配置 id={} 不存在", id))
-    } else {
-        Ok(results.remove(0))
-    }
-}
-
-/// 更新应用配置中 TFS 变更集的开始/结束值，返回更新后的记录
-pub fn update_appconfig_changeset(
-    conn: &Connection,
-    id: i64,
-    start_value: Option<&str>,
-    end_value: Option<&str>,
-) -> Result<Value, String> {
-    let row = query_app_config_by_id(conn, id)?;
-
-    let dll_mode = row["dll_mode"].as_str().unwrap_or("").to_string();
-    if dll_mode != "TFS" {
-        return Err(format!(
-            "应用配置 id={} 的获取模式为 {}, 不是 TFS，不支持修改变更集",
-            id, dll_mode
-        ));
-    }
-
-    let dll_mode_value = row["dll_mode_value"].as_str().unwrap_or("").to_string();
-    if dll_mode_value.is_empty() {
-        return Err(format!("应用配置 id={} 未配置 TFS 信息", id));
-    }
-
-    let mut mode_json: serde_json::Value = serde_json::from_str(&dll_mode_value)
-        .map_err(|e| format!("解析应用配置 dll_mode_value 失败: {e}"))?;
-
-    if mode_json["selectModel"].as_str() != Some("变更集") {
-        return Err(format!(
-            "应用配置 id={} 的 TFS 模式为 {}, 不是变更集，不支持修改变更集",
-            id,
-            mode_json["selectModel"].as_str().unwrap_or("")
-        ));
-    }
-
-    let select_value = mode_json
-        .get_mut("selectValue")
-        .and_then(|v| v.as_array_mut())
-        .ok_or_else(|| format!("应用配置 id={} 的 TFS 配置缺少 selectValue 数组", id))?;
-    if select_value.len() < 2 {
-        return Err(format!(
-            "应用配置 id={} 的 TFS 配置 selectValue 长度不足",
-            id
-        ));
-    }
-
-    if let Some(sv) = start_value {
-        select_value[0]["value"] = serde_json::Value::String(sv.to_string());
-    }
-    if let Some(ev) = end_value {
-        select_value[1]["value"] = serde_json::Value::String(ev.to_string());
-    }
-
-    let new_value = serde_json::to_string(&mode_json)
-        .map_err(|e| format!("序列化应用配置 dll_mode_value 失败: {e}"))?;
-
-    let affected = conn
-        .execute(
-            "UPDATE t_app_config SET dll_mode_value = ?1 WHERE id = ?2",
-            params![new_value, id],
-        )
-        .map_err(|e| format!("更新应用配置失败: {e}"))?;
-    if affected == 0 {
-        return Err(format!("应用配置 id={} 不存在", id));
-    }
-
-    query_app_config_by_id(conn, id)
-}
-
-/// 查询 TFS 配置列表（t_team_foundation_server）
-pub fn query_tfs_configs(conn: &Connection) -> Result<Vec<Value>, String> {
-    rows_to_json(conn, "SELECT id, tfs_name, tfs_server_url, tfs_source_path, tfvc_path, remark, tfs_local_path FROM t_team_foundation_server ORDER BY id", &[])
-}
-
-/// 查询 Git 配置列表（t_git）
-pub fn query_git_configs(conn: &Connection) -> Result<Vec<Value>, String> {
-    rows_to_json(
-        conn,
-        "SELECT id, git_name, git_repository, git_path, branch_name, remark FROM t_git ORDER BY id",
-        &[],
-    )
-}
-
-/// 查询备份记录列表（t_backup）
-pub fn query_backups(conn: &Connection, project_id: Option<i64>) -> Result<Vec<Value>, String> {
-    let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = if let Some(pid) =
-        project_id
-    {
-        (
-            "SELECT id, project_id, project_name, environment, backup_date, remark, backup_items_json FROM t_backup WHERE project_id = ?1 ORDER BY id DESC".into(),
-            vec![Box::new(pid)],
-        )
-    } else {
-        (
-            "SELECT id, project_id, project_name, environment, backup_date, remark, backup_items_json FROM t_backup ORDER BY id DESC".into(),
-            vec![],
-        )
-    };
-    let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
-    rows_to_json(conn, &sql, &param_refs)
-}
-
-/// 创建备份记录（t_backup INSERT）
-pub fn create_backup(
-    conn: &Connection,
-    project_id: i64,
-    project_name: &str,
-    environment: i64,
-    remark: Option<&str>,
-    backup_items_json: &str,
-) -> Result<i64, String> {
-    conn.execute(
-        "INSERT INTO t_backup (project_id, project_name, environment, backup_date, remark, backup_items_json) VALUES (?1, ?2, ?3, datetime('now', 'localtime'), ?4, ?5)",
-        params![project_id, project_name, environment, remark, backup_items_json],
-    ).map_err(|e| format!("创建备份记录失败: {e}"))?;
-
-    Ok(conn.last_insert_rowid())
-}
-
-/// 查询还原记录列表（t_restore）
-pub fn query_restores(conn: &Connection, backup_id: Option<i64>) -> Result<Vec<Value>, String> {
-    let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = if let Some(bid) = backup_id
-    {
-        (
-            "SELECT id, backup_id, restore_date, result, log_content FROM t_restore WHERE backup_id = ?1 ORDER BY id DESC".into(),
-            vec![Box::new(bid)],
-        )
-    } else {
-        (
-            "SELECT id, backup_id, restore_date, result, log_content FROM t_restore ORDER BY id DESC".into(),
-            vec![],
-        )
-    };
-    let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
-    rows_to_json(conn, &sql, &param_refs)
-}
-
 // ── 定时发布查询（Phase 4）──
 
 /// 查询定时发布任务列表（t_publish_schedule），支持按 project_id 和 status 筛选
@@ -421,5 +210,24 @@ pub fn delete_schedule(conn: &Connection, id: i64) -> Result<(), String> {
         Err(format!("定时任务 id={} 不存在", id))
     } else {
         Ok(())
+    }
+}
+
+/// 查询应用配置（带项目名称），供 MCP 发布动作定位使用
+pub fn query_app_configs_for_action(
+    conn: &Connection,
+    project_id: Option<i64>,
+) -> Result<Vec<Value>, String> {
+    let base = "SELECT ac.id, ac.project_id, p.name AS project_name, ac.environment, ac.ms_build_path, ac.dll_mode, ac.dll_mode_value, ac.config_items_json, ac.build_mode FROM t_app_config ac LEFT JOIN t_project p ON ac.project_id = p.id";
+    match project_id {
+        Some(pid) => {
+            let sql = format!("{base} WHERE ac.project_id = ?1 ORDER BY ac.id");
+            let params: [&dyn rusqlite::types::ToSql; 1] = [&pid];
+            rows_to_json(conn, &sql, &params)
+        }
+        None => {
+            let sql = format!("{base} ORDER BY ac.id");
+            rows_to_json(conn, &sql, &[])
+        }
     }
 }

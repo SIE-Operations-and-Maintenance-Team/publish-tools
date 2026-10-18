@@ -60,6 +60,8 @@ declare type ConfigItemsType = {
 	isRebuild: number | null;
 	isBackup: number | null;
 	isNewVersion: boolean | null;
+	// 一键发布编译前是否获取TFS/Git最新代码（1开/0关，存量配置缺省按开启处理）
+	isPullLatest?: number | null;
 	backupBasePath?: string | null;  // 服务端备份基础路径
 }
 

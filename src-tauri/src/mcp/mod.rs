@@ -1,4 +1,5 @@
 pub mod audit;
+pub mod bridge;
 pub mod db;
 pub mod handler;
 pub mod manager;

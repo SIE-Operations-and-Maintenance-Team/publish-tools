@@ -476,25 +476,35 @@
               placement="top" effect="light">
               <el-form-item label="MsBuild路径" prop="msBuildPath">
                 <el-input v-model="state.ruleForm.msBuildPath" placeholder="请输入MsBuild路径" maxlength="450"
-                  clearable></el-input>
+                  clearable>
+                  <template #append v-if="!formDisabled">
+                    <el-button type="info" size="small" @click="onFindMsBuildPath" :icon="Place" title="自动获取"></el-button>
+                  </template>
+                </el-input>
               </el-form-item>
             </el-tooltip>
           </el-col>
-          <el-col :span="6" class="mt15">
-            <el-form-item label="重新编译" prop="isRebuild">
-              <el-tooltip content="【/t:Rebuild】建议勾选！" placement="bottom" effect="light">
-                <el-switch v-model="state.ruleForm.configItems.isRebuild" :active-value="1" :inactive-value="0"
-                  inline-prompt active-text="是" inactive-text="否" size="default" />
-              </el-tooltip>
-            </el-form-item>
+          <el-col :span="24" class="mt15">
+            <div class="switch-row">
+              <el-form-item label="重新编译" prop="isRebuild">
+                <el-tooltip content="【/t:Rebuild】建议勾选！" placement="bottom" effect="light">
+                  <el-switch v-model="state.ruleForm.configItems.isRebuild" :active-value="1" :inactive-value="0"
+                    inline-prompt active-text="开启" inactive-text="关闭" size="default" />
+                </el-tooltip>
+              </el-form-item>
+              <el-form-item label="发布前备份" prop="isBackup">
+                <el-switch v-model="state.ruleForm.configItems.isBackup" :active-value="1" :inactive-value="0"
+                  inline-prompt active-text="开启" inactive-text="关闭" size="default" />
+              </el-form-item>
+              <el-form-item label="拉取最新代码" prop="isPullLatest">
+                <el-tooltip content="开启后，[一键发布]会在编译前获取TFS/Git最新代码" placement="bottom" effect="light">
+                  <el-switch v-model="state.ruleForm.configItems.isPullLatest" :active-value="1" :inactive-value="0"
+                    inline-prompt active-text="开启" inactive-text="关闭" size="default" />
+                </el-tooltip>
+              </el-form-item>
+            </div>
           </el-col>
-          <el-col :span="6" class="mt15">
-            <el-form-item label="发布前备份" prop="isBackup">
-              <el-switch v-model="state.ruleForm.configItems.isBackup" :active-value="1" :inactive-value="0"
-                inline-prompt active-text="开启" inactive-text="关闭" size="default" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="24" class="mb15">
+          <el-col :span="24" class="mt15 mb15">
             <el-form-item label="备份路径" prop="configItems.backupBasePath">
               <el-input v-model="state.ruleForm.configItems.backupBasePath" placeholder="选填，配置后备份到指定路径；不填则使用默认路径"
                 maxlength="450" clearable></el-input>
@@ -517,7 +527,7 @@
 import { nextTick, reactive, ref } from "vue";
 import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage } from "element-plus";
-import { CirclePlus, Remove, Files } from "@element-plus/icons-vue";
+import { CirclePlus, Remove, Files, Place } from "@element-plus/icons-vue";
 import { open } from "@tauri-apps/plugin-dialog";
 import _ from "lodash";
 import { cmdInvoke } from "@/utils/command";
@@ -631,6 +641,7 @@ const state = reactive<FormDialogType<RowAppconfigType>>({
       isRebuild: 1,
       isBackup: 0,
       isNewVersion: false,
+      isPullLatest: 1,
     },
   },
   dialog: {
@@ -1263,6 +1274,7 @@ const formReset = () => {
   state.ruleForm.configItems.spcMonitor.serverIds = [];
   state.ruleForm.configItems.spcMonitor.serverArr = [];
   state.ruleForm.configItems.isRebuild = 1;
+  state.ruleForm.configItems.isPullLatest = 1;
   selectTfsItem.value = {
     id: null,
     tfsName: null,
@@ -1295,6 +1307,10 @@ const openDialog = async (type: string, row: RowAppconfigType | undefined) => {
       state.dialog.editId = row?.id;
       Object.assign(state.ruleForm, row);
       normalizeWpfClientServer(state.ruleForm.configItems.wpfClient);
+      // 存量配置没有[拉取最新代码]开关时按开启处理
+      if (state.ruleForm.configItems.isPullLatest === null || state.ruleForm.configItems.isPullLatest === undefined) {
+        state.ruleForm.configItems.isPullLatest = 1;
+      }
       if (state.ruleForm.configItems.wpfClient.generateDirJson) {
         generateDirs.value = JSON.parse(
           state.ruleForm.configItems.wpfClient.generateDirJson
@@ -1332,6 +1348,21 @@ const openDialog = async (type: string, row: RowAppconfigType | undefined) => {
     await getServerList(state.ruleForm.projectId);
     state.dialog.show = true;
   });
+};
+
+// 自动查找 MSBuild 路径
+const onFindMsBuildPath = async () => {
+  try {
+    const result = await cmdInvoke("find_msbuild_path", {});
+    if (result.code === 0) {
+      state.ruleForm.msBuildPath = result.data;
+      ElMessage.success("MSBuild 路径查找成功！");
+    } else {
+      ElMessage.warning(result.data);
+    }
+  } catch (error) {
+    ElMessage.error("查找 MSBuild 路径失败：" + JSON.stringify(error));
+  }
 };
 
 // 关闭弹窗
@@ -1478,8 +1509,33 @@ defineExpose({
 .el-overlay .el-overlay-dialog .el-dialog .el-dialog__body {
   padding: 0px !important;
 }
+
+/* 修改应用配置弹窗：隐藏内容区滚动条（鼠标滚轮仍可滚动） */
+.appconfig-dialog .el-dialog__body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}
 </style>
 <style lang="scss" scoped>
+/* 三个开关并排：等宽等间距，紧凑排列不铺满整行 */
+.switch-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+
+  :deep(.el-form-item) {
+    flex: 0 0 158px;
+    margin-bottom: 0;
+  }
+}
+
 .form-item-env {
   width: 100%;
   margin: 15px 0px;

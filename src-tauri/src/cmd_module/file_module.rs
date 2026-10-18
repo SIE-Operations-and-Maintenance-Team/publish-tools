@@ -1950,3 +1950,145 @@ pub async fn read_dlls_by_name(dir: &str, patterns: &str) -> Result<Vec<String>,
     }
     Ok(dll_files)
 }
+
+/// 通过 vswhere 查找 TF.exe 路径
+///
+/// TFVC 工具位于 Visual Studio 的 Team Explorer 目录下，
+/// 依赖 Microsoft.VisualStudio.TeamExplorer 组件。
+#[tauri::command]
+pub async fn find_tf_exe_path() -> Result<String, String> {
+    let vswhere_paths = [
+        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe",
+        "C:\\Program Files\\Microsoft Visual Studio\\Installer\\vswhere.exe",
+    ];
+
+    let vswhere = vswhere_paths
+        .iter()
+        .find(|p| Path::new(p).exists())
+        .map(|p| p.to_string());
+
+    let vswhere = match vswhere {
+        Some(v) => v,
+        None => {
+            return Err("未找到 vswhere.exe，请手动输入 TF.exe 路径".to_string());
+        }
+    };
+
+    let output = Command::new(&vswhere)
+        .args([
+            "-latest",
+            "-requires",
+            "Microsoft.VisualStudio.TeamExplorer",
+            "-find",
+            "Common7\\IDE\\CommonExtensions\\Microsoft\\TeamFoundation\\Team Explorer\\TF.exe",
+        ])
+        .creation_flags(0x08000000) // CREATE_NO_WINDOW
+        .output();
+
+    match output {
+        Ok(output) => {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let path = stdout.trim();
+                if !path.is_empty() && Path::new(path).exists() {
+                    return Ok(path.to_string());
+                }
+            }
+            Err("未找到 TF.exe，请手动输入路径".to_string())
+        }
+        Err(e) => Err(format!("查找 TF.exe 失败: {}", e)),
+    }
+}
+
+/// 通过 vswhere 查找 MSBuild.exe 路径
+///
+/// 依赖 Microsoft.Component.MSBuild 组件，返回最新安装的 Visual Studio 下的 MSBuild。
+#[tauri::command]
+pub async fn find_msbuild_path() -> Result<String, String> {
+    let vswhere_paths = [
+        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe",
+        "C:\\Program Files\\Microsoft Visual Studio\\Installer\\vswhere.exe",
+    ];
+
+    let vswhere = vswhere_paths
+        .iter()
+        .find(|p| Path::new(p).exists())
+        .map(|p| p.to_string());
+
+    let vswhere = match vswhere {
+        Some(v) => v,
+        None => {
+            return Err("未找到 vswhere.exe，请手动输入 MSBuild 路径".to_string());
+        }
+    };
+
+    let output = Command::new(&vswhere)
+        .args([
+            "-latest",
+            "-requires",
+            "Microsoft.Component.MSBuild",
+            "-find",
+            "MSBuild\\**\\Bin\\MSBuild.exe",
+        ])
+        .creation_flags(0x08000000) // CREATE_NO_WINDOW
+        .output();
+
+    match output {
+        Ok(output) => {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let path = stdout.trim();
+                if !path.is_empty() && Path::new(path).exists() {
+                    return Ok(path.to_string());
+                }
+            }
+            Err("未找到 MSBuild.exe，请手动输入路径".to_string())
+        }
+        Err(e) => Err(format!("查找 MSBuild 失败: {}", e)),
+    }
+}
+
+
+/// 查找 git.exe 路径
+///
+/// 优先检查常见安装目录，其次通过 where 命令从 PATH 中查找。
+#[tauri::command]
+pub async fn find_git_exe_path() -> Result<String, String> {
+    let mut candidates: Vec<String> = vec![
+        "C:\\Program Files\\Git\\cmd\\git.exe".to_string(),
+        "C:\\Program Files\\Git\\bin\\git.exe".to_string(),
+        "C:\\Program Files (x86)\\Git\\cmd\\git.exe".to_string(),
+    ];
+    if let Ok(local_app_data) = env::var("LOCALAPPDATA") {
+        candidates.push(format!(
+            "{}\\Programs\\Git\\cmd\\git.exe",
+            local_app_data
+        ));
+    }
+    for candidate in &candidates {
+        if Path::new(candidate).exists() {
+            return Ok(candidate.clone());
+        }
+    }
+
+    // 从 PATH 中查找
+    let output = Command::new("where")
+        .arg("git")
+        .creation_flags(0x08000000) // CREATE_NO_WINDOW
+        .output();
+    match output {
+        Ok(output) => {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                for line in stdout.lines() {
+                    let path = line.trim();
+                    if !path.is_empty() && Path::new(path).exists() {
+                        return Ok(path.to_string());
+                    }
+                }
+            }
+            Err("未找到 git.exe，请手动输入路径".to_string())
+        }
+        Err(e) => Err(format!("查找 git.exe 失败: {}", e)),
+    }
+}
