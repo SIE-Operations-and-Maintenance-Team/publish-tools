@@ -33,8 +33,12 @@ pub fn build_project(
         .arg("/restore")
         .arg(&configuration)
         .arg("/m")
+        // 关闭节点复用：否则 /m 拉起的 worker 节点在编译结束后仍常驻 15 分钟，反复编译会不断累积
+        .arg("/nodeReuse:false")
         .arg("/v:quiet")
         .arg("/clp:ErrorsOnly")
+        // 环境变量覆盖整棵子进程树（含 /restore 独立进程）
+        .env("MSBUILDDISABLENODEREUSE", "1")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .creation_flags(0x08000000) // CREATE_NO_WINDOW
