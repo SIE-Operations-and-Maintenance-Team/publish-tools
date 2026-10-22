@@ -1,15 +1,15 @@
 {
-    "version": "0.0.52",
-    "notes": "<b>功能</b><br>• Git 管理新增批量删除：勾选多条后一次性删除，失败条目单独提示并列出 ID<br><b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.52/SmomPublish_0.0.52_x64-setup.exe'>点击此处</a> 下载。</b>",
-    "pub_date": "2026-10-18T10:44:58Z",
+    "version": "0.0.53",
+    "notes": "<b>修复</b><br>• 修复「编译项目」完成后 MSBuild.exe 进程残留的问题：此前并行构建默认开启 MSBuild 节点复用，编译结束后 worker 节点会常驻 15 分钟等待复用，32 核机器单次编译即拉起约 31 个节点（每个约 60–130 MB），反复编译不断累积导致电脑卡顿；现在编译时关闭节点复用（`/nodeReuse:false` + `MSBUILDDISABLENODEREUSE=1`），节点随编译结束立即退出<br><b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.53/SmomPublish_0.0.53_x64-setup.exe'>点击此处</a> 下载。</b>",
+    "pub_date": "2026-10-22T01:29:34Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWFrQzlFbHUrYThMNFFHNHhpdnhmaVRONXgvQ1FyOEY3UEtPNTdGa08zRWJ1dUlKUUgzT0pQcGVNV0wyV2JTQVZpV3Q4Si80QXhBMFVQY1ZHK0RRWmd3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMzIwMjcwCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjUyX3g2NC1zZXR1cC5leGUKZ3ZEOWZnVGRJdWtDaU9TNndWYlBNNmFFVUEvcjFlbzlkV1FuempZN3JFdEgwWmFIcU5lVzJkSkg1T1lCdm95c213UmkrUjFEaldST2oxQUtwVE01RHc9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.52/SmomPublish_0.0.52_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVR5T0ZWNVI0WThVMGoyQnVTODRTaU1KTEFlUDV5dytWOFp5T09hazB2NjdJN04rWVA2M3FnQ0lETzBENG1XRGpLYm9jSGhRMll2YjY0NDBPV2Qza3c4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNjMyNTQ2CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjUzX3g2NC1zZXR1cC5leGUKSk5IeGJSd2VRRG1jaW9rZE9aU05ETzROZFgrWXdrRjl6aGo1cU5QNFltOEpOQS8wVUtjNHhvdHpjOWdZeXdsUmVXOUF1bFp0cllZR2ZmdGdIOURXQUE9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.53/SmomPublish_0.0.53_x64-setup.exe"
         },
         "windows-msi": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVpOK0FZYmQ1SnM0dW0yUUdKU1lnRk5GU0thdHc2NVpEYjVTSzRhWDM0WmxxK09UYzNhRVdGSzBxb3F0VGtzdVN1aVkxY2pTemVCZzNJN3I5ZmdpR2dnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMzIwMjcxCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjUyX3g2NF96aC1DTi5tc2kKQmNzbUluOExDS2d4VWZMUjFtYm5JT1RkZkMwc0dmUjVHMmZxbER0dmZzWFlqTGNJNlhTNnZkSlZuckNrcUR3K3ByMTg3WWJqSS91d0NlTUR4RHUvRHc9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.52/SmomPublish_0.0.52_x64_zh-CN.msi"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVo1QTRrNkJFVEMyRUJDM2Z3WVFNaStZTTI0SktacDEvem0zRXZvTW5uVnZUTytFSjJKQ0Z5OXpha1VwU0ZKdDM2ZElqejBEOFlqK01YWFJOc3p6a0E0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNjMyNTQ2CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjUzX3g2NF96aC1DTi5tc2kKay9EeGRSM3c1ZGt2Y0phVXlPU0poSldNRGtPck9rMXBiNXFBUWJ3cXQrTDNpRkZBQXVBUjZNMzE0cDhwdVJVV2tUajVObnBTRDk5Z2hGbE16dGNpQ2c9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.53/SmomPublish_0.0.53_x64_zh-CN.msi"
         }
     }
 }
