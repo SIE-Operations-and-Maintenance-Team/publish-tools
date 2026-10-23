@@ -119,7 +119,7 @@ impl McpHandler {
 
     /// 获取最新代码
     #[tool(
-        description = "获取最新代码：按应用配置的获取dll方式，对 TFS 本地根目录执行 tf get、对 Git 仓库执行 git pull。运行前会询问本地未提交修改的处理"
+        description = "获取最新代码：按应用配置的获取dll方式，对 TFS 本地根目录执行 tf get、对 Git 仓库执行 git pull"
     )]
     async fn pull_latest_code(
         &self,

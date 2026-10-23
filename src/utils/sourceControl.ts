@@ -1,4 +1,3 @@
-import { ElMessageBox } from "element-plus";
 import { cmdInvoke } from "@/utils/command";
 import { useTfsDb } from "@/database/teamFoundationServer/index";
 import { useGitDb } from "@/database/git/index";
@@ -6,18 +5,14 @@ import { useGitDb } from "@/database/git/index";
 export type PullLatestLogType = "log-info" | "log-warning" | "log-error" | "log-success";
 
 export type PullLatestOptions = {
-	// 手动触发为 true（脏工作区弹确认框）；定时发布等无人值守场景为 false
-	interactive: boolean;
 	log: (content: string, type?: PullLatestLogType) => void;
 };
 
 export type PullLatestData = {
-	// true 表示本次未执行拉取（非 TFS/Git、分支不一致、脏工作区未确认）
+	// true 表示本次未执行拉取（非 TFS/Git、缺配置、分支不一致）
 	skipped: boolean;
 };
 
-// TFS 工作区没有挂起更改时的输出（中文/英文）
-const TFS_NO_PENDING_CHANGES = ["没有挂起的更改", "No pending changes"];
 // TFS 冲突标记
 const TFS_CONFLICT_KEYWORDS = ["冲突", "Conflict"];
 
@@ -89,20 +84,17 @@ const pullTfsLatest = async (
 
 	options.log(`正在获取最新代码（TFS：${tfsItem.tfsName}，${localPath}），文件较多时可能需要几分钟…`);
 
-	// 本地是否存在未提交修改
-	const statusResult = await runLocalCommand(tfvcPath, ["status", localPath, "/recursive", "/noprompt"]);
-	const statusOutput = toText(statusResult.data);
-	const isDirty = statusResult.code !== 0 || !hasNoPendingChanges(statusOutput);
-	if (isDirty) {
-		const canContinue = await confirmDirty(options);
-		if (!canContinue) return buildResult(0, "已跳过获取最新代码", { skipped: true });
-	}
-
 	const getResult = await runLocalCommand(tfvcPath, ["get", localPath, "/recursive", "/noprompt"]);
+	const getOutput = toText(getResult.data);
+	const conflictLines = extractConflictLines(getOutput);
+	// tf get 会自动合并，返回成功也可能留下冲突项，因此按输出内容判断
+	if (conflictLines.length > 0) {
+		options.log(`冲突项：\n${conflictLines.slice(0, 50).join("\n")}`, "log-error");
+		options.log("获取最新代码存在冲突，已停止；请在 Visual Studio 中解决冲突后重新发布.", "log-error");
+		return buildResult(1, "获取最新代码存在冲突，已停止", { skipped: false });
+	}
 	if (getResult.code !== 0) {
-		options.log(`获取最新代码失败：${toText(getResult.data)}`, "log-error");
-		await logTfsConflicts(tfvcPath, localPath, options);
-		options.log("若为冲突，请在 Visual Studio 中解决后重新发布.", "log-warning");
+		options.log(`获取最新代码失败：${getOutput}`, "log-error");
 		return buildResult(1, "获取最新代码失败", { skipped: false });
 	}
 
@@ -148,23 +140,18 @@ const pullGitLatest = async (
 		return buildResult(0, "Git分支不一致，已跳过获取最新代码", { skipped: true });
 	}
 
-	// 本地是否存在未提交修改
-	const statusResult = await runGitCommand(gitPath, ["status", "--porcelain"], gitRepository);
-	if (statusResult.code !== 0) {
-		options.log(`查询Git工作区状态失败：${toText(statusResult.data)}`, "log-error");
-		return buildResult(1, "查询Git工作区状态失败", { skipped: false });
-	}
-	if (toText(statusResult.data).trim() !== "") {
-		const canContinue = await confirmDirty(options);
-		if (!canContinue) return buildResult(0, "已跳过获取最新代码", { skipped: true });
-	}
-
 	options.log(`正在获取最新代码（Git：${gitItem.gitName}，分支：${currentBranch}）…`);
 
 	const pullResult = await runGitCommand(gitPath, ["pull", "--ff-only"], gitRepository);
 	const pullOutput = toText(pullResult.data).trim();
 	if (pullResult.code !== 0) {
 		options.log(`获取最新代码失败：${pullOutput}`, "log-error");
+		const conflictFiles = await getGitConflictFiles(gitPath, gitRepository);
+		if (conflictFiles.length > 0) {
+			options.log(`冲突文件：\n${conflictFiles.slice(0, 50).join("\n")}`, "log-error");
+			options.log("获取最新代码存在冲突，已停止；请在 Visual Studio 中解决冲突后重新发布.", "log-error");
+			return buildResult(1, "获取最新代码存在冲突，已停止", { skipped: false });
+		}
 		return buildResult(1, "获取最新代码失败", { skipped: false });
 	}
 	if (pullOutput) options.log(pullOutput);
@@ -173,42 +160,21 @@ const pullGitLatest = async (
 	return buildResult(0, "获取最新代码完成", { skipped: false });
 };
 
-// 本地有未提交修改时确认是否继续
-const confirmDirty = async (options: PullLatestOptions) => {
-	if (!options.interactive) {
-		options.log("本地存在未提交修改，定时发布不做确认，已跳过获取最新代码.", "log-warning");
-		return false;
-	}
-	try {
-		await ElMessageBox.confirm(
-			"检测到本地存在未提交修改，继续获取最新代码可能触发自动合并。是否继续？",
-			"提示",
-			{
-				confirmButtonText: "继续",
-				cancelButtonText: "取消",
-				type: "warning",
-			}
-		);
-		return true;
-	} catch {
-		options.log("已取消获取最新代码，继续使用本地现有代码.", "log-warning");
-		return false;
-	}
-};
-
-// 拉取失败时尽量列出TFS冲突项
-const logTfsConflicts = async (
-	tfvcPath: string,
-	localPath: string,
-	options: PullLatestOptions
-) => {
-	const statusResult = await runLocalCommand(tfvcPath, ["status", localPath, "/recursive", "/noprompt"]);
-	if (statusResult.code !== 0) return;
-	const conflictLines = toText(statusResult.data)
+// 从 TFS 命令输出中提取冲突项
+const extractConflictLines = (output: string) => {
+	return output
 		.split("\n")
 		.filter((line) => TFS_CONFLICT_KEYWORDS.some((keyword) => line.includes(keyword)));
-	if (conflictLines.length < 1) return;
-	options.log(`冲突项：\n${conflictLines.slice(0, 50).join("\n")}`, "log-error");
+};
+
+// 列出 Git 未合并（冲突）文件
+const getGitConflictFiles = async (gitPath: string, gitRepository: string) => {
+	const result = await runGitCommand(gitPath, ["diff", "--name-only", "--diff-filter=U"], gitRepository);
+	if (result.code !== 0) return [];
+	return toText(result.data)
+		.split("\n")
+		.map((line) => line.trim())
+		.filter((line) => line !== "");
 };
 
 // 执行本地命令（不设工作目录）；命令失败时不做重试，避免重复拉取
@@ -227,11 +193,6 @@ const runGitCommand = async (command: string, args: string[], workingDir: string
 		args,
 		workingDir,
 	});
-};
-
-// TFS 工作区是否没有挂起更改
-const hasNoPendingChanges = (output: string) => {
-	return TFS_NO_PENDING_CHANGES.some((keyword) => output.includes(keyword));
 };
 
 // 统一转换为字符串

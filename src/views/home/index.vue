@@ -845,10 +845,9 @@ const executeFunModule = async (title: string): Promise<boolean> => {
   switch (title) {
     case "获取最新代码": {
       const pullResult = await pullLatestCode(state.publishData.appconfigData, {
-        interactive: true,
         log: (content, type) => printInfoLog(content, type),
       });
-      // skipped 表示未执行拉取（无源码管理配置、分支不一致、脏工作区取消），按未成功返回
+      // skipped 表示未执行拉取（无源码管理配置、分支不一致），按未成功返回
       return pullResult.code === 0 && !pullResult.data?.skipped;
     }
     case "一键发布":
@@ -1191,8 +1190,7 @@ const onStopPublish = () => {
 const pullLatestCodeBeforePublish = async () => {
   if (!isPullLatestEnabled(state.publishData.appconfigData.configItems)) return true;
   const pullResult = await pullLatestCode(state.publishData.appconfigData, {
-    // 定时发布无人值守，脏工作区不弹确认框
-    interactive: !isScheduledRunning.value,
+    // 存在冲突时返回非 0，发布中止
     log: (content, type) => printInfoLog(content, type),
   });
   if (pullResult.code !== 0) {
