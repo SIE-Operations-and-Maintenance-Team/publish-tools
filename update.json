@@ -1,15 +1,15 @@
 {
-    "version": "0.0.53",
-    "notes": "<b>修复</b><br>• 修复「编译项目」完成后 MSBuild.exe 进程残留的问题：此前并行构建默认开启 MSBuild 节点复用，编译结束后 worker 节点会常驻 15 分钟等待复用，32 核机器单次编译即拉起约 31 个节点（每个约 60–130 MB），反复编译不断累积导致电脑卡顿；现在编译时关闭节点复用（`/nodeReuse:false` + `MSBUILDDISABLENODEREUSE=1`），节点随编译结束立即退出<br><b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.53/SmomPublish_0.0.53_x64-setup.exe'>点击此处</a> 下载。</b>",
-    "pub_date": "2026-10-22T01:29:34Z",
+    "version": "0.0.54",
+    "notes": "<b>功能</b><br>• 获取最新代码新增冲突检测：TFS 按 `tf get` 输出中的 `冲突`/`Conflict` 判断（命令返回成功也判断，因为 `tf get` 会自动合并并可能留下冲突项），Git 在 `pull --ff-only` 失败时用 `git diff --diff-filter=U` 列出未合并文件；检测到冲突立即停止并中止后续发布，冲突项写入发布日志（最多 50 项），请在 Visual Studio 中解决后重新发布<br><b>修复</b><br>• 获取最新代码不再因本地有未提交修改而弹确认框：移除「检测到本地存在未提交修改，继续获取最新代码可能触发自动合并。是否继续？」弹窗及对应提示日志，本地有改动时照常执行 `tf get` / `git pull --ff-only`；同时去掉拉取前的一次全量工作区状态扫描，TFS 大工程拉取更快，定时发布也不再因未提交修改跳过拉取<br><b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.54/SmomPublish_0.0.54_x64-setup.exe'>点击此处</a> 下载。</b>",
+    "pub_date": "2026-10-23T08:33:54Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVR5T0ZWNVI0WThVMGoyQnVTODRTaU1KTEFlUDV5dytWOFp5T09hazB2NjdJN04rWVA2M3FnQ0lETzBENG1XRGpLYm9jSGhRMll2YjY0NDBPV2Qza3c4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNjMyNTQ2CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjUzX3g2NC1zZXR1cC5leGUKSk5IeGJSd2VRRG1jaW9rZE9aU05ETzROZFgrWXdrRjl6aGo1cU5QNFltOEpOQS8wVUtjNHhvdHpjOWdZeXdsUmVXOUF1bFp0cllZR2ZmdGdIOURXQUE9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.53/SmomPublish_0.0.53_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVYzTFRMV2phSU1TUmc5cFR1RGF3ZHZOWmU5ZlFWYUpIaGl1a2tobURSK1ZNbUJycjNDNlhsYzJYanlFUS8ySENWRUVObUViQlRVbzlpUU1SekZneGdVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNzQ0NDAyCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjU0X3g2NC1zZXR1cC5leGUKcCttMzBaenZoUVdQS3IzUmFBNzN6cXNBUVhhR0ZBdzF2dHErakl4akZaeEpTV0VFc0I1MEE1ZzMxSWJReDN1VjdVWFpLQVVHb0h3b1dNWEZVNS9SQmc9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.54/SmomPublish_0.0.54_x64-setup.exe"
         },
         "windows-msi": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSVo1QTRrNkJFVEMyRUJDM2Z3WVFNaStZTTI0SktacDEvem0zRXZvTW5uVnZUTytFSjJKQ0Z5OXpha1VwU0ZKdDM2ZElqejBEOFlqK01YWFJOc3p6a0E0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNjMyNTQ2CWZpbGU6U21vbVB1Ymxpc2hfMC4wLjUzX3g2NF96aC1DTi5tc2kKay9EeGRSM3c1ZGt2Y0phVXlPU0poSldNRGtPck9rMXBiNXFBUWJ3cXQrTDNpRkZBQXVBUjZNMzE0cDhwdVJVV2tUajVObnBTRDk5Z2hGbE16dGNpQ2c9PQo=",
-            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.53/SmomPublish_0.0.53_x64_zh-CN.msi"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdGxOWW05d01OSWZpNE1OcEcrRGk3WFJ5WU5rOSt0Y1FGRnJ3QkV1dS8vd25rK3E4SDVNRVhVdzJsYWFqeVp0RnNhUHN4V0lXb1hyNWxwS3Y4eGgvQ2hlcEp3QTNqbndZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNzQ0NDAyCWZpbGU6U21vbVB1Ymxpc2hfMC4wLjU0X3g2NF96aC1DTi5tc2kKSVdTZ0NYQzZuT1BSZHc2S3pueTExTHN3T3k4TDZ4ZEhMUS9uUjRybEpDRXJUNXVEVUdiSHpBT3R1Qkp5ZFp3ZGRUMU1MVHRtTy9hNEpiQ0V6aWcvRGc9PQo=",
+            "url": "https://github.com/SIE-Operations-and-Maintenance-Team/publish-tools/releases/download/v0.0.54/SmomPublish_0.0.54_x64_zh-CN.msi"
         }
     }
 }
