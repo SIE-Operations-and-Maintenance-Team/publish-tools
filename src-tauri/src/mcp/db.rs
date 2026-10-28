@@ -231,3 +231,23 @@ pub fn query_app_configs_for_action(
         }
     }
 }
+
+// ── 备份记录查询（MCP 还原动作）──
+
+/// 按 ID 查询备份记录，供 MCP 还原动作定位使用
+pub fn query_backup_by_id(conn: &Connection, id: i64) -> Result<Option<Value>, String> {
+    let sql = "SELECT id, project_id, project_name, environment, backup_date, remark, backup_items_json FROM t_backup WHERE id = ?1";
+    let mut rows = rows_to_json(conn, sql, &[&id])?;
+    Ok(rows.pop())
+}
+
+/// 查询指定项目与环境下最新一条备份记录
+pub fn query_latest_backup(
+    conn: &Connection,
+    project_id: i64,
+    environment: i64,
+) -> Result<Option<Value>, String> {
+    let sql = "SELECT id, project_id, project_name, environment, backup_date, remark, backup_items_json FROM t_backup WHERE project_id = ?1 AND environment = ?2 ORDER BY backup_date DESC, id DESC LIMIT 1";
+    let mut rows = rows_to_json(conn, sql, &[&project_id, &environment])?;
+    Ok(rows.pop())
+}

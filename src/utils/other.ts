@@ -459,5 +459,16 @@ export const formatServiceLog = (
   return `[${server}] ${serviceType}(${serviceIdentity})`;
 };
 
+/**
+ * 还原结果说明：失败时取最后一条错误日志，便于 MCP 调用方拿到失败原因
+ * @param logs 还原过程日志
+ * @param success 还原结果
+ */
+export function getRestoreResultMessage(logs: LogPrintType[], success: boolean) {
+  if (success) return "还原成功";
+  const errorLog = [...logs].reverse().find((log) => log.type === "log-error");
+  return errorLog?.content.value || "还原失败，请查看还原日志";
+}
+
 // 统一批量导出
 export default other;

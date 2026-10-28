@@ -86,6 +86,7 @@ import {
   removeSlash,
   displayEnvironment,
   formatServiceLog,
+  getRestoreResultMessage,
 } from "@/utils/other";
 import { useRestoreDb } from "@/database/restore/index";
 import { formatDate } from "@/utils/formatTime";
@@ -122,8 +123,8 @@ const state = reactive<FormDialogType<RowRestoreType>>({
 });
 
 // 还原
-const onRestore = async () => {
-  if (!backupItem.value) return;
+const onRestore = async (): Promise<{ success: boolean; message: string }> => {
+  if (!backupItem.value) return { success: false, message: "备份记录为空" };
   state.dialog.submitTxt = "还原中";
   // 加载发布设置缓存（供后续服务停止启动 调用点 getRetryArgs 使用）
   await loadPublishSettings();
@@ -182,6 +183,10 @@ const onRestore = async () => {
   if (insertResult.code !== 0) {
     ElMessage.error(insertResult.msg);
   }
+  return {
+    success: restoreResult,
+    message: getRestoreResultMessage(logPrintInfo.value, restoreResult),
+  };
 };
 
 const restoreRemoteServer = async (
@@ -755,9 +760,10 @@ const onCancel = () => {
   closeDialog();
 };
 
-// 暴露变量
+// 暴露变量：autoRestore 供 MCP 触发还原时无交互调用
 defineExpose({
   openDialog,
+  autoRestore: onRestore,
 });
 </script>
 <style lang="scss">

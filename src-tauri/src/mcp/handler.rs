@@ -86,7 +86,7 @@ impl McpHandler {
         timeout_secs: u64,
     ) -> Result<CallToolResult, ErrorData> {
         let appconfig = self.resolve_appconfig(params)?;
-        match bridge::dispatch(&self.app_handle, action, appconfig, timeout_secs).await {
+        match bridge::dispatch(&self.app_handle, action, appconfig, None, timeout_secs).await {
             Ok(result) => {
                 let text = serde_json::json!({
                     "success": result.success,
@@ -155,6 +155,76 @@ impl McpHandler {
         Parameters(params): Parameters<PublishActionParam>,
     ) -> Result<CallToolResult, ErrorData> {
         self.dispatch_action("manualPublish", &params, 3600).await
+    }
+
+    /// 还原备份记录
+    #[tool(
+        description = "还原备份记录：把备份文件还原回服务器部署目录并重启服务（会先停止服务、覆盖部署目录文件、再启动服务，属高危操作）。可用 backup_id 指定备份记录，或用 project_id + environment 取该项目环境下最新一条备份。返回执行结果；失败时返回最后一条错误日志"
+    )]
+    async fn restore_backup(
+        &self,
+        Parameters(params): Parameters<RestoreBackupParam>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let (backup_id, backup) = {
+            let conn = crate::mcp::db::open_db(&self.app_handle)
+                .map_err(|e| ErrorData::internal_error(e, None))?;
+
+            let record = match params.backup_id {
+                Some(id) => crate::mcp::db::query_backup_by_id(&conn, id)
+                    .map_err(|e| ErrorData::internal_error(e, None))?
+                    .ok_or_else(|| {
+                        ErrorData::invalid_params(format!("备份记录 {id} 不存在"), None)
+                    })?,
+                None => {
+                    let project_id = params.project_id.ok_or_else(|| {
+                        ErrorData::invalid_params(
+                            "需要提供 backup_id，或 project_id + environment",
+                            None,
+                        )
+                    })?;
+                    let environment = params.environment.unwrap_or(1);
+                    crate::mcp::db::query_latest_backup(&conn, project_id, environment)
+                        .map_err(|e| ErrorData::internal_error(e, None))?
+                        .ok_or_else(|| {
+                            ErrorData::invalid_params(
+                                format!("项目 {project_id} 在环境 {environment} 下没有备份记录"),
+                                None,
+                            )
+                        })?
+                }
+            };
+
+            let id = record.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
+            (id, record)
+        };
+
+        match bridge::dispatch(
+            &self.app_handle,
+            "restoreBackup",
+            None,
+            Some(backup),
+            3600,
+        )
+        .await
+        {
+            Ok(result) => {
+                self.audit(
+                    AuditEntry::new(
+                        "restore_backup",
+                        if result.success { "ok" } else { "fail" },
+                    )
+                    .with_file_path(&format!("backup_id={backup_id}")),
+                );
+                let text = serde_json::json!({
+                    "backup_id": backup_id,
+                    "success": result.success,
+                    "message": result.message
+                })
+                .to_string();
+                Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
+            }
+            Err(e) => Err(ErrorData::internal_error(e, None)),
+        }
     }
 
     // ═══════════════════════════════════════════════

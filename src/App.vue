@@ -146,12 +146,14 @@ onMounted(() => {
       stores.setCurrenFullscreen(Session.get("isTagsViewCurrenFull"));
     }
 
-    // MCP 发布动作：不在发布页时先暂存再跳转，由发布页挂载后取走执行
-    listen<{ request_id: string; action: string; appconfig?: unknown }>("mcp-action", async (event) => {
+    // MCP 动作：还原备份由备份页执行，其余发布动作由发布页执行；
+    // 不在目标页时先暂存再跳转，由目标页挂载或激活后取走执行
+    listen<{ request_id: string; action: string; appconfig?: unknown; backup?: unknown }>("mcp-action", async (event) => {
       const payload = event.payload;
-      if (route.path !== "/home") {
+      const targetPath = payload.action === "restoreBackup" ? "/backups" : "/home";
+      if (route.path !== targetPath) {
         setPendingMcpAction(payload);
-        await router.push("/home");
+        await router.push(targetPath);
         return;
       }
       mittBus.emit("mcp-action", payload);

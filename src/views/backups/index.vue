@@ -114,11 +114,14 @@
 </template>
 
 <script setup lang="ts" name="backups">
-import { ref, reactive, onBeforeMount, defineAsyncComponent } from "vue";
+import { ref, reactive, onBeforeMount, onMounted, onActivated, onUnmounted, nextTick, defineAsyncComponent } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import _ from "lodash";
 import { useBackupDb } from "@/database/backups/index";
 import { displayEnvironment } from "@/utils/other";
+import { cmdInvoke } from "@/utils/command";
+import mittBus from "@/utils/mitt";
+import { takePendingMcpAction } from "@/utils/mcpPending";
 
 // 引入备份管理数据库
 const backupDb = useBackupDb();
@@ -278,8 +281,107 @@ const onBatchDel = () => {
   });
 };
 
+// MCP 下发的备份记录（snake_case）转成界面使用的结构
+const normalizeMcpBackup = (raw: any): RowBackupType | null => {
+  if (!raw) return null;
+  const backupItemsJson = String(raw.backup_items_json || "");
+  if (!backupItemsJson) return null;
+  let backupItems: BackupItemsType;
+  try {
+    backupItems = JSON.parse(backupItemsJson);
+  } catch (e) {
+    return null;
+  }
+  return {
+    id: Number(raw.id),
+    projectId: raw.project_id ? Number(raw.project_id) : null,
+    projectName: raw.project_name || "",
+    environment: raw.environment ? Number(raw.environment) : null,
+    backupDate: raw.backup_date || "",
+    remark: raw.remark || "",
+    backupItemsJson,
+    backupItems,
+  };
+};
+
+// 等待异步加载的还原对话框实例就绪
+const waitRestoreDialogRef = async (getRef: () => any, timeoutMs = 5000) => {
+  const deadline = Date.now() + timeoutMs;
+  while (!getRef() && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return getRef();
+};
+
+// 按备份来源选择还原对话框并直接执行（MCP 触发路径，复用界面还原逻辑）
+const runRestoreForMcp = async (row: RowBackupType) => {
+  const backupItems = row.backupItems;
+  if (!row.projectId && row.remark == "PAPERS_REMOTE_PUBLISH") {
+    const dialogRef = await waitRestoreDialogRef(() => restoreRemoteDialogRef.value);
+    if (!dialogRef) return { success: false, message: "还原窗口未就绪" };
+    dialogRef.openDialog(Number(row.id), backupItems);
+    await nextTick();
+    return await dialogRef.autoRestore();
+  }
+  if (!row.projectId && row.remark == "PAPERS_LOCAL_PUBLISH") {
+    const dialogRef = await waitRestoreDialogRef(() => restoreLocalDialogRef.value);
+    if (!dialogRef) return { success: false, message: "还原窗口未就绪" };
+    dialogRef.openDialog(Number(row.id), backupItems);
+    await nextTick();
+    return await dialogRef.autoRestore();
+  }
+  const dialogRef = await waitRestoreDialogRef(() => restoreDialogRef.value);
+  if (!dialogRef) return { success: false, message: "还原窗口未就绪" };
+  dialogRef.openDialog(row);
+  await nextTick();
+  return await dialogRef.autoRestore();
+};
+
+// MCP 还原备份动作：执行完成后回传结果，唤醒 Rust 侧等待中的工具调用
+const onMcpAction = async (payload: any) => {
+  const requestId = payload?.request_id ?? payload?.requestId;
+  if (!requestId) return;
+  const reply = (success: boolean, message: string) =>
+    cmdInvoke("mcp_action_result", { requestId, success, message });
+
+  if (payload?.action !== "restoreBackup") {
+    await reply(false, `备份页不支持的操作：${payload?.action}`);
+    return;
+  }
+
+  const row = normalizeMcpBackup(payload?.backup);
+  if (!row) {
+    await reply(false, "备份记录内容无效，无法还原");
+    return;
+  }
+
+  try {
+    const result = await runRestoreForMcp(row);
+    await reply(result.success, result.message);
+    await getTableData();
+  } catch (e: any) {
+    await reply(false, `还原执行异常：${e?.message ?? e}`);
+  }
+};
+
 onBeforeMount(async () => {
   await getTableData();
+});
+
+onMounted(() => {
+  mittBus.on("mcp-action", onMcpAction);
+  const pendingMcpAction = takePendingMcpAction();
+  if (pendingMcpAction) onMcpAction(pendingMcpAction);
+});
+
+// 页面被 keep-alive 缓存时不会再触发 onMounted，激活时补取一次待执行动作
+onActivated(() => {
+  const pendingMcpAction = takePendingMcpAction();
+  if (pendingMcpAction) onMcpAction(pendingMcpAction);
+});
+
+onUnmounted(() => {
+  mittBus.off("mcp-action", onMcpAction);
 });
 </script>
 

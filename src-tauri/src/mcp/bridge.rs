@@ -15,11 +15,14 @@ use tokio::sync::oneshot;
 #[derive(Debug, Clone, Serialize)]
 pub struct ActionPayload {
     pub request_id: String,
-    /// oneClickPublish / pullLatestCode / buildProjects / getApplicationAssemblys / manualPublish
+    /// oneClickPublish / pullLatestCode / buildProjects / getApplicationAssemblys / manualPublish / restoreBackup
     pub action: String,
     /// 已解析的应用配置；为空表示使用界面当前选择
     #[serde(skip_serializing_if = "Option::is_none")]
     pub appconfig: Option<serde_json::Value>,
+    /// 还原备份动作下发的备份记录；为空表示该动作不需要
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backup: Option<serde_json::Value>,
 }
 
 /// 前端回传的执行结果
@@ -55,6 +58,7 @@ pub async fn dispatch(
     app: &tauri::AppHandle,
     action: &str,
     appconfig: Option<serde_json::Value>,
+    backup: Option<serde_json::Value>,
     timeout_secs: u64,
 ) -> Result<ActionResult, String> {
     let request_id = format!(
@@ -72,6 +76,7 @@ pub async fn dispatch(
         request_id: request_id.clone(),
         action: action.to_string(),
         appconfig,
+        backup,
     };
     if let Err(e) = app.emit("mcp-action", payload) {
         if let Ok(mut map) = pending().lock() {

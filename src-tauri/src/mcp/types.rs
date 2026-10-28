@@ -17,6 +17,22 @@ pub struct PublishActionParam {
     pub environment: Option<i64>,
 }
 
+// ── 还原备份参数 ──
+
+/// 还原备份记录的定位参数：backup_id 优先；否则用 project_id + environment 取最新一条备份
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct RestoreBackupParam {
+    /// 备份记录 ID（优先级最高）
+    #[serde(default)]
+    pub backup_id: Option<i64>,
+    /// 项目 ID（与 environment 一起定位该项目环境下最新一条备份）
+    #[serde(default)]
+    pub project_id: Option<i64>,
+    /// 环境：1=Dev、2=Uat、3=Pro、4=Other，默认 Dev
+    #[serde(default)]
+    pub environment: Option<i64>,
+}
+
 // ── 定时发布参数 ──
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
