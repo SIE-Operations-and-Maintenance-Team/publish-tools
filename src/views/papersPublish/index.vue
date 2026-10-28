@@ -116,36 +116,20 @@
                 </el-col>
               </el-row>
             </div>
-            <div class="card-item-content mp-log-content">
-              <el-tabs v-model="activeLogTab" type="border-card" class="log-tabs"
-                :class="{ 'log-tabs-single': displayTabs.length <= 1 }">
-                <el-tab-pane v-for="tab in displayTabs" :key="tab.id" :name="tab.id">
-                  <template #label>
-                    <span>
-                      <span v-if="tab.status === 'running'" style="color: var(--el-color-warning)">●</span>
-                      <span v-else-if="tab.status === 'success'" style="color: var(--el-color-success)">●</span>
-                      <span v-else-if="tab.status === 'error'" style="color: var(--el-color-danger)">●</span>
-                      <span v-else style="color: var(--el-color-info)">●</span>
-                      {{ tab.label }}
-                    </span>
-                  </template>
-                  <div :ref="(el: any) => setTabContentRef(tab.id, el)" class="log-tab-pane-content">
-                    <p v-for="log in tab.logs" :class="log.type">
-                      {{ log.content.value }}
-                      <el-text :type="log.content.uploadFile.currNumber >=
-                        log.content.uploadFile.totalNumber
-                        ? 'primary'
-                        : 'warning'
-                        " size="small" v-if="log.content.uploadFile && log.content.uploadFile.totalNumber > 0">{{
-                          log.content.uploadFile.prefix
-                        }}{{ log.content.uploadFile.currNumber }}/{{
-                          log.content.uploadFile.totalNumber
-                        }}
-                        个文件。</el-text>
-                    </p>
-                  </div>
-                </el-tab-pane>
-              </el-tabs>
+            <div ref="mpLogContentRef" class="card-item-content mp-log-content">
+              <p v-for="log in logPrintInfo" :class="log.type">
+                {{ log.content.value }}
+                <el-text :type="log.content.uploadFile.currNumber >=
+                  log.content.uploadFile.totalNumber
+                  ? 'primary'
+                  : 'warning'
+                  " size="small" v-if="log.content.uploadFile && log.content.uploadFile.totalNumber > 0">{{
+                    log.content.uploadFile.prefix
+                  }}{{ log.content.uploadFile.currNumber }}/{{
+                    log.content.uploadFile.totalNumber
+                  }}
+                  个文件。</el-text>
+              </p>
             </div>
           </div>
         </div>
@@ -155,7 +139,7 @@
 </template>
 
 <script setup lang="ts" name="smomPapersPublish">
-import { ref, reactive, computed, onBeforeMount, defineAsyncComponent, nextTick } from "vue";
+import { ref, reactive, onBeforeMount, defineAsyncComponent, nextTick } from "vue";
 import { open } from "@tauri-apps/plugin-dialog";
 import { path } from "@tauri-apps/api";
 import { ElMessage } from "element-plus";
@@ -181,52 +165,7 @@ const publishConfig = reactive({} as any);
 const remotePublishConfig = ref<RemotePublishType>();
 const localPublishConfig = ref<LocalPublishType>();
 const logPrintInfo = ref<LogPrintType[]>([]);
-// 日志标签页：main 为基础日志，服务发布时按实例动态创建
-const logTabs = ref<LogTabType[]>([]);
-const activeLogTab = ref<string>("main");
-const tabContentRefs = ref<Record<string, HTMLElement>>({});
-// 串行发布期间的服务日志标签页上下文
-let currentLogTabId: string | undefined = undefined;
-
-// 展示的标签页：基础页 + 动态服务页
-const displayTabs = computed<LogTabType[]>(() => {
-  const baseTab: LogTabType = {
-    id: "main",
-    label: "总体日志",
-    logs: logPrintInfo.value,
-    status: "info",
-  };
-  return [baseTab, ...logTabs.value];
-});
-
-// 创建日志标签页
-const createLogTab = (serviceName: string, serverName: string, instanceName?: string): string => {
-  const id = `${serviceName}_${serverName}_${instanceName || "default"}_${Date.now()}_${logTabs.value.length}`;
-  const label = instanceName
-    ? `${serviceName} / ${serverName} / ${instanceName}`
-    : `${serviceName} / ${serverName}`;
-  logTabs.value.push({ id, label, logs: [], status: "pending" });
-  return id;
-};
-
-// 更新标签页状态
-const updateTabStatus = (tabId: string, status: LogTabType["status"]) => {
-  const tab = logTabs.value.find((t) => t.id === tabId);
-  if (tab) tab.status = status;
-};
-
-// 绑定标签页内容区 DOM 引用
-const setTabContentRef = (id: string, el: any) => {
-  if (el) tabContentRefs.value[id] = el;
-};
-
-// 滚动到日志底部
-const scrollLogToBottom = (tabId: string) => {
-  nextTick(() => {
-    const el = tabContentRefs.value[tabId];
-    if (el) el.scrollTop = el.scrollHeight;
-  });
-};
+const mpLogContentRef = ref<HTMLElement>();
 const publishItem = ref({
   loading: false,
   loadingText: "发布中",
@@ -390,7 +329,6 @@ const onPublish = async () => {
       printInfoLog("发布已停止.", "log-warning");
     }
   } finally {
-    currentLogTabId = undefined;
     publishItem.value.loading = false;
     publishItem.value.loadingText = "发布中";
     const delPapersPublishDirPath = await papersPublishDir();
@@ -412,7 +350,6 @@ const onReset = () => {
 
 // [本机]服务发布
 const localServerPublish = async () => {
-  currentLogTabId = undefined;
   if (!localPublishConfig.value) return;
 
   // 发布前备份
@@ -497,7 +434,6 @@ const localServerPublish = async () => {
     }
   }
 
-  currentLogTabId = undefined;
   printInfoLog("发布成功！");
   return true;
 };
@@ -734,10 +670,6 @@ const localPublishServer = async (
   // 服务发布配置信息
   for (let j = 0; j < publishServer.serverConfigs.length; j++) {
     const serverConfig = publishServer.serverConfigs[j];
-    // 每个服务实例一个日志标签页
-    const tabId = createLogTab(serverName, publishServer.serverName || "", serverConfig.serverIdentity);
-    updateTabStatus(tabId, "running");
-    currentLogTabId = tabId;
     const logPrefix = formatServiceLog(publishServer.serverName || serverName, publishServer.serverIp, serverName, serverConfig.serverIdentity);
     /* 1.关闭服务 */
     printInfoLog(`${logPrefix} 正在关闭...`);
@@ -814,7 +746,6 @@ const localPublishServer = async (
       return false;
     }
     printInfoLog(`${logPrefix} 发布成功.`, "log-success");
-    updateTabStatus(tabId, "success");
   }
   printInfoLog("");
   return true;
@@ -1212,7 +1143,6 @@ const localPublishWpfBackup = async (
 
 // [远程]服务发布
 const remoteServerPublish = async () => {
-  currentLogTabId = undefined;
   if (!remotePublishConfig.value) return;
 
   // 发布前备份
@@ -1311,7 +1241,6 @@ const remoteServerPublish = async () => {
     }
   }
 
-  currentLogTabId = undefined;
   printInfoLog("发布成功！");
   return true;
 };
@@ -1809,10 +1738,6 @@ const remotePublishServer = async (
     // 服务发布配置信息
     for (let j = 0; j < publishServer.serverConfigs.length; j++) {
       const serverConfig = publishServer.serverConfigs[j];
-      // 每个服务实例一个日志标签页
-      const tabId = createLogTab(serverName, publishServer.serverName || "", serverConfig.serverIdentity);
-      updateTabStatus(tabId, "running");
-      currentLogTabId = tabId;
       const logPrefix = formatServiceLog(publishServer.serverName || serverName, publishServer.serverIp, serverName, serverConfig.serverIdentity);
       /* 1.关闭服务 */
       printInfoLog(`${logPrefix} 正在关闭...`);
@@ -1902,7 +1827,6 @@ const remotePublishServer = async (
         return false;
       }
       printInfoLog(`${logPrefix} 发布成功.`, "log-success");
-      updateTabStatus(tabId, "success");
     }
   }
   printInfoLog("");
@@ -2433,10 +2357,6 @@ const createDir = async (path: string) => {
 // 清空日志
 const onRemoveLogs = () => {
   logPrintInfo.value = [];
-  logTabs.value = [];
-  tabContentRefs.value = {};
-  activeLogTab.value = "main";
-  currentLogTabId = undefined;
 };
 
 // 初始化日志
@@ -2452,8 +2372,7 @@ const initLogs = () => {
  */
 const printInfoLog = (
   content: string,
-  type: "log-info" | "log-warning" | "log-error" | "log-success" = "log-info",
-  tabId?: string
+  type: "log-info" | "log-warning" | "log-error" | "log-success" = "log-info"
 ) => {
   let logContent = content
     ? `[${formatDate(new Date(), "YYYY-mm-dd HH:MM:SS")}] ${content}`
@@ -2469,36 +2388,23 @@ const printInfoLog = (
     },
   };
 
-  // 服务发布上下文：写入对应标签页
-  const targetTabId = tabId ?? currentLogTabId;
-  if (targetTabId) {
-    const tab = logTabs.value.find((t) => t.id === targetTabId);
-    if (tab) {
-      tab.logs.push(logInfo);
-      if (type === "log-error" && tab.status === "running") tab.status = "error";
-      scrollLogToBottom(targetTabId);
-      return tab.logs.length - 1;
-    }
-  }
-
   logPrintInfo.value.push(logInfo);
-  scrollLogToBottom("main");
+  nextTick(() => {
+    const el = mpLogContentRef.value;
+    if (el) el.scrollTop = el.scrollHeight;
+  });
   return logPrintInfo.value.length - 1;
 };
 
-// 更新上传进度（写入当前上下文所在的日志数组）
+// 更新上传进度
 const updateLogProgress = (
   logIndex: number,
   prefix: string,
   currNumber: number,
-  totalNumber: number,
-  tabId?: string
+  totalNumber: number
 ) => {
-  const targetTabId = tabId ?? currentLogTabId;
-  const logs = targetTabId
-    ? logTabs.value.find((t) => t.id === targetTabId)?.logs
-    : logPrintInfo.value;
-  if (!logs || !logs[logIndex]) return;
+  const logs = logPrintInfo.value;
+  if (!logs[logIndex]) return;
   logs[logIndex].content.uploadFile.prefix = prefix;
   logs[logIndex].content.uploadFile.currNumber = currNumber;
   logs[logIndex].content.uploadFile.totalNumber = totalNumber;
@@ -2641,40 +2547,10 @@ onBeforeMount(async () => {
       }
 
       .mp-log-content {
+        background-color: #545c64;
         counter-reset: line-number;
         padding-right: 1em;
         text-align: left;
-        overflow: hidden;
-
-        .log-tabs {
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-
-          // 只有一个页签时隐藏页签栏
-          &.log-tabs-single :deep(.el-tabs__header) {
-            display: none;
-          }
-
-          :deep(.el-tabs__content) {
-            flex: 1;
-            overflow: hidden;
-            padding: 0;
-          }
-
-          :deep(.el-tab-pane) {
-            height: 100%;
-          }
-        }
-
-        .log-tab-pane-content {
-          box-sizing: border-box;
-          height: 100%;
-          overflow-y: auto;
-          background-color: #545c64;
-          padding: 8px 1em 8px 8px;
-          text-align: left;
-        }
       }
     }
   }
