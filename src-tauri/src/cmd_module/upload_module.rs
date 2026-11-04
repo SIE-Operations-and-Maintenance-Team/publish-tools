@@ -92,6 +92,9 @@ struct LocalUploadFile {
 /// # Returns
 /// * `Ok(UploadSyncResult)` 上传统计
 /// * `Err(String)` 失败原因
+// 参数即前端 invoke 的扁平字段契约，拆成结构体会改变前端调用方式；
+// 上传所需参数本就较多，此处保留扁平签名并显式放行 clippy 参数数量限制。
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn sync_dir_to_server(
     app: tauri::AppHandle,
@@ -120,6 +123,8 @@ pub async fn sync_dir_to_server(
 }
 
 /// 执行增量上传（阻塞实现，必须在阻塞线程池中调用）
+// 参数与上层命令一一对应，保持签名一致便于对照，同样放行参数数量限制。
+#[allow(clippy::too_many_arguments)]
 fn exec_sync_dir_to_server(
     app: &tauri::AppHandle,
     local_dir: &str,
