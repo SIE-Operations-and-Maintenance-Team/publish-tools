@@ -1,5 +1,15 @@
 <template>
   <div class="publish-container layout-pd">
+    <!-- 未完成发布的续跑提示 -->
+    <el-alert v-if="resumeState" class="mb15" type="warning" effect="light" :closable="false" show-icon>
+      <template #title>
+        <span class="resume-tip">
+          发布记录 #{{ resumeState.id }}（{{ resumeState.startDate }}）未完成，可恢复上次发布或放弃。
+        </span>
+        <el-button size="small" type="primary" class="ml10" @click="onContinuePublish">恢复上次发布</el-button>
+        <el-button size="small" class="ml10" @click="onAbortResume">放弃</el-button>
+      </template>
+    </el-alert>
     <el-row :gutter="15" class="publish-card-box mb15">
       <el-col v-for="(fun, index) in visibleFunModule" :key="fun.title" :class="{
         'publish-media publish-media-lg': fun.origIndex > 1,
@@ -56,6 +66,9 @@
                       state.publishData.appconfigData.id == null ||
                       state.publishData.appconfigData.id <= 0
                       " @click="onOpenAppConfig"></el-button>
+                    <el-button title="发布前预检" size="small" text :icon="Checked"
+                      :disabled="state.funModule[currModuleIndex].loading == true"
+                      @click="onOpenPreflight"></el-button>
                     <el-button title="刷新|重置" size="small" text :icon="Refresh"
                       :disabled="state.funModule[currModuleIndex].loading == true"
                       @click="getProjectDefault({ keepCurrentEnvironment: true })"></el-button>
@@ -147,17 +160,29 @@
                     <td colspan="3">{{ state.publishData.appconfigData.msBuildPath }}</td>
                   </tr>
                   <tr>
-                    <th>强制重新生成</th>
+                    <th>重新编译</th>
                     <td>
-                      {{
-                        state.publishData.appconfigData.configItems.isRebuild == 1
-                          ? "是"
-                          : "否"
-                      }}
+                      <el-switch v-model="state.publishData.appconfigData.configItems.isRebuild" :active-value="1"
+                        :inactive-value="0" :disabled="state.funModule[currModuleIndex].loading == true" inline-prompt
+                        active-text="开启" inactive-text="关闭" size="default" />
                     </td>
                     <th>发布前备份</th>
                     <td>
                       <el-switch v-model="state.publishData.appconfigData.configItems.isBackup" :active-value="1"
+                        :inactive-value="0" :disabled="state.funModule[currModuleIndex].loading == true" inline-prompt
+                        active-text="开启" inactive-text="关闭" size="default" />
+                    </td>
+                  </tr>
+                  <tr>
+                    <th>拉取最新代码</th>
+                    <td>
+                      <el-switch v-model="state.publishData.appconfigData.configItems.isPullLatest" :active-value="1"
+                        :inactive-value="0" :disabled="state.funModule[currModuleIndex].loading == true" inline-prompt
+                        active-text="开启" inactive-text="关闭" size="default" />
+                    </td>
+                    <th>发布前预检</th>
+                    <td>
+                      <el-switch v-model="state.publishData.appconfigData.configItems.isPreflight" :active-value="1"
                         :inactive-value="0" :disabled="state.funModule[currModuleIndex].loading == true" inline-prompt
                         active-text="开启" inactive-text="关闭" size="default" />
                     </td>
@@ -582,6 +607,7 @@
     <generate-publish-dialog :done="execApplicationAssemblyDone" @exec-application-assembly="onExecApplicationAssembly"
       @exec-done="onExecDone" @refresh="getPublishAppconfigs()" ref="generatePublishDialogRef" />
     <scheduled-publish-dialog ref="scheduledPublishDialogRef" @refresh="getPublishAppconfigs()" />
+    <preflight-dialog ref="preflightDialogRef" />
   </div>
 </template>
 
@@ -597,9 +623,10 @@ import {
   defineAsyncComponent,
   nextTick,
 } from "vue";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import _ from "lodash";
-import { Refresh, CircleClose, EditPen, VideoPause, VideoPlay, Close } from "@element-plus/icons-vue";
+import { Refresh, Checked, CircleClose, EditPen, VideoPause, VideoPlay, Close } from "@element-plus/icons-vue";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useProjectDb } from "@/database/project/index";
 import { useAppconfigDb } from "@/database/appconfig/index";
 import { useServerDb } from "@/database/servers/index";
@@ -634,8 +661,38 @@ import { useSettingsDb } from "@/database/settings/index";
 import { loadPublishSettings, getRetryArgs } from "@/utils/publishSettings";
 import { pullLatestCode, isPullLatestEnabled } from "@/utils/sourceControl";
 import { takePendingMcpAction } from "@/utils/mcpPending";
+import { usePublishRecordDb, PUBLISH_RESULT } from "@/database/publishRecord";
+import {
+  acquirePublishLock,
+  releasePublishLock,
+  clearAllPublishLocks,
+  refreshPublishLock,
+} from "@/utils/publishLock";
+import {
+  beginPublishSession,
+  finishPublishSession,
+  pausePublishSession,
+  resumePublishSession,
+  getPublishSession,
+  getFailedServiceResults,
+  findResumableRecord,
+  increaseResumeCount,
+  abortStaleRecords,
+  isBuildDone,
+  isBackupDone,
+  isServiceDone,
+  markBuildDone,
+  markBackupDone,
+  markServiceCompleted,
+  recordServiceResult,
+  buildServiceKey,
+} from "@/utils/publishSession";
+import { runPreflight } from "@/utils/preflight";
 
 const SvgIcon = defineAsyncComponent(() => import("@/components/svgIcon/index.vue"));
+
+// Rust 端目录上传被用户取消时返回的错误标识（见 upload_module::UPLOAD_CANCELLED_MSG）
+const UPLOAD_CANCELLED_HINT = "上传已取消";
 
 // 引入应用配置数据库
 const projectDb = useProjectDb();
@@ -646,6 +703,7 @@ const gitDb = useGitDb();
 const backupDb = useBackupDb();
 const publishScheduleDb = usePublishScheduleDb();
 const settingsDb = useSettingsDb();
+const publishRecordDb = usePublishRecordDb();
 const oneClickEnabled = ref(0); // 0 关 / 1 开
 
 const reloadSettings = async () => {
@@ -668,6 +726,12 @@ const GeneratePublishDialog = defineAsyncComponent(
 const ScheduledPublishDialog = defineAsyncComponent(
   () => import("@/views/home/components/scheduledPublishDialog.vue")
 );
+const preflightDialogRef = ref();
+const PreflightDialog = defineAsyncComponent(
+  () => import("@/views/home/components/preflightDialog.vue")
+);
+// 未完成发布（可续跑）的记录
+const resumeState = ref<RowPublishRecordType | null>(null);
 
 // 定义变量内容
 const projectList = ref<RowProjectType[]>();
@@ -805,7 +869,8 @@ const executeFunModule = async (title: string): Promise<boolean> => {
     }
     case "手动发布":
       try {
-        const publishResult = await projectPublish();
+        // 手动发布同样走「发布锁 + 预检 + 台账 + 断点续跑」，只是不编译、不拉最新代码
+        const publishResult = await runPublishFlow({ build: false, pullCode: false });
         if (publishResult) {
           printInfoLog("手动发布成功。");
           await getProjectDefault();
@@ -1096,6 +1161,8 @@ const checkCanContinueHome = async () => {
 
 const onPausePublish = () => {
   state.publishData.publishPaused = true;
+  // 目录上传是单次长调用，先请求 Rust 端在文件边界停下，恢复后按差量续传
+  void cmdInvoke("cancel_sync_upload");
 };
 
 const onResumePublish = () => {
@@ -1105,6 +1172,8 @@ const onResumePublish = () => {
 
 const onStopPublish = () => {
   state.publishData.publishStopped = true;
+  // 立即请求 Rust 端中断正在进行的目录上传，避免等待整目录传完
+  void cmdInvoke("cancel_sync_upload");
   if (state.publishData.resumeResolve) {
     state.publishData.resumeResolve();
   }
@@ -1124,22 +1193,489 @@ const pullLatestCodeBeforePublish = async () => {
   return true;
 };
 
+// 打开[发布前预检]面板
+const onOpenPreflight = async () => {
+  if (!state.publishData.appconfigData.id) {
+    ElMessage.warning("请先选择项目与环境，获取应用配置后再预检。");
+    return;
+  }
+  await preflightDialogRef.value.openDialog(state.publishData.appconfigData, false);
+};
+
+// 发布前自动预检：仅「错误」项阻断发布
+const ensurePreflight = async (): Promise<boolean> => {
+  // 应用配置里关闭了「发布前预检」时跳过（仍可从发布信息卡片手动点预检）
+  if (state.publishData.appconfigData.configItems.isPreflight === 0) {
+    printInfoLog("应用配置已关闭[发布前预检]，跳过预检。", "log-warning");
+    return true;
+  }
+  const report = await runPreflight({
+    appconfig: state.publishData.appconfigData,
+    resolveServer: getServerDetail,
+    checkRemoteService: false,
+  });
+  if (report.errorCount > 0) {
+    const message = `发布前预检发现 ${report.errorCount} 个错误，发布已中止，请按预检结果修正配置（或在应用配置中关闭[发布前预检]）。`;
+    ElMessage.error(message);
+    printInfoLog(message, "log-error");
+    await preflightDialogRef.value.openDialog(state.publishData.appconfigData, false);
+    return false;
+  }
+  if (report.warnCount > 0) {
+    printInfoLog(`发布前预检有 ${report.warnCount} 个警告，详见预检面板。`, "log-warning");
+  }
+  return true;
+};
+
+// 字节数格式化（用于上传结果日志）
+const formatFileSize = (bytes: number): string => {
+  if (!bytes || bytes < 0) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+};
+
+// 读取服务输出目录下的文件（目录不存在时静默返回空）
+const readServiceFiles = async (dirPath: string): Promise<string[]> => {
+  const readResult = await cmdInvoke<string[]>("read_files", { path: dirPath });
+  if (readResult.code !== 0 || !Array.isArray(readResult.data)) return [];
+  return readResult.data;
+};
+
+// 收集本次发布的程序集清单（失败不影响发布结果）
+const collectPublishArtifacts = async (): Promise<string[]> => {
+  const dllItems: string[] = [];
+  const serviceNames = [
+    "WebApiHost",
+    "WebClient",
+    "ScheduleServer",
+    "SpcMonitor",
+    "WpfClient",
+  ];
+  // 只统计本次发布范围内的服务，避免把「发布前已移除」的服务的旧产物也算进来
+  const scope = getPublishSession()?.stage.enabledServices ?? [];
+  const targets =
+    scope.length > 0
+      ? serviceNames.filter((serviceName) => scope.includes(serviceName))
+      : serviceNames;
+  for (const serviceName of targets) {
+    const files = await readServiceFiles(`${projectAssemblyOutPath.value}/${serviceName}`);
+    for (const file of files) {
+      if (!file.toLowerCase().endsWith(".dll")) continue;
+      dllItems.push(`${serviceName}/${file}`);
+    }
+  }
+  return Array.from(new Set(dllItems));
+};
+
+// 渲染发布说明（Markdown，随台账入库）
+const renderPublishNote = (
+  results: PublishServiceResultType[],
+  dllItems: string[],
+  isResume: boolean
+): string => {
+  const lines: string[] = [];
+  lines.push(`# ${state.publishData.projectName} 发布说明`);
+  lines.push("");
+  lines.push(`- 发布环境：${displayEnvironment(state.publishData.environment)}`);
+  lines.push(`- 发布时间：${formatDate(new Date(), "YYYY-mm-dd HH:MM:SS")}`);
+  lines.push(`- 生成方式：${isResume ? "断点续跑" : "常规发布"}`);
+  const scope = getPublishSession()?.stage.enabledServices ?? [];
+  if (scope.length > 0) {
+    lines.push(`- 发布范围：${scope.join("、")}`);
+  }
+  lines.push(`- 程序集数量：${dllItems.length}`);
+  if (results.length > 0) {
+    lines.push("");
+    lines.push("## 服务发布结果");
+    for (const result of results) {
+      const stateText = result.success ? "成功" : "失败";
+      const errText = result.errors.length > 0 ? `（${result.errors.join("；")}）` : "";
+      lines.push(`- ${result.serviceType}：${stateText}${errText}`);
+    }
+  }
+  if (dllItems.length > 0) {
+    lines.push("");
+    lines.push("## 程序集清单");
+    // 按应用类型分组，避免几百个 DLL 铺成一片
+    const groupedDllItems = new Map<string, string[]>();
+    for (const item of dllItems) {
+      const separatorIndex = item.indexOf("/");
+      const service = separatorIndex > 0 ? item.slice(0, separatorIndex) : "其他";
+      const file = separatorIndex > 0 ? item.slice(separatorIndex + 1) : item;
+      const files = groupedDllItems.get(service) ?? [];
+      files.push(file);
+      groupedDllItems.set(service, files);
+    }
+    for (const [service, files] of groupedDllItems) {
+      lines.push("");
+      lines.push(`### ${service}（${files.length}）`);
+      for (const file of files) lines.push(`- ${file}`);
+    }
+  }
+  return lines.join("\n");
+};
+
+// 刷新「可续跑」提示
+const refreshResumableRecord = async () => {
+  const projectId = state.publishData.projectId;
+  if (!projectId) {
+    resumeState.value = null;
+    return;
+  }
+  resumeState.value = await findResumableRecord(projectId, state.publishData.environment);
+};
+
+// 发布涉及的服务类型与配置项对应关系（顺序与发布页保持一致）
+const PUBLISH_SERVICE_CONFIG: {
+  name: string;
+  get: () => CommonAppconfigType;
+}[] = [
+  { name: "WebApiHost", get: () => state.publishData.appconfigData.configItems.webApiHost },
+  {
+    name: "ScheduleServer",
+    get: () => state.publishData.appconfigData.configItems.scheduleServer,
+  },
+  { name: "WebClient", get: () => state.publishData.appconfigData.configItems.webClient },
+  { name: "WpfClient", get: () => state.publishData.appconfigData.configItems.wpfClient },
+  { name: "SpcMonitor", get: () => state.publishData.appconfigData.configItems.spcMonitor },
+];
+
+// 服务类型 → 配置项字段名（用于读取快照）
+const SERVICE_CONFIG_KEY: Record<string, keyof ConfigItemsType> = {
+  WebApiHost: "webApiHost",
+  ScheduleServer: "scheduleServer",
+  WebClient: "webClient",
+  WpfClient: "wpfClient",
+  SpcMonitor: "spcMonitor",
+};
+
+// 收集本次发布包含的服务类型（clientPath 为空视为发布前已「移除」）
+const collectEnabledServiceNames = (): string[] => {
+  return PUBLISH_SERVICE_CONFIG.filter((service) => {
+    const configItem = service.get();
+    return Boolean(configItem?.clientPath);
+  }).map((service) => service.name);
+};
+
+// 安全解析应用配置快照
+const parseAppconfigSnapshot = (
+  json: string | null | undefined
+): RowAppconfigType | null => {
+  if (!json) return null;
+  try {
+    return JSON.parse(json) as RowAppconfigType;
+  } catch {
+    return null;
+  }
+};
+
+// 从配置快照中读取某服务的 clientPath
+const getSnapshotClientPath = (
+  snapshot: RowAppconfigType | null,
+  serviceName: string
+): string => {
+  if (!snapshot?.configItems) return "";
+  const key = SERVICE_CONFIG_KEY[serviceName];
+  if (!key) return "";
+  const item = snapshot.configItems[key] as CommonAppconfigType | undefined;
+  return item?.clientPath ?? "";
+};
+
+/**
+ * 续跑时按「上次发布的服务范围」校正当前配置
+ *
+ * 场景：发布前把 WpfClient/WebClient 移除（仅内存态，未落库），
+ * 之后程序异常退出；重启后配置从数据库重新加载，这两个服务又出现了。
+ * 这里用台账里保存的配置快照 + 本次发布的服务范围，把选择还原成上次的样子：
+ * 1. 上次被移除的服务 → 保持移除；
+ * 2. 上次已整体发布完成的服务 → 不再发布；
+ * 3. 上次包含、但当前被移除的服务 → 从快照恢复 clientPath。
+ */
+const applyPublishScopeFromSnapshot = () => {
+  const session = getPublishSession();
+  if (!session) return;
+  const snapshot = parseAppconfigSnapshot(session.appconfigSnapshotJson);
+  // 优先使用记录中的服务范围；老记录没有该字段时退化为解析快照
+  let enabled = session.stage.enabledServices ?? [];
+  if (enabled.length === 0 && snapshot) {
+    enabled = PUBLISH_SERVICE_CONFIG.filter((service) =>
+      Boolean(getSnapshotClientPath(snapshot, service.name))
+    ).map((service) => service.name);
+  }
+  const completed = session.stage.completedServices ?? [];
+  const excluded: string[] = [];
+  const restored: string[] = [];
+
+  for (const service of PUBLISH_SERVICE_CONFIG) {
+    const configItem = service.get();
+    if (!configItem) continue;
+    const inScope = enabled.includes(service.name) && !completed.includes(service.name);
+    if (!inScope) {
+      if (!configItem.clientPath) continue;
+      configItem.clientPath = "";
+      // 「上次已发布完成」属于正常的断点续跑跳过，不用提示为「排除」
+      if (!completed.includes(service.name)) excluded.push(service.name);
+      continue;
+    }
+    // 在本次范围内但当前配置里被移除：从快照恢复，保证与上次发布一致
+    if (!configItem.clientPath) {
+      const snapshotClientPath = getSnapshotClientPath(snapshot, service.name);
+      if (snapshotClientPath) {
+        configItem.clientPath = snapshotClientPath;
+        restored.push(service.name);
+      }
+    }
+  }
+
+  if (excluded.length > 0) {
+    printInfoLog(
+      `按上次发布的配置范围排除以下服务：${excluded.join("、")}`,
+      "log-warning"
+    );
+  }
+  if (restored.length > 0) {
+    printInfoLog(`按上次发布的配置范围恢复以下服务：${restored.join("、")}`, "log-info");
+  }
+};
+
+/**
+ * 发布主流程：发布锁 → 预检/续跑 → 获取最新代码 → 编译 → 发布 → 写台账
+ * @param options build 是否编译（续跑时由检查点决定跳过）；resume 是否为继续发布；
+ * pullCode 编译前是否拉取最新代码（一键发布为 true，手动发布默认 false）
+ */
+const runPublishFlow = async (options: {
+  build: boolean;
+  resume?: boolean;
+  pullCode?: boolean;
+}): Promise<boolean> => {
+  const appconfig = state.publishData.appconfigData;
+  const projectId = state.publishData.projectId;
+  if (!appconfig.id || !projectId) return false;
+  const environment = state.publishData.environment;
+
+  // 1. 发布锁：同一「项目 + 环境」同时只允许一个发布流程
+  const lock = await acquirePublishLock(projectId, environment);
+  if (!lock.ok) {
+    const acquiredAt = lock.holder?.acquiredAt
+      ? formatDate(new Date(lock.holder.acquiredAt), "YYYY-mm-dd HH:MM:SS")
+      : "-";
+    const expireAt = lock.holder?.expireAt
+      ? formatDate(new Date(lock.holder.expireAt), "YYYY-mm-dd HH:MM:SS")
+      : "-";
+    const message =
+      lock.message ||
+      `该项目在当前环境已有发布流程正在执行（开始时间 ${acquiredAt}，锁有效期至 ${expireAt}），请稍后再试。`;
+    ElMessage.warning(message);
+    printInfoLog(message, "log-warning");
+    return false;
+  }
+
+  // 长时间发布（大目录上传）期间定时续约，避免锁在发布过程中被判过期
+  const lockHeartbeat = window.setInterval(() => {
+    void refreshPublishLock(lock.token);
+  }, 5 * 60 * 1000);
+
+  let succeeded = false;
+  // 用户主动点「停止」：记为已中止，不再提示续跑（与失败区分开）
+  let stopped = false;
+  try {
+    if (options.resume) {
+      // 2a. 继续上次未完成的发布
+      const record =
+        resumeState.value ?? (await findResumableRecord(projectId, environment));
+      if (!record?.id) {
+        ElMessage.warning("没有找到可继续的发布记录，可能已结束或已被删除。");
+        return false;
+      }
+      printInfoLog(`恢复上次未完成的发布记录 #${record.id}。`, "log-warning");
+      resumePublishSession(record);
+      // 关键：按上次发布时的服务范围校正当前配置，
+      // 保证「发布前移除的服务」在续跑时仍然不参与发布
+      applyPublishScopeFromSnapshot();
+      await increaseResumeCount(record.id);
+      resumeState.value = null;
+    } else {
+      // 2b. 新发布：先预检，再创建台账记录
+      if (!(await ensurePreflight())) return false;
+      const pending = await findResumableRecord(projectId, environment);
+      if (pending?.id) {
+        // 上一次发布未正常收尾：标记中止，避免台账堆积「未完成」
+        await publishRecordDb.finishPublishRecord(Number(pending.id), {
+          endDate: new Date().toISOString(),
+          durationMs: 0,
+          result: PUBLISH_RESULT.ABORTED,
+          stage: pending.stage,
+          serviceResults: pending.serviceResults,
+          changeLog: pending.changeLog,
+          dllItems: pending.dllItems,
+          backupId: pending.backupId,
+          remark: "被新的发布接管，自动置为已中止。",
+        });
+      }
+      await beginPublishSession({
+        projectId,
+        projectName: state.publishData.projectName,
+        environment,
+        appconfigSnapshotJson: JSON.stringify(appconfig),
+        // 记录本次发布包含的服务类型（被「移除」的服务不在其中）
+        enabledServices: collectEnabledServiceNames(),
+        // 记下发布类型：手动发布本就不编译，续跑时不能因为 buildDone=false 就补编译
+        publishType: options.build ? "一键发布" : "手动发布",
+      });
+      // 编译前获取最新代码（续跑不再拉取，避免改变已编译的代码状态）
+      if (options.pullCode !== false && !(await pullLatestCodeBeforePublish())) {
+        throw new Error("获取最新代码失败，发布已中止。");
+      }
+    }
+
+    // 3. 编译
+    // 一键发布：编译未完成（buildDone=false）时补编译；
+    // 手动发布：本就不编译，续跑时也不能按 buildDone 判断去补跑
+    const lastPublishType = getPublishSession()?.stage.publishType;
+    const needBuild =
+      options.build && (options.resume ? lastPublishType !== "手动发布" : true);
+    if (needBuild && !isBuildDone()) {
+      const buildProjectsResult = await buildProjects();
+      if (!buildProjectsResult) {
+        throw new Error("编译项目失败，发布已中止。");
+      }
+    }
+
+    // 4. 发布
+    const publishResult = await projectPublish();
+    // 任一服务实例失败即视为本次发布未完成
+    const failedResults = getFailedServiceResults();
+    if (failedResults.length > 0) {
+      printInfoLog(
+        `共有 ${failedResults.length} 个服务实例发布失败，详见发布日志。`,
+        "log-error"
+      );
+    }
+    succeeded = publishResult && failedResults.length === 0;
+  } catch (error) {
+    if ((error as Error)?.message === "PUBLISH_STOPPED") {
+      stopped = true;
+      printInfoLog("发布已停止，本次发布记录标记为「已中止」。", "log-warning");
+    } else {
+      printInfoLog(String(error), "log-error");
+    }
+    succeeded = false;
+  } finally {
+    const session = getPublishSession();
+    if (session) {
+      const dllItems = await collectPublishArtifacts();
+      const changeLog: PublishChangeLogType = {
+        changeSets: [],
+        users: [],
+        items: dllItems,
+        text: renderPublishNote(session.serviceResults, dllItems, session.isResume),
+      };
+      if (succeeded) {
+        await finishPublishSession(PUBLISH_RESULT.SUCCESS, changeLog, dllItems);
+        printInfoLog(`发布记录已保存到台账（#${session.recordId ?? "-"}）。`, "log-success");
+      } else if (stopped) {
+        // 用户主动停止：直接收尾为「已中止」，不进入续跑提示
+        await finishPublishSession(
+          PUBLISH_RESULT.ABORTED,
+          changeLog,
+          dllItems,
+          "用户停止发布。"
+        );
+        printInfoLog(`发布记录已标记为已中止（#${session.recordId ?? "-"}）。`, "log-warning");
+      } else {
+        // 失败时保留「未完成」状态，供断点续跑
+        await pausePublishSession(changeLog, dllItems);
+        printInfoLog("发布未完成：已保留进度，可在页面顶部的提示条继续发布。", "log-warning");
+      }
+    }
+    window.clearInterval(lockHeartbeat);
+    await releasePublishLock(lock.token);
+    await refreshResumableRecord();
+  }
+
+  return succeeded;
+};
+
+// 恢复上次未完成的发布（跳过已完成的服务与已完成的编译）
+const onContinuePublish = async () => {
+  const currentLoading = state.funModule.find((item) => item.loading);
+  if (currentLoading) {
+    ElMessage.info(`正在[${currentLoading.title}]中，请稍等！`);
+    return;
+  }
+  if (!state.publishData.appconfigData.id) {
+    ElMessage.warning("请先选择项目和发布配置！");
+    return;
+  }
+  // 按上次发布类型高亮对应卡片（一键发布 / 手动发布），暂停与停止按钮才落在正确的卡片上
+  const resumeTitle =
+    resumeState.value?.stage?.publishType === "手动发布" ? "手动发布" : "一键发布";
+  const resumeIndex = Math.max(
+    0,
+    state.funModule.findIndex((item) => item.title === resumeTitle)
+  );
+  onRemoveLogs();
+  initLogs();
+  state.publishData.publishStopped = false;
+  state.publishData.publishPaused = false;
+  state.publishData.resumeResolve = null;
+  currModuleIndex.value = resumeIndex;
+  state.funModule[resumeIndex].loading = true;
+  projectAssemblyOutPath.value = await getProjectOutPath();
+  try {
+    // 传 build:true，由 runPublishFlow 内的 isBuildDone() 与上次发布类型决定是否需要编译：
+    // 一键发布若上次中断在编译阶段（buildDone=false）需先编译，否则会发布旧程序集；
+    // 手动发布本就不编译，不会补跑
+    const resumed = await runPublishFlow({ build: true, resume: true });
+    if (resumed) {
+      printInfoLog("恢复上次发布成功。", "log-success");
+      await getProjectDefault();
+    }
+  } finally {
+    state.funModule[resumeIndex].loading = false;
+    printInfoLog("");
+    generatePublishLog.value.data = "";
+    generatePublishLog.value.logs = "";
+  }
+};
+
+// 放弃未完成的发布
+const onAbortResume = async () => {
+  const record = resumeState.value;
+  if (!record?.id) return;
+  try {
+    await ElMessageBox.confirm(
+      `确认放弃发布记录 #${record.id} 吗？放弃后该记录不可再续跑。`,
+      "放弃发布",
+      {
+        type: "warning",
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+      }
+    );
+  } catch {
+    return;
+  }
+  await publishRecordDb.finishPublishRecord(Number(record.id), {
+    endDate: new Date().toISOString(),
+    durationMs: 0,
+    result: PUBLISH_RESULT.ABORTED,
+    stage: record.stage,
+    serviceResults: record.serviceResults,
+    changeLog: record.changeLog,
+    dllItems: record.dllItems,
+    backupId: record.backupId,
+    remark: "用户放弃该次发布。",
+  });
+  resumeState.value = null;
+  ElMessage.success("已放弃该次发布。");
+};
+
 // 一健发布
 const oneClickPublishing = async () => {
-  // 编译前获取最新代码
-  const pullLatestResult = await pullLatestCodeBeforePublish();
-  if (!pullLatestResult) return false;
-
-  // 编译项目
-  const buildProjectsResult = await buildProjects();
-  if (!buildProjectsResult) return false;
-
-  // 发布项目
-  const publishResult = await projectPublish();
-  if (!publishResult) return false;
-
-  printInfoLog("");
-  return true;
+  return await runPublishFlow({ build: true });
 };
 
 // 执行获取程序集
@@ -1161,13 +1697,16 @@ const onExecDone = () => {
 // 项目发布
 const projectPublish = async () => {
   if (!state.publishData.appconfigData.id) return false;
+  await checkCanContinueHome();
   const getAppAssemblysResult = await getApplicationAssemblys();
   if (!getAppAssemblysResult) return false;
 
-  // 发布前备份
-  if (state.publishData.appconfigData.configItems.isBackup == 1) {
-    const backupResult = await publishBeforeBackup(state.publishData.appconfigData.id);
-    if (!backupResult) return false;
+  // 发布前备份（断点续跑：上次已完成备份时跳过，避免重复备份）
+  if (state.publishData.appconfigData.configItems.isBackup == 1 && !isBackupDone()) {
+    const backupId = await publishBeforeBackup(state.publishData.appconfigData.id);
+    if (backupId === false) return false;
+    // 记录备份ID，供「一键回滚」从台账回到本次发布前的版本
+    await markBackupDone(backupId > 0 ? backupId : null);
   }
 
   await checkCanContinueHome();
@@ -1176,6 +1715,7 @@ const projectPublish = async () => {
   if (!publishWebApiResult) {
     return false;
   }
+  await markServiceCompleted("WebApiHost");
   state.publishData.appconfigData.configItems.webApiHost.clientPath = "";
 
   await checkCanContinueHome();
@@ -1184,6 +1724,7 @@ const projectPublish = async () => {
   if (!publishScheduleResult) {
     return false;
   }
+  await markServiceCompleted("ScheduleServer");
   state.publishData.appconfigData.configItems.scheduleServer.clientPath = "";
 
   await checkCanContinueHome();
@@ -1197,6 +1738,7 @@ const projectPublish = async () => {
   if (!publishWpfClientResult) {
     return false;
   }
+  await markServiceCompleted("WpfClient");
   state.publishData.appconfigData.configItems.wpfClient.clientPath = "";
 
   await checkCanContinueHome();
@@ -1205,6 +1747,7 @@ const projectPublish = async () => {
   if (!publishSpcMonitorResult) {
     return false;
   }
+  await markServiceCompleted("SpcMonitor");
   state.publishData.appconfigData.configItems.spcMonitor.clientPath = "";
 
   await checkCanContinueHome();
@@ -1213,6 +1756,7 @@ const projectPublish = async () => {
   if (!publishWebClientResult) {
     return false;
   }
+  await markServiceCompleted("WebClient");
   state.publishData.appconfigData.configItems.webClient.clientPath = "";
   try {
     sendNotification({
@@ -1238,6 +1782,8 @@ const onGeneratePublish = async () => {
 
 // 发布前备份
 const publishBeforeBackup = async (id: number) => {
+  // 备份前先响应暂停/停止，避免刚点停止又开始一轮备份
+  await checkCanContinueHome();
   // 传入当前会话的内存态配置：备份需与页面上的「移除」保持一致，不能按 id 重查库
   var backupItem = await loadBackupItems(
     id,
@@ -1277,7 +1823,9 @@ const publishBeforeBackup = async (id: number) => {
       backupData.backupItems.webApiHost,
       (uploadFile: UploadFileNumberType) => {
         updateLogProgress(currLogIndex, uploadFile.prefix || "", uploadFile.currNumber, uploadFile.totalNumber);
-      }
+      },
+      false,
+      checkCanContinueHome
     );
     if (backupWebApiHostResult.code !== 0) {
       printInfoLog(
@@ -1300,7 +1848,9 @@ const publishBeforeBackup = async (id: number) => {
       backupData.backupItems.scheduleServer,
       (uploadFile: UploadFileNumberType) => {
         updateLogProgress(currLogIndex, uploadFile.prefix || "", uploadFile.currNumber, uploadFile.totalNumber);
-      }
+      },
+      false,
+      checkCanContinueHome
     );
     if (backupScheduleServerResult.code !== 0) {
       printInfoLog(
@@ -1320,7 +1870,9 @@ const publishBeforeBackup = async (id: number) => {
       backupData.backupItems.webClient,
       (uploadFile: UploadFileNumberType) => {
         updateLogProgress(currLogIndex, uploadFile.prefix || "", uploadFile.currNumber, uploadFile.totalNumber);
-      }
+      },
+      false,
+      checkCanContinueHome
     );
     if (backupWebClientResult.code !== 0) {
       printInfoLog(
@@ -1341,7 +1893,8 @@ const publishBeforeBackup = async (id: number) => {
       (uploadFile: UploadFileNumberType) => {
         updateLogProgress(currLogIndex, uploadFile.prefix || "", uploadFile.currNumber, uploadFile.totalNumber);
       },
-      Boolean(state.publishData.appconfigData.configItems.isNewVersion)
+      Boolean(state.publishData.appconfigData.configItems.isNewVersion),
+      checkCanContinueHome
     );
     if (backupWpfClientResult.code !== 0) {
       printInfoLog(
@@ -1361,7 +1914,9 @@ const publishBeforeBackup = async (id: number) => {
       backupData.backupItems.spcMonitor,
       (uploadFileNumber: UploadFileNumberType) => {
         updateLogProgress(currLogIndex, uploadFileNumber.prefix || "", uploadFileNumber.currNumber, uploadFileNumber.totalNumber);
-      }
+      },
+      false,
+      checkCanContinueHome
     );
     if (backupSpcMonitorResult.code !== 0) {
       printInfoLog(
@@ -1378,7 +1933,8 @@ const publishBeforeBackup = async (id: number) => {
     printInfoLog(`备份失败：${insertResult.msg}.`, "log-error");
     return false;
   }
-  return true;
+  // 返回备份记录ID（供发布台账「一键回滚」关联）
+  return insertResult.data > 0 ? insertResult.data : 0;
 };
 
 // 发布[WebApiHost]服务
@@ -1515,125 +2071,12 @@ const publishScheduleServer = async () => {
       }
 
       for (let k = 0; k < serverPath.value.length; k++) {
-        const serverPathVal = serverPath.value[k];
-        if (!serverPathVal.identity) {
-          printInfoLog(`服务[${scheduleServer.name}]未填写服务标识，请检查.`, "log-error");
-          return false;
-        }
-        if (!serverPathVal.path) {
-          printInfoLog(`服务[${scheduleServer.name}]未填写服务发布路径，请检查.`, "log-error");
-          return false;
-        }
-
-        const uName = serverInfo.account;
-        const uPwd = serverInfo.pwd;
-        const serverAddress = `${serverInfo.ip}:${serverInfo.port}`;
-        const logPrefix = formatServiceLog(serverInfo.name, serverInfo.ip, scheduleServerName.value, serverPathVal.identity);
-
-        /* 1.关闭服务 */
-        printInfoLog(`${logPrefix} 正在关闭...`);
-        let closeServiceResult;
-        if (serverInfo.os === 1) {
-          closeServiceResult = await switchWinService(
-            uName,
-            uPwd,
-            serverAddress,
-            serverPathVal.identity,
-            "stop"
-          );
-        } else if (serverInfo.os === 2) {
-          closeServiceResult = await switchDockerService(
-            uName,
-            uPwd,
-            serverAddress,
-            serverPathVal.identity,
-            "stop"
-          );
-        } else {
-          printInfoLog(
-            `未找到 ${displayOs(Number(serverInfo.os))} 部署环境，请检查.`,
-            "log-error"
-          );
-          return false;
-        }
-        if (!closeServiceResult) {
-          printInfoLog(`${logPrefix} 关闭失败.`, "log-error");
-          return false;
-        }
-        printInfoLog(`${logPrefix} 已关闭.`, "log-success");
-
-        /* 上传文件到服务器 */
-        const currLogIndex = printInfoLog(`${logPrefix} 正在上传文件...`);
-
-        // 获取项目输出路径
-        let localPath = projectAssemblyOutPath.value + "/" + scheduleServerName.value;
-        const remotePath = removeSlash(serverPathVal.path);
-        const projectFiles = await readDirFiles(localPath);
-        if (projectFiles.length < 1) {
-          printInfoLog(
-            `未获取到 ${scheduleServerName.value} 项目的程序集文件，可点击【获取程序集】进行排查.`,
-            "log-warning"
-          );
-          // return false;
-        }
-        let uploadFileNumber: UploadFileNumberType = {
-          currNumber: 0,
-          totalNumber: projectFiles.length,
-          prefix: "已上传：",
-        };
-        // let localFiles = new Array();
-        // let remoteFiles = new Array();
-        for (let l = 0; l < projectFiles.length; l++) {
-          await checkCanContinueHome();
-          const projectFile = projectFiles[l];
-          // localFiles.push(`${localPath}/${projectFile}`);
-          // remoteFiles.push(`${remotePath}/${projectFile}`);
-          const uploadServerFileResult = await uploadServerFilesWithRetry({
-            localPaths: [`${localPath}/${projectFile}`],
-            remotePaths: [`${remotePath}/${projectFile}`],
-            username: uName,
-            password: uPwd,
-            server: serverAddress,
-          });
-          if (uploadServerFileResult.code !== 0) {
-            printInfoLog(
-              `${logPrefix} 发布失败：${uploadServerFileResult.data}.`,
-              "log-error"
-            );
-            return false;
-          }
-          uploadFileNumber.currNumber++;
-          updateLogProgress(currLogIndex, uploadFileNumber.prefix || "", uploadFileNumber.currNumber, uploadFileNumber.totalNumber);
-        }
-
-        printInfoLog(
-          `${logPrefix} 已将 ${projectFiles.length} 个文件上传到服务器.`,
-          "log-success"
+        const result = await serverPublishInstance(
+          serverInfo,
+          serverPath.value[k],
+          scheduleServerName.value
         );
-        printInfoLog(`${logPrefix} 正在启动.`);
-        let startServiceResult;
-        if (serverInfo.os === 1) {
-          startServiceResult = await switchWinService(
-            uName,
-            uPwd,
-            serverAddress,
-            serverPathVal.identity,
-            "start"
-          );
-        } else if (serverInfo.os === 2) {
-          startServiceResult = await switchDockerService(
-            uName,
-            uPwd,
-            serverAddress,
-            serverPathVal.identity,
-            "start"
-          );
-        }
-        if (!startServiceResult) {
-          printInfoLog(`${logPrefix} 启动失败.`, "log-error");
-          return false;
-        }
-        printInfoLog(`${logPrefix} 发布成功.`, "log-success");
+        if (!result.success) return false;
       }
     }
   }
@@ -2195,7 +2638,7 @@ const publishWpfClient = async () => {
   return true;
 };
 
-// 发布服务
+// 发布服务（逐实例串行，任一实例失败即中止）
 const serverPublish = async (
   server: RowServerType,
   serverPathArr: ServerOptionType[],
@@ -2208,125 +2651,248 @@ const serverPublish = async (
       return false;
     }
     for (let k = 0; k < serverPath.value.length; k++) {
-      const serverPathVal = serverPath.value[k];
-      if (!serverPathVal.identity) {
-        printInfoLog(`服务[${server.name}]未填写服务标识，请检查.`, "log-error");
-        return false;
-      }
-      if (!serverPathVal.path) {
-        printInfoLog(`服务[${server.name}]未填写服务发布路径，请检查.`, "log-error");
-        return false;
-      }
-
-      const instanceIdentity = serverPathVal.identity as string;
-      const instancePath = serverPathVal.path as string;
-      const uName = server.account;
-      const uPwd = server.pwd;
-      const serverAddress = `${server.ip}:${server.port}`;
-      const logPrefix = formatServiceLog(server.name, server.ip, serverName, instanceIdentity);
-
-      /* 1.关闭服务 */
-      printInfoLog(`${logPrefix} 正在关闭...`);
-      let closeServiceResult;
-      if (server.os === 1) {
-        closeServiceResult = await switchWinService(
-          uName,
-          uPwd,
-          serverAddress,
-          instanceIdentity,
-          "stop"
-        );
-      } else if (server.os === 2) {
-        closeServiceResult = await switchDockerService(
-          uName,
-          uPwd,
-          serverAddress,
-          instanceIdentity,
-          "stop"
-        );
-      } else {
-        printInfoLog(
-          `未找到 ${displayOs(Number(server.os))} 部署环境，请检查.`,
-          "log-error"
-        );
-        return false;
-      }
-      if (!closeServiceResult) {
-        printInfoLog(`${logPrefix} 关闭失败.`, "log-error");
-        return false;
-      }
-      printInfoLog(`${logPrefix} 已关闭.`, "log-success");
-
-      /* 上传文件到服务器 */
-      const currLogIndex = printInfoLog(`${logPrefix} 正在上传文件...`);
-
-      // 获取项目输出路径
-      let localPath = projectAssemblyOutPath.value + "/" + serverName;
-      const remotePath = removeSlash(instancePath);
-      const projectFiles = await readDirFiles(localPath);
-      if (projectFiles.length < 1) {
-        printInfoLog(
-          `未获取到 ${serverName} 项目的程序集文件，可点击【获取程序集】排查.`,
-          "log-warning"
-        );
-        // return;
-      }
-      let uploadFileNumber: UploadFileNumberType = {
-        currNumber: 0,
-        totalNumber: projectFiles.length,
-        prefix: "已上传：",
-      };
-      for (let l = 0; l < projectFiles.length; l++) {
-        await checkCanContinueHome();
-        const projectFile = projectFiles[l];
-        const uploadServerFileResult = await uploadServerFilesWithRetry({
-          localPaths: [`${localPath}/${projectFile}`],
-          remotePaths: [`${remotePath}/${projectFile}`],
-          username: uName,
-          password: uPwd,
-          server: serverAddress,
-        });
-        if (uploadServerFileResult.code !== 0) {
-          printInfoLog(
-            `${logPrefix} 发布失败：${uploadServerFileResult.data}.`,
-            "log-error"
-          );
-          return false;
-        }
-        uploadFileNumber.currNumber++;
-        updateLogProgress(currLogIndex, uploadFileNumber.prefix || "", uploadFileNumber.currNumber, uploadFileNumber.totalNumber);
-      }
-      printInfoLog(
-        `${logPrefix} 已将 ${projectFiles.length} 个文件上传到服务器.`,
-        "log-success"
+      const result = await serverPublishInstance(
+        server,
+        serverPath.value[k],
+        serverName
       );
-      printInfoLog(`${logPrefix} 正在启动.`);
-      let startServiceResult;
-      if (server.os === 1) {
-        startServiceResult = await switchWinService(
-          uName,
-          uPwd,
-          serverAddress,
-          instanceIdentity,
-          "start"
-        );
-      } else if (server.os === 2) {
-        startServiceResult = await switchDockerService(
-          uName,
-          uPwd,
-          serverAddress,
-          instanceIdentity,
-          "start"
-        );
-      }
-      if (!startServiceResult) {
-        printInfoLog(`${logPrefix} 启动失败.`, "log-error");
-        return false;
-      }
-      printInfoLog(`${logPrefix} 发布成功.`, "log-success");
+      if (!result.success) return false;
     }
   }
   return true;
+};
+
+/**
+ * 单实例发布（带断点续跑判定与结果记录）
+ * @param server 服务器
+ * @param serverPathVal 单实例配置（服务标识 + 发布路径）
+ * @param serverName 服务类型名称
+ */
+const serverPublishInstance = async (
+  server: RowServerType,
+  serverPathVal: ServerPublishType,
+  serverName: string
+): Promise<PublishTaskResult> => {
+  // 服务实例键：服务类型 + 服务器 + 服务标识 + 端口
+  const serviceKey = buildServiceKey(
+    serverName,
+    server.id,
+    serverPathVal.identity ?? "",
+    server.port
+  );
+  // 断点续跑：该实例在本次发布中已成功，直接跳过
+  if (isServiceDone(serviceKey)) {
+    printInfoLog(
+      `服务 ${serverName}[${serverPathVal.identity}] 本次已发布成功，跳过.`,
+      "log-warning"
+    );
+    return { success: true, serviceType: serverName, errors: [] };
+  }
+  const result = await doServerPublishInstance(server, serverPathVal, serverName);
+  // 记录检查点：成功则下次续跑跳过，失败则留待续跑重试
+  await recordServiceResult(serviceKey, serverName, result.success, result.errors);
+  return result;
+};
+
+/**
+ * 单实例发布（停止服务 → 增量上传 → 启动服务）
+ * @param server 服务器
+ * @param serverPathVal 单实例配置（服务标识 + 发布路径）
+ * @param serverName 服务类型名称
+ */
+const doServerPublishInstance = async (
+  server: RowServerType,
+  serverPathVal: ServerPublishType,
+  serverName: string
+): Promise<PublishTaskResult> => {
+  const fail = (message: string): PublishTaskResult => {
+    printInfoLog(message, "log-error");
+    return { success: false, serviceType: serverName, errors: [message] };
+  };
+
+  if (!serverPathVal.identity) {
+    return fail(`服务[${server.name}]未填写服务标识，请检查.`);
+  }
+  if (!serverPathVal.path) {
+    return fail(`服务[${server.name}]未填写服务发布路径，请检查.`);
+  }
+
+  const instanceIdentity = serverPathVal.identity as string;
+  const uName = server.account;
+  const uPwd = server.pwd;
+  const serverAddress = `${server.ip}:${server.port}`;
+  const logPrefix = formatServiceLog(server.name, server.ip, serverName, instanceIdentity);
+
+  /* 1.关闭服务 */
+  printInfoLog(`${logPrefix} 正在关闭...`);
+  let closeServiceResult;
+  if (server.os === 1) {
+    closeServiceResult = await switchWinService(
+      uName,
+      uPwd,
+      serverAddress,
+      instanceIdentity,
+      "stop"
+    );
+  } else if (server.os === 2) {
+    closeServiceResult = await switchDockerService(
+      uName,
+      uPwd,
+      serverAddress,
+      instanceIdentity,
+      "stop"
+    );
+  } else {
+    return fail(`未找到 ${displayOs(Number(server.os))} 部署环境，请检查.`);
+  }
+  if (!closeServiceResult) {
+    return fail(`${logPrefix} 关闭失败.`);
+  }
+  printInfoLog(`${logPrefix} 已关闭.`, "log-success");
+
+  /* 2.增量上传到服务器 */
+  const currLogIndex = printInfoLog(`${logPrefix} 正在上传文件...`);
+  const localPath = projectAssemblyOutPath.value + "/" + serverName;
+  const remotePath = removeSlash(serverPathVal.path as string);
+  const projectFiles = await readDirFiles(localPath);
+  if (projectFiles.length < 1) {
+    printInfoLog(
+      `未获取到 ${serverName} 项目的程序集文件，可点击【获取程序集】排查.`,
+      "log-warning"
+    );
+  }
+  // 整目录上传期间无法响应暂停/停止，这里在开始与结束各检查一次信号
+  await checkCanContinueHome();
+  const uploadResult = await syncDirToServer({
+    localDir: localPath,
+    remoteDir: remotePath,
+    username: uName,
+    password: uPwd,
+    server: serverAddress,
+    logIndex: currLogIndex,
+  });
+  if (uploadResult.code !== 0) {
+    return fail(`${logPrefix} 发布失败：${uploadResult.data}.`);
+  }
+  await checkCanContinueHome();
+  const uploadStats = uploadResult.data;
+  printInfoLog(
+    `${logPrefix} 已上传 ${uploadStats.uploaded} 个文件（共 ${uploadStats.total} 个，跳过未变更 ${uploadStats.skipped} 个，传输 ${formatFileSize(uploadStats.bytes)}）.`,
+    "log-success"
+  );
+
+  /* 3.启动服务 */
+  printInfoLog(`${logPrefix} 正在启动.`);
+  let startServiceResult;
+  if (server.os === 1) {
+    startServiceResult = await switchWinService(
+      uName,
+      uPwd,
+      serverAddress,
+      instanceIdentity,
+      "start"
+    );
+  } else if (server.os === 2) {
+    startServiceResult = await switchDockerService(
+      uName,
+      uPwd,
+      serverAddress,
+      instanceIdentity,
+      "start"
+    );
+  }
+  if (!startServiceResult) {
+    return fail(`${logPrefix} 启动失败.`);
+  }
+  printInfoLog(`${logPrefix} 发布成功.`, "log-success");
+  return { success: true, serviceType: serverName, errors: [] };
+};
+
+/**
+ * 增量上传本地目录到服务器（一次调用传输整个目录）
+ * 未变更文件（大小一致且远端修改时间不早于本地）自动跳过
+ * @param args 上传参数（logIndex 用于在日志区实时回报进度）
+ */
+const syncDirToServer = async (args: {
+  localDir: string;
+  remoteDir: string;
+  username: string;
+  password: string;
+  server: string;
+  logIndex: number;
+}): Promise<DataResultType<UploadSyncResultType>> => {
+  const { retryCount, retryIntervalSecs } = getRetryArgs("upload");
+  const totalAttempts = Math.max(1, retryCount);
+  const invokeArgs = {
+    localDir: args.localDir,
+    remoteDir: args.remoteDir,
+    username: args.username,
+    password: args.password,
+    server: args.server,
+    force: false,
+  };
+  let unlisten: UnlistenFn | null = null;
+  try {
+    unlisten = await listen<UploadProgressPayloadType>(
+      "publish://upload-progress",
+      (event) => {
+        const skippedText =
+          event.payload.skipped > 0 ? `（已跳过 ${event.payload.skipped} 个）` : "";
+        updateLogProgress(
+          args.logIndex,
+          `已处理${skippedText}：`,
+          event.payload.current,
+          event.payload.total
+        );
+      }
+    );
+    // 上传前先响应暂停/停止，避免刚点停止又发起一轮整目录传输
+    await checkCanContinueHome();
+    let failedAttempts = 0;
+    let cancelledTimes = 0;
+    while (true) {
+      const result = await cmdInvoke<UploadSyncResultType>(
+        "sync_dir_to_server",
+        invokeArgs
+      );
+      if (result.code === 0) return result;
+
+      // 用户点「停止」/「暂停」触发的中断（Rust 端逐文件检查取消标志）：
+      // - 停止：checkCanContinueHome 抛 PUBLISH_STOPPED，向上中止本次发布；
+      // - 暂停：在此等待恢复，恢复后重新上传，差量比对会跳过已传完的文件。
+      // 这类中断不计入重试次数。
+      if (String(result.data ?? "").includes(UPLOAD_CANCELLED_HINT)) {
+        cancelledTimes++;
+        // 状态已复位却仍被判为取消（标志残留等），按普通失败处理，避免无限重传
+        if (!state.publishData.publishPaused && !state.publishData.publishStopped) {
+          return result;
+        }
+        if (cancelledTimes === 1) {
+          printInfoLog("上传已中断，恢复后将继续上传剩余文件.", "log-warning");
+        }
+        await checkCanContinueHome();
+        continue;
+      }
+
+      // 服务刚停止时进程可能仍持有文件句柄，导致写入失败；
+      // 失败后等待重试（次数/间隔读设置页「上传重试」），重试会按差量跳过已上传文件
+      failedAttempts++;
+      if (failedAttempts >= totalAttempts) {
+        printInfoLog(
+          `目录上传失败，重试已用尽（尝试 ${failedAttempts}/${totalAttempts}）：${result.data}`,
+          "log-warning"
+        );
+        return result;
+      }
+      printInfoLog(
+        `目录上传失败，${retryIntervalSecs}s 后重试（尝试 ${failedAttempts}/${totalAttempts}）：${result.data}`,
+        "log-warning"
+      );
+      await new Promise((resolve) => setTimeout(resolve, retryIntervalSecs * 1000));
+    }
+  } finally {
+    if (unlisten) unlisten();
+  }
 };
 
 // 切换Windows服务
@@ -2371,39 +2937,6 @@ const switchWinService = async (
     "log-warning"
   );
   return false;
-};
-
-// 上传文件到服务器（带重试）：服务停止后进程可能仍短暂持有文件句柄，
-// 导致 SCP 覆盖 dll/exe 失败；失败后等待并重试，给进程退出留出时间。
-// 次数/间隔读全局设置（设置页"上传重试"）；每次调用传 retryCount: 1 单发执行，
-// 关闭 Rust 端内建重试，重试完全由本函数控制并打印可见日志，设置的重试次数即实际尝试次数
-const uploadServerFilesWithRetry = async (args: {
-  localPaths: string[];
-  remotePaths: string[];
-  username: string;
-  password: string;
-  server: string;
-}) => {
-  const { retryCount, retryIntervalSecs } = getRetryArgs("upload");
-  const totalAttempts = Math.max(1, retryCount);
-  let result = await cmdInvoke("upload_server_files", { ...args, retryCount: 1, retryIntervalSecs: 1 });
-  for (let attempt = 1; attempt <= totalAttempts; attempt++) {
-    if (result.code === 0) return result;
-    if (attempt < totalAttempts) {
-      printInfoLog(
-        `文件上传失败，${retryIntervalSecs}s 后重试（尝试 ${attempt}/${totalAttempts}）：${result.data}`,
-        "log-warning"
-      );
-      await new Promise((resolve) => setTimeout(resolve, retryIntervalSecs * 1000));
-      result = await cmdInvoke("upload_server_files", { ...args, retryCount: 1, retryIntervalSecs: 1 });
-    } else {
-      printInfoLog(
-        `文件上传失败，重试已用尽（尝试 ${attempt}/${totalAttempts}）：${result.data}`,
-        "log-warning"
-      );
-    }
-  }
-  return result;
 };
 
 // 切换Docker服务
@@ -2467,6 +3000,11 @@ const onOpenClientPath = async (path: string) => {
 
 // 编译项目
 const buildProjects = async () => {
+  // 断点续跑：本次发布已编译完成时跳过，避免重复删除输出目录
+  if (isBuildDone()) {
+    printInfoLog("上次发布中编译已完成，跳过编译步骤。", "log-warning");
+    return true;
+  }
   // MSBuild编译
   let msBuildPath = removeSlash(String(state.publishData.appconfigData.msBuildPath));
   let isRebuild = state.publishData.appconfigData.configItems.isRebuild == 1;
@@ -2523,6 +3061,8 @@ const buildProjects = async () => {
   }
 
   printInfoLog("编译项目结束。");
+  // 编译成功后写入断点续跑检查点，失败重跑时可直接复用编译产物
+  if (isSuccess) await markBuildDone();
 
   return isSuccess;
 };
@@ -3888,6 +4428,12 @@ const getPublishAppconfigs = async () => {
   showEmptyAppConfig.value = true;
   if (dataResult.code == 0 && dataResult.data.data && dataResult.data.data.id) {
     Object.assign(state.publishData.appconfigData, dataResult.data.data);
+    // 存量配置缺省按开启处理：不归一化会让页面开关显示「关闭」而实际按开启执行
+    const items = state.publishData.appconfigData.configItems;
+    if (items) {
+      if (items.isPullLatest === null || items.isPullLatest === undefined) items.isPullLatest = 1;
+      if (items.isPreflight === null || items.isPreflight === undefined) items.isPreflight = 1;
+    }
     showEmptyAppConfig.value = false;
   } else {
     state.publishData.appconfigData = getDefaultSubObject(
@@ -3999,6 +4545,7 @@ const onProjectChange = async (val: number) => {
     }
   }
   await getPublishAppconfigs();
+  await refreshResumableRecord();
 };
 
 // 环境切换
@@ -4013,6 +4560,7 @@ const onEnvironmentChange = async (val: number) => {
   console.log('  - 环境已保存到 localStorage');
   
   await getPublishAppconfigs();
+  await refreshResumableRecord();
 };
 
 // 设置进度值
@@ -4101,7 +4649,7 @@ const executeScheduledPublish = async (schedule: RowPublishScheduleType) => {
       success = await oneClickPublishing();
       if (success) await getProjectDefault();
     } else if (schedule.publishType === '手动发布') {
-      success = await projectPublish();
+      success = await runPublishFlow({ build: false, pullCode: false });
       if (success) await getProjectDefault();
     }
 
@@ -4192,6 +4740,13 @@ const updateLogProgress = (
 onBeforeMount(async () => {
   console.log('=== onBeforeMount 被调用 ===');
   await getProjectDefault();
+  // 启动时清理上一次异常退出（强制关机 / 结束进程）遗留的发布锁：
+  // 应用为单实例运行，刚启动时不可能存在本应用的发布流程，
+  // 不清掉会导致「继续发布」被误判为「正在由其他发布流程占用」
+  await clearAllPublishLocks();
+  // 启动时清理历史遗留的「未完成」记录（异常退出等），再检查是否有可续跑的发布
+  await abortStaleRecords();
+  await refreshResumableRecord();
 });
 
 // 挂载后启动定时发布检测器
@@ -4229,6 +4784,8 @@ onActivated(async () => {
   // 每次激活时重启检测（确保定时器运行）
   startScheduledPublishChecker();
   reloadSettings();
+  // 刷新可续跑的发布提示
+  await refreshResumableRecord();
 });
 </script>
 

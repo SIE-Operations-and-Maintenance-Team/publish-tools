@@ -62,6 +62,8 @@ declare type ConfigItemsType = {
 	isNewVersion: boolean | null;
 	// 一键发布编译前是否获取TFS/Git最新代码（1开/0关，存量配置缺省按开启处理）
 	isPullLatest?: number | null;
+	// 发布前是否自动执行预检（1开/0关，存量配置缺省按开启处理）
+	isPreflight?: number | null;
 	backupBasePath?: string | null;  // 服务端备份基础路径
 }
 

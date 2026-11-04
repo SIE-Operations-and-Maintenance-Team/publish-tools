@@ -117,6 +117,37 @@ async function ensureSchema(database: Database) {
   is_default INTEGER DEFAULT 0
 )`);
 
+    // 发布台账（一次发布一条记录，含断点续跑检查点与发布说明）
+    await database.execute(`CREATE TABLE IF NOT EXISTS t_publish_record (
+        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER,
+        project_name TEXT,
+        environment INTEGER,
+        start_date TEXT,
+        end_date TEXT,
+        duration_ms INTEGER,
+        result INTEGER,
+        resume_count INTEGER,
+        stage_json TEXT,
+        change_log_json TEXT,
+        dll_items_json TEXT,
+        service_results_json TEXT,
+        backup_id INTEGER,
+        appconfig_snapshot_json TEXT,
+        remark TEXT
+    )`);
+
+    // 发布锁（同一项目+环境同时只允许一个发布流程）
+    await database.execute(`CREATE TABLE IF NOT EXISTS t_publish_lock (
+        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER,
+        environment INTEGER,
+        token TEXT,
+        acquired_at TEXT,
+        expire_at TEXT,
+        remark TEXT
+    )`);
+
     // ========== 改表（已有表加字段，先检查是否存在） ==========
     const columns = await database.select<{ name: string }[]>("PRAGMA table_info(t_app_config)");
     const hasBuildMode = columns.some((column) => column.name === "build_mode");

@@ -38,21 +38,16 @@ export default function () {
 	const scale2Format = (value: string = '0') => {
 		return Number.parseFloat(value).toFixed(2);
 	};
-	// 点击复制文本
-	const copyText = (text: string) => {
-		return new Promise((resolve, reject) => {
-			try {
-				//复制
-				toClipboard(text);
-				//下面可以设置复制成功的提示框等操作
-				ElMessage.success(t('message.layout.copyTextSuccess'));
-				resolve(text);
-			} catch (e) {
-				//复制失败
-				ElMessage.error(t('message.layout.copyTextError'));
-				reject(e);
-			}
-		});
+	// 点击复制文本（await 剪贴板真实结果，失败时提示并抛出，不假报成功）
+	const copyText = async (text: string) => {
+		try {
+			await toClipboard(text);
+			ElMessage.success(t('message.layout.copyTextSuccess'));
+			return text;
+		} catch (e) {
+			ElMessage.error(t('message.layout.copyTextError'));
+			throw e;
+		}
 	};
 
 	return {

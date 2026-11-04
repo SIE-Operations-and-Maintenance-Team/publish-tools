@@ -486,19 +486,26 @@
           </el-col>
           <el-col :span="24" class="mt15">
             <div class="switch-row">
-              <el-form-item label="重新编译" prop="isRebuild">
+              <el-form-item label="重新编译" prop="isRebuild" label-width="auto">
                 <el-tooltip content="【/t:Rebuild】建议勾选！" placement="bottom" effect="light">
                   <el-switch v-model="state.ruleForm.configItems.isRebuild" :active-value="1" :inactive-value="0"
                     inline-prompt active-text="开启" inactive-text="关闭" size="default" />
                 </el-tooltip>
               </el-form-item>
-              <el-form-item label="发布前备份" prop="isBackup">
+              <el-form-item label="发布前备份" prop="isBackup" label-width="auto">
                 <el-switch v-model="state.ruleForm.configItems.isBackup" :active-value="1" :inactive-value="0"
                   inline-prompt active-text="开启" inactive-text="关闭" size="default" />
               </el-form-item>
-              <el-form-item label="拉取最新代码" prop="isPullLatest">
+              <el-form-item label="拉取最新代码" prop="isPullLatest" label-width="auto">
                 <el-tooltip content="开启后，[一键发布]会在编译前获取TFS/Git最新代码" placement="bottom" effect="light">
                   <el-switch v-model="state.ruleForm.configItems.isPullLatest" :active-value="1" :inactive-value="0"
+                    inline-prompt active-text="开启" inactive-text="关闭" size="default" />
+                </el-tooltip>
+              </el-form-item>
+              <el-form-item label="发布前预检" prop="isPreflight" label-width="auto">
+                <el-tooltip content="开启后，[一键发布]/[手动发布]会先做一次预检（配置完整性、MSBuild 路径、服务器连通性）；有错误则阻断发布"
+                  placement="bottom" effect="light">
+                  <el-switch v-model="state.ruleForm.configItems.isPreflight" :active-value="1" :inactive-value="0"
                     inline-prompt active-text="开启" inactive-text="关闭" size="default" />
                 </el-tooltip>
               </el-form-item>
@@ -642,6 +649,7 @@ const state = reactive<FormDialogType<RowAppconfigType>>({
       isBackup: 0,
       isNewVersion: false,
       isPullLatest: 1,
+      isPreflight: 1,
     },
   },
   dialog: {
@@ -950,6 +958,10 @@ const applyAppconfigRow = (row: RowAppconfigType) => {
   // 存量配置没有[拉取最新代码]开关时按开启处理
   if (state.ruleForm.configItems.isPullLatest === null || state.ruleForm.configItems.isPullLatest === undefined) {
     state.ruleForm.configItems.isPullLatest = 1;
+  }
+  // 存量配置没有[发布前预检]开关时按开启处理
+  if (state.ruleForm.configItems.isPreflight === null || state.ruleForm.configItems.isPreflight === undefined) {
+    state.ruleForm.configItems.isPreflight = 1;
   }
   // 生成目录/压缩文件按配置本身重置，避免沿用上一个项目的取值
   generateDirs.value = state.ruleForm.configItems.wpfClient.generateDirJson
@@ -1333,6 +1345,7 @@ const formReset = () => {
   state.ruleForm.configItems.spcMonitor.serverArr = [];
   state.ruleForm.configItems.isRebuild = 1;
   state.ruleForm.configItems.isPullLatest = 1;
+  state.ruleForm.configItems.isPreflight = 1;
   selectTfsItem.value = {
     id: null,
     tfsName: null,
@@ -1551,11 +1564,20 @@ defineExpose({
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 16px;
+  // 表单一列 label 宽 100px（含 12px 右内边距），4 字 label 的文字起点即 100-12-56=32px；
+  // 这里让开关行整体右移同样距离，使「重新编译」与下方「备份路径」左边缘对齐
+  padding-left: 32px;
 
+  // 按内容自适应，避免固定宽度把「发布前预检」挤到下一行
   :deep(.el-form-item) {
-    flex: 0 0 158px;
+    flex: 0 0 auto;
     margin-bottom: 0;
+
+    .el-form-item__label {
+      width: auto !important;
+      padding-right: 8px;
+    }
   }
 }
 

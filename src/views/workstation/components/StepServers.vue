@@ -256,6 +256,11 @@ import { ElMessage } from "element-plus";
 import { useServerDb } from "@/database/servers/index";
 import { useWorkstationStore } from "@/stores/workstation";
 import { useServiceDiscovery } from "@/composables/useServiceDiscovery";
+import {
+  matchModule,
+  mergeServicesIntoConfigItems,
+  type ServiceModuleKey,
+} from "@/utils/serviceModuleMap";
 
 const store = useWorkstationStore();
 const serverDb = useServerDb();
@@ -286,24 +291,6 @@ const remotePickerVisible = ref(false);
 const remoteTargetId = ref<number | null>(null);
 // 本次扫描的目标服务器:远端=被扫描的服务器记录;本机=null(导入时复用/自动创建"本机"记录)
 const scanTarget = ref<RowServerType | null>(null);
-
-// 服务名 → 应用配置模块映射(按关键字包含匹配,顺序即优先级)
-const SERVICE_MODULE_RULES = [
-  { key: "webApiHost", label: "WebApiHost", match: "webapihost" },
-  { key: "scheduleServer", label: "调度(ScheduleServer)", match: "scheduleserver" },
-  { key: "webClient", label: "WebClient", match: "webclient" },
-  { key: "wpfClient", label: "WpfClient", match: "wpfclient" },
-  { key: "spcMonitor", label: "SpcMonitor", match: "spcmonitor" },
-] as const;
-
-type ServiceModuleKey = (typeof SERVICE_MODULE_RULES)[number]["key"];
-
-const matchModule = (
-  serviceName: string
-): { key: ServiceModuleKey; label: string } | null => {
-  const n = (serviceName || "").toLowerCase();
-  return SERVICE_MODULE_RULES.find((r) => n.includes(r.match)) || null;
-};
 
 const loadServers = async () => {
   // 按当前项目过滤，若无项目则拉全量
@@ -412,55 +399,6 @@ const ensureLocalServer = async (): Promise<RowServerType | null> => {
   }
   await loadServers();
   return serverList.value.find((s) => s.id === r.data) ?? null;
-};
-
-// 空白模块默认结构(与 CommonAppconfigType + serverIds/serverArr 对齐)
-const emptyModule = () => ({
-  clientPath: "",
-  serverPath: null,
-  serverIds: [] as number[],
-  serverArr: [] as SelectServerType[],
-});
-
-// 把发现的服务合并进一份 configItems:模块勾选目标服务器 + 该服务器下追加服务条目(服务标识+发布路径)
-// 返回实际新增的服务条数;同名服务标识已存在时跳过,不覆盖
-const mergeServicesIntoConfigItems = (
-  ci: Record<string, any>,
-  targetId: number,
-  targetName: string,
-  picked: { item: DiscoveryItem; module: { key: ServiceModuleKey; label: string } }[]
-): number => {
-  let added = 0;
-  for (const { item, module: m } of picked) {
-    if (!ci[m.key]) ci[m.key] = emptyModule();
-    const mod = ci[m.key];
-    if (!Array.isArray(mod.serverIds)) mod.serverIds = [];
-    if (!Array.isArray(mod.serverArr)) mod.serverArr = [];
-    if (!mod.serverIds.includes(targetId)) mod.serverIds.push(targetId);
-    let arr = mod.serverArr.find(
-      (x: SelectServerType) => Number(x.id) === Number(targetId)
-    );
-    if (!arr) {
-      arr = { id: targetId, name: targetName, serverPathArr: [] };
-      mod.serverArr.push(arr);
-    }
-    if (!Array.isArray(arr.serverPathArr)) arr.serverPathArr = [];
-    const exists = arr.serverPathArr.some((sp: ServerOptionType) =>
-      (sp.value || []).some((v) => v.identity === item.serviceName)
-    );
-    if (exists) continue;
-    arr.serverPathArr.push({
-      label: "",
-      value: [
-        {
-          identity: item.serviceName,
-          path: item.suggestedPublishPath || item.rawPath || "",
-        },
-      ],
-    });
-    added++;
-  }
-  return added;
 };
 
 const onConfirmImport = async () => {

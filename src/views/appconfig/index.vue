@@ -84,6 +84,16 @@
           <el-icon><ele-Upload /></el-icon>
           导入配置
         </el-button>
+        <el-button
+          size="default"
+          type="primary"
+          color="#7c4dff"
+          :disabled="selectedRows.length === 0"
+          @click="onOpenUploadTemplate"
+        >
+          <el-icon><ele-UploadFilled /></el-icon>
+          上传模板到服务器
+        </el-button>
       </template>
       <el-table
         :data="state.tableData.data"
@@ -166,6 +176,7 @@
     <appconfig-dialog ref="appconfigDialogRef" @refresh="getTableData()" />
     <backup-dialog ref="backupDialogRef" />
     <import-preview-dialog ref="importPreviewDialogRef" @confirm="onImportConfirm" />
+    <upload-template-dialog ref="uploadTemplateDialogRef" />
   </div>
 </template>
 
@@ -197,6 +208,10 @@ const BackupDialog = defineAsyncComponent(
 const importPreviewDialogRef = ref();
 const ImportPreviewDialog = defineAsyncComponent(
   () => import("@/views/appconfig/components/importPreviewDialog.vue")
+);
+const uploadTemplateDialogRef = ref();
+const UploadTemplateDialog = defineAsyncComponent(
+  () => import("@/views/appconfig/components/uploadTemplateDialog.vue")
 );
 const importExportDb = useImportExportDb();
 const exportLoading = ref(false);
@@ -282,6 +297,12 @@ const onHandleCurrentChange = async (val: number) => {
 // 打开应用配置弹窗
 const onOpenAppconfigDialog = (type: string, row: any = null) => {
   appconfigDialogRef.value.openDialog(type, row);
+};
+
+// 打开「上传模板到服务器」弹窗（对勾选的应用配置生效）
+const onOpenUploadTemplate = () => {
+  if (selectedRows.value.length < 1) return;
+  uploadTemplateDialogRef.value.openDialog(selectedRows.value);
 };
 
 // 复制新增

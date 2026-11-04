@@ -64,6 +64,10 @@
         </el-form-item>
         <el-form-item :label="$t('message.settings.mcpStatus')">
           <el-tag :type="mcpStatusTagType">{{ $t(mcpStatusI18nKey) }}</el-tag>
+          <el-button style="margin-left: 12px" @click="openMcpConfigDialog">
+            <el-icon class="mr5"><ele-CopyDocument /></el-icon>
+            {{ $t('message.settings.mcpConfigCopy') }}
+          </el-button>
         </el-form-item>
 
         <!-- SSH MCP 配置同步 -->
@@ -123,6 +127,9 @@
         <el-button type="primary" :loading="prefixAdding" @click="onAddPrefix">新增</el-button>
       </div>
     </el-card>
+
+    <!-- MCP 服务器配置（供接入 agent 复制） -->
+    <mcp-config-dialog ref="mcpConfigDialogRef" />
   </div>
 </template>
 
@@ -135,6 +142,7 @@ import { defaultSettings } from "@/utils/publishSettings";
 import { cmdInvoke } from "@/utils/command";
 import mittBus from "@/utils/mitt";
 import { listen } from "@tauri-apps/api/event";
+import McpConfigDialog from "./components/mcpConfigDialog.vue";
 
 const settingsDb = useSettingsDb();
 const formRef = ref<FormInstance>();
@@ -159,6 +167,13 @@ let mcpConfigSnapshot = { mcp_enabled: true, mcp_port: 17541 };
 let mcpStatusTimer: number | null = null;
 // 轮询代次令牌：stopMcpStatusPolling()/新轮询会递增，作废飞行中的旧轮询请求
 let mcpPollToken = 0;
+
+// MCP 服务器配置弹窗（展示接入 agent 的 JSON 配置）
+const mcpConfigDialogRef = ref();
+
+const openMcpConfigDialog = () => {
+  mcpConfigDialogRef.value?.open(mcpConfig.mcp_port);
+};
 
 let unlisten: (() => void) | null = null;
 

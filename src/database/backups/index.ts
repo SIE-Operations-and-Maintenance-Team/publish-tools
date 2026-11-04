@@ -68,6 +68,38 @@ export function useBackupDb() {
         },
 
         /**
+         * 按ID查询备份(用于发布台账一键回滚)
+         * @param id 备份ID
+         * @returns 备份信息
+         */
+        getBackupById: async (id: number) => {
+            let dataSql =
+                "select id, project_id projectId, project_name projectName, environment, backup_date backupDate, remark, backup_items_json backupItemsJson from t_backup where id = $1;";
+
+            // 定义(默认)响应结果
+            let dataResult: DataResultType<RowBackupType | null> = {
+                code: 1,
+                msg: "",
+                data: null,
+            };
+            try {
+                let rows = await (await db()).select<RowBackupType[]>(dataSql, [id]);
+                if (rows.length > 0) {
+                    dataResult.code = 0;
+                    dataResult.data = rows[0];
+                    dataResult.msg = "查询备份信息成功";
+                } else {
+                    dataResult.msg = "备份记录不存在";
+                }
+            } catch (error) {
+                dataResult.code = -1;
+                dataResult.msg = "查询备份信息出错：" + JSON.stringify(error);
+                console.error(error);
+            }
+            return dataResult;
+        },
+
+        /**
          * 插入备份
          * @param backup 备份
          * @returns 插入结果

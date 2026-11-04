@@ -823,13 +823,15 @@ export function getUploadFileNumber(
  * @param serverName 服务名称
  * @param backupServers 备份服务
  * @param isNewVision 是否新版本
+ * @param shouldContinue 每个备份项前的检查点（发布暂停/停止信号），抛错即中止备份
  * @returns
  */
 export async function backupRemoteServer(
   serverName: string,
   backupServers: BackupServerType[] | null,
   callback: Function | null = null,
-  isNewVision: boolean = false
+  isNewVision: boolean = false,
+  shouldContinue: (() => Promise<void>) | null = null
 ) {
   let execResult: DataResultType<boolean> = {
     code: 0,
@@ -855,6 +857,7 @@ export async function backupRemoteServer(
     const password = serverDetail.pwd;
     const server = `${serverDetail.ip}:${serverDetail.port}`;
     for (let j = 0; j < backupServer.backupPaths.length; j++) {
+      if (shouldContinue) await shouldContinue();
       const backupPathItem = backupServer.backupPaths[j];
       const publishPath = removeSlash(backupPathItem.publishPath);
       const backupPath = removeSlash(backupPathItem.backupPath);
@@ -874,6 +877,7 @@ export async function backupRemoteServer(
         command: createDirCmd,
       });
       for (let bk = 0; bk < backupPathItem.backFiles.length; bk++) {
+        if (shouldContinue) await shouldContinue();
         const backFile = backupPathItem.backFiles[bk];
         if (typeof backFile === "string") {
           let command;

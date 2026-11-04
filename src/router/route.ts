@@ -202,6 +202,22 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 				children: []
 			},
 			{
+				path: '/publishRecord',
+				name: 'publishRecord',
+				component: () => import('@/views/publishRecord/index.vue'),
+				meta: {
+					title: 'message.router.publishRecord',
+					isLink: '',
+					isHide: false,
+					isKeepAlive: true,
+					isAffix: false,
+					isIframe: false,
+					icon: 'ele-Tickets'
+				},
+				redirect: "",
+				children: []
+			},
+			{
 				path: '/settings',
 				name: 'settings',
 				component: () => import('@/views/settings/index.vue'),
