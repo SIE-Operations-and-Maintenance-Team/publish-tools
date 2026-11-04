@@ -226,7 +226,7 @@ jobs:
               else:
                   lines.append(ln)
           notes = "<br>".join(lines)
-          notes += f"<br><b>注：版本 ≤ 0.0.28 <a style='color:green' target='_blank' href='{base}/{nsis_exe}'>点击此处</a> 下载。</b>"
+          notes += f"<br><b>注：版本 ≤ 0.0.55 <a style='color:green' target='_blank' href='{base}/{nsis_exe}'>点击此处</a> 下载。</b>"
 
           with open("update.json", encoding="utf-8") as f:
               data = json.load(f)
