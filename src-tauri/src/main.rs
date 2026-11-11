@@ -49,8 +49,19 @@ fn get_mcp_status() -> String {
 
 /// 前端回填 MCP 动作执行结果（配合 mcp/bridge.rs 的等待通道）
 #[tauri::command]
-fn mcp_action_result(request_id: String, success: bool, message: String) -> bool {
-    SmomPublish::mcp::bridge::complete(&request_id, success, message)
+fn mcp_action_result(
+    request_id: String,
+    success: bool,
+    message: String,
+    code: Option<i32>,
+) -> bool {
+    SmomPublish::mcp::bridge::complete(&request_id, success, message, code)
+}
+
+/// 前端执行 MCP 动作期间的心跳（用于判定界面是否僵死；返回 false 表示请求已结束）
+#[tauri::command]
+fn mcp_action_progress(request_id: String) -> bool {
+    SmomPublish::mcp::bridge::progress(&request_id)
 }
 
 fn main() {
@@ -107,6 +118,7 @@ fn main() {
             update_mcp_config,
             get_mcp_status,
             mcp_action_result,
+            mcp_action_progress,
             file_module::exists,
             file_module::create_dir,
             file_module::open_dir,

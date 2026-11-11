@@ -251,3 +251,178 @@ pub fn query_latest_backup(
     let mut rows = rows_to_json(conn, sql, &[&project_id, &environment])?;
     Ok(rows.pop())
 }
+
+// ── 发布任务队列（t_publish_job）──
+
+/// 新发布任务的定位信息
+pub struct NewPublishJob {
+    pub action: String,
+    pub source: String,
+    pub appconfig_id: Option<i64>,
+    pub project_id: Option<i64>,
+    pub project_name: Option<String>,
+    pub environment: Option<i64>,
+    pub backup_id: Option<i64>,
+}
+
+/// 当前时间（ISO 8601，与前端 `new Date().toISOString()` 同构）
+fn now_iso() -> String {
+    chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+}
+
+const JOB_COLUMNS: &str = "id, action, source, appconfig_id, project_id, project_name, environment, status, message, created_at, started_at, ended_at, backup_id";
+
+/// 插入一条排队中的发布任务，返回任务号
+pub fn insert_job(conn: &Connection, job: &NewPublishJob) -> Result<i64, String> {
+    conn.execute(
+        "INSERT INTO t_publish_job (action, source, appconfig_id, project_id, project_name, environment, status, created_at, backup_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'queued', ?7, ?8)",
+        params![
+            job.action,
+            job.source,
+            job.appconfig_id,
+            job.project_id,
+            job.project_name,
+            job.environment,
+            now_iso(),
+            job.backup_id
+        ],
+    )
+    .map_err(|e| format!("插入发布任务失败: {e}"))?;
+    Ok(conn.last_insert_rowid())
+}
+
+/// 更新任务状态，自动维护 started_at / ended_at
+pub fn update_job_status(
+    conn: &Connection,
+    id: i64,
+    status: &str,
+    message: Option<&str>,
+) -> Result<(), String> {
+    let now = now_iso();
+    let result = match status {
+        // 开始执行：首次进入记开始时间，结束时间清空
+        "running" => conn.execute(
+            "UPDATE t_publish_job SET status = ?2, message = ?3, started_at = COALESCE(started_at, ?1), ended_at = NULL WHERE id = ?4",
+            params![now, status, message, id],
+        ),
+        // 回退队列（锁被占用）：时间线清零，等待重新开始
+        "queued" => conn.execute(
+            "UPDATE t_publish_job SET status = 'queued', message = ?1, started_at = NULL, ended_at = NULL WHERE id = ?2",
+            params![message, id],
+        ),
+        // 终态：记结束时间
+        _ => conn.execute(
+            "UPDATE t_publish_job SET status = ?2, message = ?3, ended_at = ?1 WHERE id = ?4",
+            params![now, status, message, id],
+        ),
+    };
+    result.map_err(|e| format!("更新发布任务状态失败: {e}"))?;
+    Ok(())
+}
+
+/// 按任务号查询
+pub fn query_job_by_id(conn: &Connection, id: i64) -> Result<Option<Value>, String> {
+    let sql = format!("SELECT {JOB_COLUMNS} FROM t_publish_job WHERE id = ?1");
+    let mut rows = rows_to_json(conn, &sql, &[&id])?;
+    Ok(rows.pop())
+}
+
+/// 查询排队中与执行中的任务（按提交顺序）
+pub fn query_active_jobs(conn: &Connection) -> Result<Vec<Value>, String> {
+    let sql = format!(
+        "SELECT {JOB_COLUMNS} FROM t_publish_job WHERE status IN ('queued', 'running') ORDER BY id"
+    );
+    rows_to_json(conn, &sql, &[])
+}
+
+/// 查询指定项目与环境下最近一条任务
+pub fn query_latest_job(
+    conn: &Connection,
+    project_id: i64,
+    environment: Option<i64>,
+) -> Result<Option<Value>, String> {
+    let mut rows = match environment {
+        Some(env) => {
+            let sql = format!("SELECT {JOB_COLUMNS} FROM t_publish_job WHERE project_id = ?1 AND environment = ?2 ORDER BY id DESC LIMIT 1");
+            rows_to_json(conn, &sql, &[&project_id, &env])?
+        }
+        None => {
+            let sql = format!("SELECT {JOB_COLUMNS} FROM t_publish_job WHERE project_id = ?1 ORDER BY id DESC LIMIT 1");
+            rows_to_json(conn, &sql, &[&project_id])?
+        }
+    };
+    Ok(rows.pop())
+}
+
+/// 统计某任务前面还有几个排队中的任务（不含执行中的）
+pub fn count_queued_ahead(conn: &Connection, id: i64) -> Result<i64, String> {
+    conn.query_row(
+        "SELECT COUNT(*) FROM t_publish_job WHERE status = 'queued' AND id < ?1",
+        params![id],
+        |row| row.get(0),
+    )
+    .map_err(|e| format!("统计排队位置失败: {e}"))
+}
+
+/// 取消排队中的任务（仅 queued 可取消）
+pub fn cancel_job(conn: &Connection, id: i64) -> Result<bool, String> {
+    let affected = conn
+        .execute(
+            "UPDATE t_publish_job SET status = 'canceled', message = '已被调用方取消', ended_at = ?1 WHERE id = ?2 AND status = 'queued'",
+            params![now_iso(), id],
+        )
+        .map_err(|e| format!("取消发布任务失败: {e}"))?;
+    Ok(affected > 0)
+}
+
+/// 取队首可执行任务号；没有则返回 None
+pub fn next_queued_job(conn: &Connection) -> Result<Option<i64>, String> {
+    let mut stmt = conn
+        .prepare("SELECT id FROM t_publish_job WHERE status = 'queued' ORDER BY id LIMIT 1")
+        .map_err(|e| format!("SQL 准备失败: {e}"))?;
+    let mut rows = stmt
+        .query([])
+        .map_err(|e| format!("SQL 查询失败: {e}"))?;
+    match rows
+        .next()
+        .map_err(|e| format!("读取行失败: {e}"))?
+    {
+        Some(row) => row.get(0).map(Some).map_err(|e| format!("读取任务号失败: {e}")),
+        None => Ok(None),
+    }
+}
+
+/// 应用启动时把残留的执行中任务标记为中断（上次进程异常退出）
+pub fn mark_jobs_interrupted_on_startup(conn: &Connection) -> Result<usize, String> {
+    conn.execute(
+        "UPDATE t_publish_job SET status = 'interrupted', message = '应用重启，任务执行中断', ended_at = ?1 WHERE status = 'running'",
+        params![now_iso()],
+    )
+    .map_err(|e| format!("标记中断任务失败: {e}"))
+}
+
+/// 查询最近一条发布台账（前端 t_publish_record），用于补充任务的当前阶段
+pub fn query_latest_publish_record(
+    conn: &Connection,
+    project_id: Option<i64>,
+    environment: Option<i64>,
+) -> Result<Option<Value>, String> {
+    const COLUMNS: &str =
+        "id, project_id, environment, start_date, end_date, result, stage_json";
+    let mut rows = match (project_id, environment) {
+        (Some(p), Some(e)) => {
+            let sql = format!("SELECT {COLUMNS} FROM t_publish_record WHERE project_id = ?1 AND environment = ?2 ORDER BY id DESC LIMIT 1");
+            rows_to_json(conn, &sql, &[&p, &e])?
+        }
+        (Some(p), None) => {
+            let sql = format!("SELECT {COLUMNS} FROM t_publish_record WHERE project_id = ?1 ORDER BY id DESC LIMIT 1");
+            rows_to_json(conn, &sql, &[&p])?
+        }
+        _ => {
+            let sql = format!("SELECT {COLUMNS} FROM t_publish_record ORDER BY id DESC LIMIT 1");
+            rows_to_json(conn, &sql, &[])?
+        }
+    };
+    Ok(rows.pop())
+}
+

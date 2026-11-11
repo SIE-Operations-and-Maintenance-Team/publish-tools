@@ -137,7 +137,7 @@ async function ensureSchema(database: Database) {
         remark TEXT
     )`);
 
-    // 发布锁（同一项目+环境同时只允许一个发布流程）
+    // 发布锁（整机全局单锁，跨项目/环境互斥）
     await database.execute(`CREATE TABLE IF NOT EXISTS t_publish_lock (
         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
         project_id INTEGER,
@@ -146,6 +146,23 @@ async function ensureSchema(database: Database) {
         acquired_at TEXT,
         expire_at TEXT,
         remark TEXT
+    )`);
+
+    // 发布任务队列（MCP 动作提交后的排队与执行状态，供跨会话查询）
+    await database.execute(`CREATE TABLE IF NOT EXISTS t_publish_job (
+        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+        action TEXT NOT NULL,
+        source TEXT,
+        appconfig_id INTEGER,
+        project_id INTEGER,
+        project_name TEXT,
+        environment INTEGER,
+        status TEXT NOT NULL,
+        message TEXT,
+        created_at TEXT,
+        started_at TEXT,
+        ended_at TEXT,
+        backup_id INTEGER
     )`);
 
     // ========== 改表（已有表加字段，先检查是否存在） ==========

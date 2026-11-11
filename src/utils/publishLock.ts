@@ -1,12 +1,15 @@
-// 发布锁：同一「项目 + 环境」在同一时间内只允许一个发布流程
+// 发布锁：整机同一时间只允许一个发布流程（不区分项目与环境）
 //
-// 说明：应用本身通过 tauri-plugin-single-instance 保证只有一个实例，
-// 这里主要防止「同一页面内重复触发 / 异步并发发布 / 上次异常退出未释放」。
+// 说明：TFS 工作区、编译输出目录、上传通道与部署目录都是整机共享资源，
+// 跨项目/跨环境并发同样会互相踩踏，因此锁不按项目+环境切分。
 // 锁记录写入 t_publish_lock，带过期时间，过期后可被接管。
 import { usePublishRecordDb } from "@/database/publishRecord";
 
 // 锁有效期（分钟）：超时视为持有者异常退出，可被后续发布接管
-const LOCK_TTL_MINUTES = 30;
+// 发布期间每 3 分钟心跳续约，因此缩短 TTL 不影响正常发布，只让崩溃后恢复更快。
+// TTL 需大于 Rust 侧的僵死判定（12 分钟）：判定先触发、由前端正常释放锁，
+// 不会出现「锁先过期导致两个发布并行」的窗口
+const LOCK_TTL_MINUTES = 15;
 
 // 获取发布锁的结果
 export type PublishLockResult = {
@@ -26,9 +29,12 @@ function createToken(): string {
 }
 
 /**
- * 获取发布锁
- * @param projectId 项目ID
- * @param environment 环境
+ * 获取发布锁（全局单锁）
+ *
+ * 锁不按项目/环境切分：projectId 与 environment 只作为「发起方」写入锁记录，
+ * 便于排查是谁占着锁，不参与互斥判断。
+ * @param projectId 发起发布的项目ID
+ * @param environment 发起发布的环境
  * @returns 获取结果
  */
 export async function acquirePublishLock(
@@ -39,7 +45,7 @@ export async function acquirePublishLock(
     // 先清理过期锁，避免历史异常退出导致永久占用
     await recordDb.cleanExpiredPublishLocks();
 
-    const existsResult = await recordDb.getPublishLock(projectId, environment);
+    const existsResult = await recordDb.getPublishLock();
     if (existsResult.code !== 0) {
         return {
             ok: false,
@@ -74,7 +80,7 @@ export async function acquirePublishLock(
     }
 
     // 回读校验：极端并发下后写入者胜出，先写入者需让位
-    const verifyResult = await recordDb.getPublishLock(projectId, environment);
+    const verifyResult = await recordDb.getPublishLock();
     if (verifyResult.code === 0 && verifyResult.data?.token === token) {
         return { ok: true, token, holder: null, message: "" };
     }

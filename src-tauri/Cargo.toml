@@ -1,6 +1,6 @@
 [package]
 name = "SmomPublish"
-version = "1.0.0"
+version = "1.1.0"
 description = "SMOM平台发布工具"
 authors = ["Rex"]
 edition = "2021"
@@ -32,7 +32,7 @@ tauri-plugin-notification = "2"
 # MCP Server
 rmcp = { version = "3.0", default-features = false, features = ["server", "macros", "transport-streamable-http-server"] }
 axum = "0.8"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync", "time"] }
 rusqlite = { version = "0.31", features = ["bundled"] }
 
 [features]

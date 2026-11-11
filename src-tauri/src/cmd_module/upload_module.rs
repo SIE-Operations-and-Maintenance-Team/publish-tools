@@ -6,19 +6,27 @@
 //
 // 本模块提供 `sync_dir_to_server`：
 // 1. 一次调用传输整个目录（批量）；
-// 2. 上传前 `stat` 远端文件，大小一致且远端修改时间不早于本地（2 秒容差）时跳过，
-//    只传真正变化的文件（差量）；
+// 2. 上传前递归 `readdir` 一次性扫描远端目录，大小一致且远端修改时间不早于本地
+//    （2 秒容差）时跳过，只传真正变化的文件（差量）；
 // 3. 通过 `publish://upload-progress` 事件实时回报进度（100ms 节流）。
 
 use crate::cmd_module::ssh_pool;
 use ssh2::Sftp;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
-use std::io;
+use std::io::{Read, Write};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 use tauri::Emitter;
 use walkdir::WalkDir;
+
+/// 单次写入 SFTP 的数据块大小
+///
+/// SFTP 的吞吐取决于单次 `write` 提交的数据量：libssh2 依此填充在途写请求队列。
+/// 若沿用 `io::copy` 的 8KB 缓冲，5MB 文件会退化成 640 次「写一块等一次确认」的
+/// 往返；1MB 分块既能批量在途，也不会像整文件读入那样吃掉内存。
+const UPLOAD_CHUNK_SIZE: usize = 1024 * 1024;
 
 /// 上传进度事件名
 pub const UPLOAD_PROGRESS_EVENT: &str = "publish://upload-progress";
@@ -48,6 +56,10 @@ pub struct UploadSyncResult {
     pub skipped: u32,
     /// 实际传输的字节数
     pub bytes: u64,
+    /// 准备阶段耗时（本地清单 + 远端目录扫描 + 目录创建），毫秒
+    pub scan_ms: u64,
+    /// 实际传输耗时，毫秒
+    pub transfer_ms: u64,
 }
 
 /// 上传进度事件负载
@@ -142,6 +154,7 @@ fn exec_sync_dir_to_server(
 
     // 新一轮上传：清除上一轮遗留的取消标志
     UPLOAD_CANCELLED.store(false, Ordering::SeqCst);
+    let scan_started = Instant::now();
 
     // 1. 收集本地文件与目录清单
     let mut files: Vec<LocalUploadFile> = Vec::new();
@@ -183,6 +196,8 @@ fn exec_sync_dir_to_server(
         uploaded: 0,
         skipped: 0,
         bytes: 0,
+        scan_ms: 0,
+        transfer_ms: 0,
     };
 
     let shared = ssh_pool::get_session(username, password, server)?;
@@ -196,11 +211,24 @@ fn exec_sync_dir_to_server(
                 .sftp()
                 .map_err(|e| format!("无法创建 SFTP 会话: {}", e))?;
 
-            remote_ensure_dir(&sftp, remote_root)?;
-            // 先补齐目录结构（含空目录），避免远端缺目录导致后续上传失败
-            for dir in dirs.iter() {
-                remote_ensure_dir(&sftp, &remote_root.join(dir))?;
+            // 2. 一次性扫描远端目录树，构建差量比对索引
+            //    逐文件 stat 会让每个文件各花两次往返（父目录 + 文件本身），
+            //    按目录 readdir 后只在内存里比对，往返次数降到「目录数」级别
+            let mut remote_files: HashMap<String, RemoteFileMeta> = HashMap::new();
+            let mut known_dirs: HashSet<String> = HashSet::new();
+            if sftp.stat(remote_root).map(|md| md.is_dir()).unwrap_or(false) {
+                known_dirs.insert(remote_key(remote_root));
+                scan_remote_tree(&sftp, remote_root, &mut remote_files, &mut known_dirs)?;
             }
+
+            // 3. 补齐目录结构（含空目录），避免远端缺目录导致后续上传失败
+            ensure_dir_cached(&sftp, remote_root, &mut known_dirs)?;
+            for dir in dirs.iter() {
+                ensure_dir_cached(&sftp, &remote_root.join(dir), &mut known_dirs)?;
+            }
+
+            stats.scan_ms = scan_started.elapsed().as_millis() as u64;
+            let transfer_started = Instant::now();
 
             for file in files.iter() {
                 // 逐文件检查取消标志：停止/暂停在文件边界生效（单个文件的写入不会被截断）
@@ -209,10 +237,11 @@ fn exec_sync_dir_to_server(
                 }
                 let remote_file_path = remote_root.join(&file.relative_path);
                 if let Some(parent) = remote_file_path.parent() {
-                    remote_ensure_dir(&sftp, parent)?;
+                    ensure_dir_cached(&sftp, parent, &mut known_dirs)?;
                 }
 
-                let need_upload = force || requires_upload(&sftp, &remote_file_path, file);
+                let need_upload = force
+                    || requires_upload(remote_files.get(&remote_key(&remote_file_path)), file);
                 if need_upload {
                     upload_file(&local_root.join(&file.relative_path), &remote_file_path, &sftp)?;
                     stats.uploaded += 1;
@@ -236,6 +265,8 @@ fn exec_sync_dir_to_server(
                     let _ = app.emit(UPLOAD_PROGRESS_EVENT, payload);
                 }
             }
+
+            stats.transfer_ms = transfer_started.elapsed().as_millis() as u64;
         }
 
         entry.last_used = Instant::now();
@@ -255,23 +286,96 @@ fn exec_sync_dir_to_server(
     }
 }
 
+/// 远端文件元数据（来自一次目录扫描）
+struct RemoteFileMeta {
+    size: u64,
+    /// 修改时间（Unix 秒）；部分服务端可能不返回
+    mtime: Option<u64>,
+}
+
+/// 远端路径统一成 `/` 分隔的键
+///
+/// SFTP 返回的是「传入路径 + 文件名」拼接结果，Windows 下沿用 `\`，
+/// 而本地相对路径按 `/` 拼接，统一归一后才能在同一张表里比对。
+fn remote_key(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
+/// 递归扫描远端目录树，收集文件元数据与已存在的目录
+///
+/// 每个目录只发一次 `readdir`；读取失败直接上报（调用方已确认根目录存在，
+/// 此时失败通常意味着权限或会话异常，不能静默当作「远端为空」）。
+fn scan_remote_tree(
+    sftp: &Sftp,
+    dir: &Path,
+    files: &mut HashMap<String, RemoteFileMeta>,
+    dirs: &mut HashSet<String>,
+) -> Result<(), String> {
+    let entries = sftp
+        .readdir(dir)
+        .map_err(|e| format!("无法读取远程目录[{}]：{}", dir.display(), e))?;
+    for (path, meta) in entries {
+        let name = match path.file_name().and_then(|n| n.to_str()) {
+            Some(name) => name,
+            None => continue,
+        };
+        // readdir 会带回 . 与 ..，必须跳过
+        if name == "." || name == ".." {
+            continue;
+        }
+        if meta.is_dir() {
+            dirs.insert(remote_key(&path));
+            scan_remote_tree(sftp, &path, files, dirs)?;
+        } else {
+            files.insert(
+                remote_key(&path),
+                RemoteFileMeta {
+                    size: meta.size.unwrap_or(0),
+                    mtime: meta.mtime,
+                },
+            );
+        }
+    }
+    Ok(())
+}
+
 /// 判断远端文件是否需要重新上传
 ///
 /// 规则：大小一致，且远端修改时间不早于本地（留 2 秒容差，
 /// 规避本地与服务器时钟偏差导致的「永远判定为变更」）。
-fn requires_upload(sftp: &Sftp, remote_file_path: &Path, file: &LocalUploadFile) -> bool {
-    match sftp.stat(remote_file_path) {
-        Ok(remote_meta) => {
-            let same_size = remote_meta.size == Some(file.size);
-            let remote_not_older = remote_meta
+/// 远端索引里没有该文件（不存在）时一律上传。
+fn requires_upload(remote_meta: Option<&RemoteFileMeta>, file: &LocalUploadFile) -> bool {
+    match remote_meta {
+        Some(meta) => {
+            let same_size = meta.size == file.size;
+            let remote_not_older = meta
                 .mtime
-                .map(|mtime| mtime + 2 >= file.mtime)
+                .map(|mtime| mtime.saturating_add(2) >= file.mtime)
                 .unwrap_or(false);
             !(same_size && remote_not_older)
         }
-        // 远端不存在或无法读取：需要上传
-        Err(_) => true,
+        None => true,
     }
+}
+
+/// 确保远端目录存在（带缓存）
+///
+/// 远端扫描已确认存在的目录直接命中，避免同一父目录下的每个文件都重复 stat。
+fn ensure_dir_cached(
+    sftp: &Sftp,
+    path: &Path,
+    known_dirs: &mut HashSet<String>,
+) -> Result<(), String> {
+    if path.as_os_str().is_empty() {
+        return Ok(());
+    }
+    let key = remote_key(path);
+    if known_dirs.contains(&key) {
+        return Ok(());
+    }
+    remote_ensure_dir(sftp, path)?;
+    known_dirs.insert(key);
+    Ok(())
 }
 
 /// 幂等地确保远程目录存在：逐级创建缺失的父目录，目录已存在时视为成功。
@@ -301,14 +405,27 @@ fn remote_ensure_dir(sftp: &Sftp, path: &Path) -> Result<(), String> {
     }
 }
 
-/// 流式上传单个文件（避免大文件一次性读入内存）
+/// 流式上传单个文件（分块写入，避免大文件一次性读入内存）
+///
+/// 单次 write 的数据量决定 SFTP 吞吐：libssh2 会据此填充在途写请求队列。
+/// 按 1MB 分块比 `io::copy` 的 8KB 缓冲少两个数量级的往返次数。
 fn upload_file(local_path: &Path, remote_path: &Path, sftp: &Sftp) -> Result<(), String> {
     let mut local_file = File::open(local_path)
         .map_err(|e| format!("无法打开本地文件[{}]：{}", local_path.display(), e))?;
     let mut remote_file = sftp
         .create(remote_path)
         .map_err(|e| format!("无法创建远程文件[{}]：{}", remote_path.display(), e))?;
-    io::copy(&mut local_file, &mut remote_file)
-        .map_err(|e| format!("上传文件[{}]失败：{}", remote_path.display(), e))?;
+    let mut buffer = vec![0u8; UPLOAD_CHUNK_SIZE];
+    loop {
+        let read_len = local_file
+            .read(&mut buffer)
+            .map_err(|e| format!("读取本地文件[{}]失败：{}", local_path.display(), e))?;
+        if read_len == 0 {
+            break;
+        }
+        remote_file
+            .write_all(&buffer[..read_len])
+            .map_err(|e| format!("上传文件[{}]失败：{}", remote_path.display(), e))?;
+    }
     Ok(())
 }

@@ -1,6 +1,6 @@
 use crate::mcp::audit::{AuditEntry, AuditLogger};
-use crate::mcp::bridge;
 use crate::mcp::types::*;
+use crate::mcp::{db, queue};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{CallToolResult, ContentBlock};
 use rmcp::ErrorData;
@@ -78,25 +78,36 @@ impl McpHandler {
         }
     }
 
-    /// 派发动作给前端并等待结果
-    async fn dispatch_action(
+    /// 把动作提交到发布队列，立即返回任务号（不等待执行结果）
+    ///
+    /// 队列是进程级唯一的串行点：多个会话同时提交时按顺序执行，
+    /// 调用方拿到 job_id 后用 publish_status 查询进度与结果。
+    fn enqueue_action(
         &self,
         action: &str,
         params: &PublishActionParam,
-        timeout_secs: u64,
+        backup: Option<serde_json::Value>,
     ) -> Result<CallToolResult, ErrorData> {
         let appconfig = self.resolve_appconfig(params)?;
-        match bridge::dispatch(&self.app_handle, action, appconfig, None, timeout_secs).await {
-            Ok(result) => {
-                let text = serde_json::json!({
-                    "success": result.success,
-                    "message": result.message
-                })
-                .to_string();
-                Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
-            }
-            Err(e) => Err(ErrorData::internal_error(e, None)),
-        }
+        let submitted = queue::submit(action, appconfig, backup, "mcp")
+            .map_err(|e| ErrorData::internal_error(e, None))?;
+
+        let message = if submitted.queued_ahead > 0 {
+            format!(
+                "已提交，前面还有 {} 个任务，将按顺序执行",
+                submitted.queued_ahead
+            )
+        } else {
+            "已提交，即将开始执行".to_string()
+        };
+        let text = serde_json::json!({
+            "job_id": submitted.job_id,
+            "status": "queued",
+            "queued_ahead": submitted.queued_ahead,
+            "message": message
+        })
+        .to_string();
+        Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
     }
 }
 
@@ -108,58 +119,62 @@ impl McpHandler {
 
     /// 一键发布
     #[tool(
-        description = "一键发布：获取最新代码 → 编译 → 获取程序集 → 发布前备份 → 发布到服务器。可选 appconfig_id，或 project_id + environment；都不传则使用界面当前选中的配置。返回执行结果与失败原因"
+        description = "一键发布（提交到发布队列）：获取最新代码 → 编译 → 获取程序集 → 发布前备份 → 发布到服务器，作为一个任务排入队列，立即返回 job_id；多会话并发提交时按顺序串行执行。可选 appconfig_id，或 project_id + environment；都不传则使用界面当前选中的配置。用 publish_status 查询进度与结果"
     )]
     async fn one_click_publish(
         &self,
         Parameters(params): Parameters<PublishActionParam>,
     ) -> Result<CallToolResult, ErrorData> {
-        self.dispatch_action("oneClickPublish", &params, 3600).await
+        self.enqueue_action("oneClickPublish", &params, None)
     }
 
     /// 获取最新代码
     #[tool(
-        description = "获取最新代码：按应用配置的获取dll方式，对 TFS 本地根目录执行 tf get、对 Git 仓库执行 git pull"
+        description = "获取最新代码（提交到发布队列）：按应用配置的获取dll方式，对 TFS 本地根目录执行 tf get、对 Git 仓库执行 git pull。立即返回 job_id，用 publish_status 查询结果"
     )]
     async fn pull_latest_code(
         &self,
         Parameters(params): Parameters<PublishActionParam>,
     ) -> Result<CallToolResult, ErrorData> {
-        self.dispatch_action("pullLatestCode", &params, 600).await
+        self.enqueue_action("pullLatestCode", &params, None)
     }
 
     /// 编译项目
     #[tool(
-        description = "编译项目：使用应用配置里的 MsBuild 路径编译各模块（Release/Debug 按配置）"
+        description = "编译项目（提交到发布队列）：使用应用配置里的 MsBuild 路径编译各模块（Release/Debug 按配置）。立即返回 job_id，用 publish_status 查询结果"
     )]
     async fn build_projects(
         &self,
         Parameters(params): Parameters<PublishActionParam>,
     ) -> Result<CallToolResult, ErrorData> {
-        self.dispatch_action("buildProjects", &params, 1800).await
+        self.enqueue_action("buildProjects", &params, None)
     }
 
     /// 获取程序集
-    #[tool(description = "获取程序集：按应用配置的获取dll方式，把编译输出复制到发布目录")]
+    #[tool(
+        description = "获取程序集（提交到发布队列）：按应用配置的获取dll方式，把编译输出复制到发布目录。立即返回 job_id，用 publish_status 查询结果"
+    )]
     async fn get_application_assemblys(
         &self,
         Parameters(params): Parameters<PublishActionParam>,
     ) -> Result<CallToolResult, ErrorData> {
-        self.dispatch_action("getApplicationAssemblys", &params, 1800).await
+        self.enqueue_action("getApplicationAssemblys", &params, None)
     }
 
     /// 手动发布
-    #[tool(description = "手动发布：获取程序集 → 发布前备份 → 发布到服务器（不编译）")]
+    #[tool(
+        description = "手动发布（提交到发布队列）：获取程序集 → 发布前备份 → 发布到服务器（不编译）。立即返回 job_id，用 publish_status 查询结果"
+    )]
     async fn manual_publish(
         &self,
         Parameters(params): Parameters<PublishActionParam>,
     ) -> Result<CallToolResult, ErrorData> {
-        self.dispatch_action("manualPublish", &params, 3600).await
+        self.enqueue_action("manualPublish", &params, None)
     }
 
     /// 还原备份记录
     #[tool(
-        description = "还原备份记录：把备份文件还原回服务器部署目录并重启服务（会先停止服务、覆盖部署目录文件、再启动服务，属高危操作）。可用 backup_id 指定备份记录，或用 project_id + environment 取该项目环境下最新一条备份。返回执行结果；失败时返回最后一条错误日志"
+        description = "还原备份记录（提交到发布队列）：把备份文件还原回服务器部署目录并重启服务（会先停止服务、覆盖部署目录文件、再启动服务，属高危操作）。可用 backup_id 指定备份记录，或用 project_id + environment 取该项目环境下最新一条备份。立即返回 job_id，用 publish_status 查询结果"
     )]
     async fn restore_backup(
         &self,
@@ -198,33 +213,142 @@ impl McpHandler {
             (id, record)
         };
 
-        match bridge::dispatch(
-            &self.app_handle,
-            "restoreBackup",
-            None,
-            Some(backup),
-            3600,
-        )
-        .await
-        {
-            Ok(result) => {
-                self.audit(
-                    AuditEntry::new(
-                        "restore_backup",
-                        if result.success { "ok" } else { "fail" },
-                    )
-                    .with_file_path(&format!("backup_id={backup_id}")),
-                );
-                let text = serde_json::json!({
-                    "backup_id": backup_id,
-                    "success": result.success,
-                    "message": result.message
-                })
-                .to_string();
-                Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
+        let submitted = queue::submit("restoreBackup", None, Some(backup), "mcp")
+            .map_err(|e| ErrorData::internal_error(e, None))?;
+
+        self.audit(
+            AuditEntry::new("restore_backup", "queued").with_file_path(&format!(
+                "backup_id={backup_id},job_id={}",
+                submitted.job_id
+            )),
+        );
+
+        let text = serde_json::json!({
+            "job_id": submitted.job_id,
+            "status": "queued",
+            "queued_ahead": submitted.queued_ahead,
+            "backup_id": backup_id,
+            "message": "已提交到发布队列，用 publish_status 查询进度与结果"
+        })
+        .to_string();
+        Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
+    }
+
+    // ═══════════════════════════════════════════════
+    // 发布任务队列（提交后可随时查询）
+    // ═══════════════════════════════════════════════
+
+    /// 查询发布任务状态
+    #[tool(
+        description = "查询发布任务状态：用 job_id 精确查询，或用 project_id + environment 取该项目环境下最近一条任务。返回 status（queued/running/succeeded/failed/canceled/interrupted）、时间线、前面排队数与失败原因；running 时附带当前阶段"
+    )]
+    async fn publish_status(
+        &self,
+        Parameters(params): Parameters<PublishJobStatusParam>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let conn = db::open_db(&self.app_handle)
+            .map_err(|e| ErrorData::internal_error(e, None))?;
+
+        let job = match params.job_id {
+            Some(id) => db::query_job_by_id(&conn, id)
+                .map_err(|e| ErrorData::internal_error(e, None))?
+                .ok_or_else(|| ErrorData::invalid_params(format!("任务 {id} 不存在"), None))?,
+            None => {
+                let project_id = params.project_id.ok_or_else(|| {
+                    ErrorData::invalid_params("需要提供 job_id，或 project_id", None)
+                })?;
+                db::query_latest_job(&conn, project_id, params.environment)
+                    .map_err(|e| ErrorData::internal_error(e, None))?
+                    .ok_or_else(|| ErrorData::invalid_params("该项目下没有发布任务记录", None))?
             }
-            Err(e) => Err(ErrorData::internal_error(e, None)),
+        };
+
+        let status = job
+            .get("status")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let job_id = job.get("id").and_then(|v| v.as_i64());
+        let project_id = job.get("project_id").and_then(|v| v.as_i64());
+        let environment = job.get("environment").and_then(|v| v.as_i64());
+
+        let mut result = serde_json::json!({ "job": job });
+        if status == "queued" {
+            if let Some(id) = job_id {
+                let ahead = db::count_queued_ahead(&conn, id)
+                    .map_err(|e| ErrorData::internal_error(e, None))?;
+                result["queued_ahead"] = serde_json::json!(ahead);
+            }
         }
+        if status == "running" {
+            // 当前阶段由前端台账记录，取不到不算错误
+            if let Ok(Some(record)) = db::query_latest_publish_record(&conn, project_id, environment)
+            {
+                result["stage"] = record.get("stage_json").cloned().unwrap_or_default();
+            }
+        }
+
+        Ok(CallToolResult::success(vec![ContentBlock::text(
+            result.to_string(),
+        )]))
+    }
+
+    /// 查询发布队列
+    #[tool(description = "查询发布队列：列出排队中（queued）与执行中（running）的任务，按提交顺序")]
+    async fn publish_queue(&self) -> Result<CallToolResult, ErrorData> {
+        let conn = db::open_db(&self.app_handle)
+            .map_err(|e| ErrorData::internal_error(e, None))?;
+        let jobs = db::query_active_jobs(&conn).map_err(|e| ErrorData::internal_error(e, None))?;
+        let count = jobs.len();
+        Ok(CallToolResult::success(vec![ContentBlock::text(
+            serde_json::json!({ "count": count, "jobs": jobs }).to_string(),
+        )]))
+    }
+
+    /// 取消发布任务
+    #[tool(
+        description = "取消发布任务：排队中（queued）的直接撤销；执行中（running）的发出中止请求，界面会在下一个检查点停止，任务最终记为 canceled；已结束的任务无法取消"
+    )]
+    async fn publish_cancel(
+        &self,
+        Parameters(params): Parameters<PublishJobIdParam>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let outcome =
+            queue::cancel(params.job_id).map_err(|e| ErrorData::internal_error(e, None))?;
+
+        if outcome.canceled_queued || outcome.stop_requested {
+            self.audit(
+                AuditEntry::new(
+                    "publish_cancel",
+                    if outcome.canceled_queued {
+                        "queued"
+                    } else {
+                        "stopping"
+                    },
+                )
+                .with_file_path(&format!("job_id={}", params.job_id)),
+            );
+        }
+
+        let (canceled, message) = if outcome.canceled_queued {
+            (true, "已取消排队中的任务")
+        } else if outcome.stop_requested {
+            (
+                true,
+                "已发出中止请求，界面将在下一个检查点停止，任务最终状态为 canceled",
+            )
+        } else {
+            (false, "任务不在排队中或执行中，无法取消（可能已结束）")
+        };
+
+        Ok(CallToolResult::success(vec![ContentBlock::text(
+            serde_json::json!({
+                "job_id": params.job_id,
+                "canceled": canceled,
+                "message": message
+            })
+            .to_string(),
+        )]))
     }
 
     // ═══════════════════════════════════════════════

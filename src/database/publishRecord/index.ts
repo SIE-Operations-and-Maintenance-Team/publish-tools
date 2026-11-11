@@ -355,16 +355,14 @@ export function usePublishRecordDb() {
         },
 
         /**
-         * 查询指定项目+环境的发布锁
-         * @param projectId 项目ID
-         * @param environment 环境
+         * 查询当前有效的发布锁
+         *
+         * 锁是全局的：TFS 工作区、编译输出目录、上传通道与部署目录都是整机共享，
+         * 任意项目、任意环境同时只允许一个发布流程，因此不按项目/环境过滤。
          */
-        getPublishLock: async (
-            projectId: number,
-            environment: number | null
-        ): Promise<DataResultType<RowPublishLockType | null>> => {
+        getPublishLock: async (): Promise<DataResultType<RowPublishLockType | null>> => {
             const sql =
-                "select id, project_id projectId, environment, token, acquired_at acquiredAt, expire_at expireAt, remark from t_publish_lock where project_id = $1 and (environment = $2 or (environment is null and $2 is null)) and expire_at > $3 order by id desc limit 1;";
+                "select id, project_id projectId, environment, token, acquired_at acquiredAt, expire_at expireAt, remark from t_publish_lock where expire_at > $1 order by id desc limit 1;";
             let dataResult: DataResultType<RowPublishLockType | null> = {
                 code: 0,
                 msg: "",
@@ -372,11 +370,7 @@ export function usePublishRecordDb() {
             };
             try {
                 const now = new Date().toISOString();
-                const rows = await (await db()).select<RowPublishLockType[]>(sql, [
-                    projectId,
-                    environment,
-                    now,
-                ]);
+                const rows = await (await db()).select<RowPublishLockType[]>(sql, [now]);
                 dataResult.data = rows.length > 0 ? rows[0] : null;
             } catch (error) {
                 dataResult.code = -1;

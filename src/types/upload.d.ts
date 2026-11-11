@@ -8,6 +8,10 @@ declare type UploadSyncResultType = {
 	skipped: number;
 	// 实际传输的字节数
 	bytes: number;
+	// 准备阶段耗时（本地清单 + 远端目录扫描 + 目录创建），毫秒
+	scanMs: number;
+	// 实际传输耗时，毫秒
+	transferMs: number;
 };
 
 // 增量上传进度事件负载（Tauri 事件 publish://upload-progress）

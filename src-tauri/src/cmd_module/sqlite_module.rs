@@ -142,6 +142,23 @@ pub fn db_migration() -> Vec<Migration> {
         remark TEXT
     );";
 
+    // 表：发布任务队列（MCP 动作提交后的排队与执行状态，跨会话共享）
+    let t_publish_job = "CREATE TABLE IF NOT EXISTS t_publish_job (
+        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+        action TEXT NOT NULL,
+        source TEXT,
+        appconfig_id INTEGER,
+        project_id INTEGER,
+        project_name TEXT,
+        environment INTEGER,
+        status TEXT NOT NULL,
+        message TEXT,
+        created_at TEXT,
+        started_at TEXT,
+        ended_at TEXT,
+        backup_id INTEGER
+    );";
+
     let migrations = vec![
         // 数据迁移
         Migration {
@@ -209,6 +226,12 @@ pub fn db_migration() -> Vec<Migration> {
             version: 12,
             description: "新增发布锁[t_publish_lock]表.",
             sql: t_publish_lock,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 13,
+            description: "新增发布任务队列[t_publish_job]表.",
+            sql: t_publish_job,
             kind: MigrationKind::Up,
         },
     ];

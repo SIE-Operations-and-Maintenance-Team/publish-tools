@@ -3,6 +3,7 @@ pub mod bridge;
 pub mod db;
 pub mod handler;
 pub mod manager;
+pub mod queue;
 pub mod types;
 
 use crate::config;
@@ -46,6 +47,9 @@ pub async fn serve(app_handle: tauri::AppHandle, port: u16) -> Result<(), String
             None
         }
     };
+
+    // 启动发布任务串行队列：所有写类发布动作在此排队，单 worker 依次执行
+    queue::start(app_handle.clone());
 
     let service = StreamableHttpService::<McpHandler, LocalSessionManager>::new(
         move || Ok(McpHandler::new(app_handle.clone(), audit_logger.clone())),
