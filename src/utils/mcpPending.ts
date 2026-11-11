@@ -13,13 +13,20 @@ export function setPendingMcpAction(payload: any) {
 			requestId: pendingAction.request_id,
 			success: false,
 			message: "前一个 MCP 请求尚未执行即被新请求取代",
+			code: null,
 		});
 	}
 	pendingAction = payload;
 }
 
-export function takePendingMcpAction() {
+/**
+ * 取走暂存的 MCP 动作；传入 match 时只取符合条件的动作，
+ * 不匹配则保持暂存，避免备份页与发布页互相取走对方的请求。
+ */
+export function takePendingMcpAction(match?: (payload: any) => boolean) {
 	const payload = pendingAction;
+	if (!payload) return null;
+	if (match && !match(payload)) return null;
 	pendingAction = null;
 	return payload;
 }

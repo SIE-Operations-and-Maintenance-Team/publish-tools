@@ -832,6 +832,13 @@ const visibleFunModule = computed(() => {
     : withOrig.filter((f) => f.title !== "一键发布");
 });
 
+// MCP 动作返回值：发布锁被其他流程占用（Rust 队列据此把任务回队重试，不算失败）
+const MCP_CODE_PUBLISH_BUSY = 2;
+// 最近一次发布是否因全局锁被占用而未开始，供 MCP 结果回传与定时任务排队判断
+let lastPublishBusy = false;
+// MCP 任务执行中：此时无人在界面前，发布流程不理会「暂停」，避免整条队列被挂住
+let mcpActionRunning = false;
+
 // 执行功能模块（界面按钮与 MCP 共用），返回是否成功
 const executeFunModule = async (title: string): Promise<boolean> => {
   switch (title) {
@@ -912,7 +919,12 @@ const normalizeMcpAppconfig = (row: any): RowAppconfigType | null => {
 };
 
 // MCP 触发的功能执行（复用界面按钮的初始化流程）
-const runFunModuleForMcp = async (title: string): Promise<{ success: boolean; message: string }> => {
+// code=2 表示发布锁被其他流程占用，Rust 队列会据此把任务回队重试
+const runFunModuleForMcp = async (
+  title: string
+): Promise<{ success: boolean; message: string; code?: number }> => {
+  // 每次动作开始前清零，避免上一次发布的锁冲突残留被误判成这一次的结果
+  lastPublishBusy = false;
   if (showEmptyAppConfig.value) {
     return { success: false, message: "未获取到应用配置" };
   }
@@ -946,6 +958,7 @@ const runFunModuleForMcp = async (title: string): Promise<{ success: boolean; me
   projectAssemblyOutPath.value = await getProjectOutPath();
 
   const success = await executeFunModule(title);
+  const busy = !success && lastPublishBusy;
   printInfoLog("");
   printInfoLog(generatePublishLog.value.logs, "log-info");
   state.funModule[idx].loading = false;
@@ -954,12 +967,20 @@ const runFunModuleForMcp = async (title: string): Promise<{ success: boolean; me
 
   return {
     success,
-    message: success ? "执行成功" : collectFailLogs() || "执行失败",
+    code: busy ? MCP_CODE_PUBLISH_BUSY : undefined,
+    message: success
+      ? "执行成功"
+      : busy
+        ? "发布锁被其他流程占用，任务已回队等待"
+        : collectFailLogs() || "执行失败",
   };
 };
 
 // MCP 动作入口（App.vue 通过 mittBus 转交）
 const onMcpAction = async (payload: any) => {
+  // 还原备份由备份页处理，这里不响应也不回传，避免抢答覆盖备份页真实结果
+  if (payload?.action === "restoreBackup") return;
+
   const requestId = payload?.request_id ?? payload?.requestId;
   if (!requestId) return;
   const actionTitles: Record<string, string> = {
@@ -975,6 +996,7 @@ const onMcpAction = async (payload: any) => {
       requestId,
       success: false,
       message: `未知操作：${payload?.action}`,
+      code: null,
     });
     if (replyResult.code !== 0) {
       console.warn("回传 MCP 执行结果失败:", replyResult.data);
@@ -1006,12 +1028,32 @@ const onMcpAction = async (payload: any) => {
     printInfoLog(`MCP 调用：${title}（使用界面当前选择）`);
   }
 
-  let result = { success: false, message: "执行异常" };
+  let result: { success: boolean; message: string; code?: number } = {
+    success: false,
+    message: "执行异常",
+  };
+
+  mcpActionRunning = true;
+  // 每 30 秒心跳一次：Rust 侧据此判断界面是否僵死（超过 12 分钟无心跳即判僵死并放行队列）
+  const heartbeat = window.setInterval(() => {
+    void cmdInvoke("mcp_action_progress", { requestId });
+  }, 30 * 1000);
+  // 队列判定僵死或调用方请求取消时，Rust 会广播停止信号，让发布流程在下一个检查点退出
+  let unlistenStop: UnlistenFn | undefined;
+  try {
+    unlistenStop = await listen("mcp-action-stop", () => onStopPublish());
+  } catch (e) {
+    console.warn("监听 MCP 停止信号失败:", e);
+  }
+
   try {
     result = await runFunModuleForMcp(title);
   } catch (e: any) {
     result = { success: false, message: String(e?.message || e) };
   } finally {
+    window.clearInterval(heartbeat);
+    mcpActionRunning = false;
+    unlistenStop?.();
     if (appconfig) {
       state.publishData.projectId = prev.projectId;
       state.publishData.projectName = prev.projectName;
@@ -1025,6 +1067,7 @@ const onMcpAction = async (payload: any) => {
     requestId,
     success: result.success,
     message: result.message,
+    code: result.code ?? null,
   });
   if (replyResult.code !== 0) {
     console.warn("回传 MCP 执行结果失败:", replyResult.data);
@@ -1142,8 +1185,9 @@ const checkCanContinueHome = async () => {
   if (state.publishData.publishStopped) {
     throw new Error("PUBLISH_STOPPED");
   }
-  // 定时发布无 UI，跳过暂停逻辑
-  if (isScheduledRunning.value) return;
+  // 定时发布与 MCP 任务都没有人在界面前操作，跳过暂停逻辑
+  // （否则点到暂停就走开，整条发布队列会被一直挂住直到超时）
+  if (isScheduledRunning.value || mcpActionRunning) return;
   if (state.publishData.publishPaused) {
     printInfoLog("发布已暂停，等待恢复...", "log-warning");
     state.funModule[currModuleIndex.value].loadingText = "已暂停";
@@ -1234,6 +1278,12 @@ const formatFileSize = (bytes: number): string => {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+};
+
+// 毫秒耗时格式化（上传埋点用，保留亚秒精度）
+const formatElapsed = (elapsedMs: number): string => {
+  if (!elapsedMs || elapsedMs < 0) return "0.0s";
+  return `${(elapsedMs / 1000).toFixed(1)}s`;
 };
 
 // 读取服务输出目录下的文件（目录不存在时静默返回空）
@@ -1454,8 +1504,9 @@ const runPublishFlow = async (options: {
   const projectId = state.publishData.projectId;
   if (!appconfig.id || !projectId) return false;
   const environment = state.publishData.environment;
+  lastPublishBusy = false;
 
-  // 1. 发布锁：同一「项目 + 环境」同时只允许一个发布流程
+  // 1. 发布锁：整机同一时间只允许一个发布流程（不区分项目与环境）
   const lock = await acquirePublishLock(projectId, environment);
   if (!lock.ok) {
     const acquiredAt = lock.holder?.acquiredAt
@@ -1466,16 +1517,18 @@ const runPublishFlow = async (options: {
       : "-";
     const message =
       lock.message ||
-      `该项目在当前环境已有发布流程正在执行（开始时间 ${acquiredAt}，锁有效期至 ${expireAt}），请稍后再试。`;
+      `已有发布流程正在执行（开始时间 ${acquiredAt}，锁有效期至 ${expireAt}），请稍后再试。`;
     ElMessage.warning(message);
     printInfoLog(message, "log-warning");
+    lastPublishBusy = true;
     return false;
   }
 
   // 长时间发布（大目录上传）期间定时续约，避免锁在发布过程中被判过期
+  // 间隔需明显小于锁 TTL（10 分钟），3 分钟留出充足余量
   const lockHeartbeat = window.setInterval(() => {
     void refreshPublishLock(lock.token);
-  }, 5 * 60 * 1000);
+  }, 3 * 60 * 1000);
 
   let succeeded = false;
   // 用户主动点「停止」：记为已中止，不再提示续跑（与失败区分开）
@@ -2777,7 +2830,7 @@ const doServerPublishInstance = async (
   await checkCanContinueHome();
   const uploadStats = uploadResult.data;
   printInfoLog(
-    `${logPrefix} 已上传 ${uploadStats.uploaded} 个文件（共 ${uploadStats.total} 个，跳过未变更 ${uploadStats.skipped} 个，传输 ${formatFileSize(uploadStats.bytes)}）.`,
+    `${logPrefix} 已上传 ${uploadStats.uploaded} 个文件（共 ${uploadStats.total} 个，跳过未变更 ${uploadStats.skipped} 个，传输 ${formatFileSize(uploadStats.bytes)}，比对耗时 ${formatElapsed(uploadStats.scanMs)}，传输耗时 ${formatElapsed(uploadStats.transferMs)}）.`,
     "log-success"
   );
 
@@ -4622,6 +4675,11 @@ const checkScheduledPublish = async () => {
 };
 
 /** 执行定时发布 */
+// 定时发布遇到全局发布锁被占用时的排队策略：每 60 秒重试一次，最多等 30 分钟，
+// 避免与 MCP 队列或手动发布撞车导致定时任务直接判失败
+const SCHEDULE_LOCK_RETRY_MAX = 30;
+const SCHEDULE_LOCK_RETRY_INTERVAL_MS = 60 * 1000;
+
 const executeScheduledPublish = async (schedule: RowPublishScheduleType) => {
   if (isScheduledRunning.value) return;
   isScheduledRunning.value = true;
@@ -4645,13 +4703,21 @@ const executeScheduledPublish = async (schedule: RowPublishScheduleType) => {
     printInfoLog(`定时发布任务开始执行：${schedule.publishType}`);
 
     let success = false;
-    if (schedule.publishType === '一键发布') {
-      success = await oneClickPublishing();
-      if (success) await getProjectDefault();
-    } else if (schedule.publishType === '手动发布') {
-      success = await runPublishFlow({ build: false, pullCode: false });
-      if (success) await getProjectDefault();
+    // 锁被占用时保持排队等待，而不是直接判失败
+    const runPublish =
+      schedule.publishType === "一键发布"
+        ? () => oneClickPublishing()
+        : () => runPublishFlow({ build: false, pullCode: false });
+    for (let attempt = 0; attempt <= SCHEDULE_LOCK_RETRY_MAX; attempt++) {
+      success = await runPublish();
+      if (success || !lastPublishBusy || attempt === SCHEDULE_LOCK_RETRY_MAX) break;
+      printInfoLog(
+        `全局发布锁被占用，${SCHEDULE_LOCK_RETRY_INTERVAL_MS / 1000}s 后重试（${attempt + 1}/${SCHEDULE_LOCK_RETRY_MAX}）`,
+        "log-warning"
+      );
+      await new Promise((resolve) => setTimeout(resolve, SCHEDULE_LOCK_RETRY_INTERVAL_MS));
     }
+    if (success) await getProjectDefault();
 
     if (success) {
       printInfoLog(`${schedule.publishType}成功（定时任务）.`);
@@ -4755,8 +4821,8 @@ onMounted(() => {
   reloadSettings();
   mittBus.on("settingsChanged", reloadSettings);
   mittBus.on("mcp-action", onMcpAction);
-  // 从其他页面跳转过来时，取走 App.vue 暂存的 MCP 动作
-  const pendingMcpAction = takePendingMcpAction();
+  // 从其他页面跳转过来时，取走 App.vue 暂存的发布类 MCP 动作（还原备份留给备份页）
+  const pendingMcpAction = takePendingMcpAction((p) => p?.action !== "restoreBackup");
   if (pendingMcpAction) onMcpAction(pendingMcpAction);
 });
 
@@ -4772,8 +4838,8 @@ onActivated(async () => {
   // 每次进入页面都重新查询默认项目并恢复环境
   await getProjectDefault();
 
-  // keep-alive 场景下不会重新挂载，这里取走 MCP 暂存动作（忙时会回传失败而不是一直等待）
-  const pendingMcpAction = takePendingMcpAction();
+  // keep-alive 场景下不会重新挂载，这里取走发布类 MCP 暂存动作（忙时会回传失败而不是一直等待）
+  const pendingMcpAction = takePendingMcpAction((p) => p?.action !== "restoreBackup");
   if (pendingMcpAction) onMcpAction(pendingMcpAction);
 
   if (state.funModule[currModuleIndex.value].loading == true) {

@@ -339,15 +339,14 @@ const runRestoreForMcp = async (row: RowBackupType) => {
 
 // MCP 还原备份动作：执行完成后回传结果，唤醒 Rust 侧等待中的工具调用
 const onMcpAction = async (payload: any) => {
+  // 仅处理还原备份；发布类动作交给发布页。mittBus 事件会广播到所有常驻页面，
+  // 这里若抢先回传失败，会覆盖发布页真实的执行结果（Rust 只认第一个回复）
+  if (payload?.action !== "restoreBackup") return;
+
   const requestId = payload?.request_id ?? payload?.requestId;
   if (!requestId) return;
-  const reply = (success: boolean, message: string) =>
-    cmdInvoke("mcp_action_result", { requestId, success, message });
-
-  if (payload?.action !== "restoreBackup") {
-    await reply(false, `备份页不支持的操作：${payload?.action}`);
-    return;
-  }
+  const reply = (success: boolean, message: string, code: number | null = null) =>
+    cmdInvoke("mcp_action_result", { requestId, success, message, code });
 
   const row = normalizeMcpBackup(payload?.backup);
   if (!row) {
@@ -370,13 +369,13 @@ onBeforeMount(async () => {
 
 onMounted(() => {
   mittBus.on("mcp-action", onMcpAction);
-  const pendingMcpAction = takePendingMcpAction();
+  const pendingMcpAction = takePendingMcpAction((p) => p?.action === "restoreBackup");
   if (pendingMcpAction) onMcpAction(pendingMcpAction);
 });
 
 // 页面被 keep-alive 缓存时不会再触发 onMounted，激活时补取一次待执行动作
 onActivated(() => {
-  const pendingMcpAction = takePendingMcpAction();
+  const pendingMcpAction = takePendingMcpAction((p) => p?.action === "restoreBackup");
   if (pendingMcpAction) onMcpAction(pendingMcpAction);
 });
 
